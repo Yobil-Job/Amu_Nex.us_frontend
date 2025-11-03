@@ -15,6 +15,7 @@ import Events from "./pages/Events";
 import Fees from "./pages/Fees";
 import Announcements from "./pages/Announcements";
 import Authorities from "./pages/Authorities";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/fees" element={<Fees />} />
               <Route path="/announcements" element={<Announcements />} />
               <Route path="/authorities" element={<Authorities />} />
+              <Route path="/profile" element={<Profile />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

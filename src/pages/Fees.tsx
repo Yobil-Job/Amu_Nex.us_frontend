@@ -7,15 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { feeApi } from '@/lib/api';
+import { feeApi, clubApi, studentApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
-import { DollarSign, Plus } from 'lucide-react';
+import { DollarSign, Plus, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Fees = () => {
   const [fees, setFees] = useState<any[]>([]);
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [clubTotal, setClubTotal] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [searchClubId, setSearchClubId] = useState<string>('');
+  const [searchStudentId, setSearchStudentId] = useState<string>('');
   const [formData, setFormData] = useState({
     amount: '',
     purpose: '',
@@ -23,17 +29,56 @@ const Fees = () => {
     studentId: '',
   });
 
+  // ✅ Status enum values - must match backend exactly
+  const FEE_STATUSES = {
+    PAID: 'PAID',
+    PENDING: 'PENDING',
+    FAILED: 'FAILED',
+  } as const;
+
   useEffect(() => {
-    loadFees();
+    loadClubsAndStudents();
   }, []);
+
+  const loadClubsAndStudents = async () => {
+    try {
+      const [clubsRes, studentsRes] = await Promise.all([
+        clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
+        studentApi.getAll().catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
+      ]);
+      const clubsList = extractCollection<any>(clubsRes);
+      const studentsList = extractCollection<any>(studentsRes);
+      setClubs(clubsList);
+      setStudents(studentsList);
+    } catch (error: any) {
+      console.error('Failed to load data:', error);
+    }
+  };
 
   const loadFees = async () => {
     setIsLoading(true);
     try {
-      // Since there's no "get all fees" endpoint, we'll show a message
+      if (searchClubId && searchClubId !== 'all') {
+        const [feesResponse, totalResponse] = await Promise.all([
+          feeApi.getByClub(parseInt(searchClubId)).catch(() => ({ _embedded: { feeList: [] } })),
+          feeApi.getTotalByClub(parseInt(searchClubId)).catch(() => null),
+        ]);
+        const feesList = extractCollection<any>(feesResponse);
+        setFees(feesList);
+        setClubTotal(totalResponse || null);
+      } else if (searchStudentId && searchStudentId !== 'all') {
+        const response = await feeApi.getByStudent(parseInt(searchStudentId));
+        const feesList = extractCollection<any>(response);
+        setFees(feesList);
+        setClubTotal(null); // Student fees don't have club total
+      } else {
+        setFees([]);
+        setClubTotal(null);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load fees');
       setFees([]);
-    } catch (error) {
-      toast.error('Failed to load fees');
+      setClubTotal(null);
     } finally {
       setIsLoading(false);
     }
@@ -60,8 +105,15 @@ const Fees = () => {
 
   const handleStatusUpdate = async (feeId: number, status: string) => {
     try {
+      // ✅ Validate status enum matches backend (PAID, PENDING, FAILED)
+      const validStatuses = Object.values(FEE_STATUSES);
+      if (!validStatuses.includes(status as any)) {
+        toast.error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+        return;
+      }
+
       await feeApi.updateStatus(feeId, status);
-      toast.success('Fee status updated');
+      toast.success('Fee status updated successfully');
       loadFees();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update status');
@@ -78,10 +130,11 @@ const Fees = () => {
   };
 
   const getStatusColor = (status: string) => {
-    const colors: any = {
-      PAID: 'bg-success/10 text-success',
-      PENDING: 'bg-warning/10 text-warning',
-      FAILED: 'bg-destructive/10 text-destructive',
+    // ✅ Status enum values match backend exactly
+    const colors: Record<string, string> = {
+      [FEE_STATUSES.PAID]: 'bg-success/10 text-success',
+      [FEE_STATUSES.PENDING]: 'bg-warning/10 text-warning',
+      [FEE_STATUSES.FAILED]: 'bg-destructive/10 text-destructive',
     };
     return colors[status] || 'bg-muted text-muted-foreground';
   };
@@ -104,9 +157,80 @@ const Fees = () => {
         </Button>
       </div>
 
+      {/* Search Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Fee Records</CardTitle>
+          <CardTitle>Search Fees</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="searchClubId">Search by Club</Label>
+              <div className="flex gap-2">
+                <Select value={searchClubId} onValueChange={setSearchClubId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a club" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clubs</SelectItem>
+                    {clubs.map((club) => (
+                      <SelectItem key={club.id} value={club.id.toString()}>
+                        {club.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="searchStudentId">Search by Student</Label>
+              <div className="flex gap-2">
+                <Select value={searchStudentId} onValueChange={setSearchStudentId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Students</SelectItem>
+                    {students.map((student) => (
+                      <SelectItem key={student.id} value={student.id.toString()}>
+                        {student.firstname} {student.lastname} ({student.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Total Collected Card (shown only when club is selected) */}
+      {clubTotal !== null && searchClubId && searchClubId !== 'all' && (
+        <Card className="border-success/20 bg-gradient-success/5">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Collected</p>
+                <p className="text-3xl font-bold text-success">{clubTotal.toFixed(2)} ETB</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {clubs.find(c => c.id.toString() === searchClubId)?.title || 'Club'}
+                </p>
+              </div>
+              <DollarSign className="h-12 w-12 text-success/50" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Fee Records ({fees.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -115,7 +239,9 @@ const Fees = () => {
             <div className="text-center py-12">
               <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                No fee records found. To view fees, query by student ID or club ID.
+                {searchClubId || searchStudentId 
+                  ? 'No fee records found for your search criteria.' 
+                  : 'Search for fees by club or student to view records.'}
               </p>
             </div>
           ) : (
@@ -133,7 +259,7 @@ const Fees = () => {
                 <TableBody>
                   {fees.map((fee) => (
                     <TableRow key={fee.id}>
-                      <TableCell className="font-medium">${fee.amount}</TableCell>
+                      <TableCell className="font-medium">{fee.amount?.toFixed(2) || '0.00'} ETB</TableCell>
                       <TableCell>{fee.purpose || 'N/A'}</TableCell>
                       <TableCell>{format(new Date(fee.date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>
@@ -143,16 +269,17 @@ const Fees = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <Select
-                          value={fee.status}
+                          value={fee.status || FEE_STATUSES.PENDING}
                           onValueChange={(value) => handleStatusUpdate(fee.id, value)}
                         >
-                          <SelectTrigger className="w-32">
+                          <SelectTrigger className="w-40">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="PAID">Paid</SelectItem>
-                            <SelectItem value="PENDING">Pending</SelectItem>
-                            <SelectItem value="FAILED">Failed</SelectItem>
+                            {/* ✅ Status enum values match backend exactly */}
+                            <SelectItem value={FEE_STATUSES.PAID}>Paid</SelectItem>
+                            <SelectItem value={FEE_STATUSES.PENDING}>Pending</SelectItem>
+                            <SelectItem value={FEE_STATUSES.FAILED}>Failed</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -193,24 +320,40 @@ const Fees = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="clubId">Club ID</Label>
-              <Input
-                id="clubId"
-                type="number"
-                placeholder="1"
-                value={formData.clubId}
-                onChange={(e) => setFormData({ ...formData, clubId: e.target.value })}
-              />
+              <Label htmlFor="clubId">Club *</Label>
+              <Select 
+                value={formData.clubId} 
+                onValueChange={(value) => setFormData({ ...formData, clubId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a club" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubs.map((club) => (
+                    <SelectItem key={club.id} value={club.id.toString()}>
+                      {club.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="studentId">Student ID</Label>
-              <Input
-                id="studentId"
-                type="number"
-                placeholder="1"
-                value={formData.studentId}
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              />
+              <Label htmlFor="studentId">Student *</Label>
+              <Select 
+                value={formData.studentId} 
+                onValueChange={(value) => setFormData({ ...formData, studentId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.firstname} {student.lastname} ({student.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={handleCreate} className="w-full">Record Fee</Button>
           </div>

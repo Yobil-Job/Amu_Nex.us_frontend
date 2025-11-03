@@ -11,8 +11,11 @@ import { studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Pencil, Trash2, Eye, Plus, Users } from 'lucide-react';
+import { canViewAllStudents } from '@/lib/roles';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Students = () => {
+  const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -33,10 +36,27 @@ const Students = () => {
     setIsLoading(true);
     try {
       const response = await studentApi.getAll();
+      console.log('📊 Students API Response (full):', JSON.stringify(response, null, 2)); // Debug log
+      
+      // Use extractCollection which handles multiple formats
       const studentsList = extractCollection<any>(response);
+      
+      console.log('✅ Extracted students:', studentsList.length, studentsList); // Debug log
+      
+      if (studentsList.length === 0 && response) {
+        console.warn('⚠️ No students extracted. Response structure:', {
+          hasEmbedded: !!response._embedded,
+          embeddedKeys: response._embedded ? Object.keys(response._embedded) : [],
+          isArray: Array.isArray(response),
+          responseKeys: Object.keys(response),
+        });
+      }
+      
       setStudents(studentsList);
     } catch (error: any) {
+      console.error('❌ Error loading students:', error); // Debug log
       toast.error(error.message || 'Failed to load students');
+      setStudents([]);
     } finally {
       setIsLoading(false);
     }

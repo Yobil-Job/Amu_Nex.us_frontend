@@ -2,25 +2,39 @@ import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   Menu, X, Users, Building2, Calendar, 
-  DollarSign, Bell, Shield, Home, LogOut 
+  DollarSign, Bell, Shield, Home, LogOut, UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  canViewAllStudents, 
+  canManageAuthorities,
+  getRoleDisplayName,
+  getRoleBadgeColor
+} from '@/lib/roles';
+import { Badge } from '@/components/ui/badge';
 
 const MainLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { logout, user } = useAuth();
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Students', href: '/students', icon: Users },
-    { name: 'Clubs', href: '/clubs', icon: Building2 },
-    { name: 'Events', href: '/events', icon: Calendar },
-    { name: 'Fees', href: '/fees', icon: DollarSign },
-    { name: 'Announcements', href: '/announcements', icon: Bell },
-    { name: 'Authorities', href: '/authorities', icon: Shield },
+  // Define navigation items with role-based visibility
+  const allNavigationItems = [
+    { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Students', href: '/students', icon: Users, roles: ['SUPER_ADMIN'] },
+    { name: 'Clubs', href: '/clubs', icon: Building2, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Events', href: '/events', icon: Calendar, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
   ];
+
+  // Filter navigation items based on user role
+  const navigation = allNavigationItems.filter(item => {
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -61,10 +75,17 @@ const MainLayout = () => {
 
             <div className="flex items-center gap-2">
               <div className="hidden md:flex items-center gap-2">
-                <div className="text-right">
-                  <p className="text-sm font-medium">{user?.firstname || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email || ''}</p>
-                </div>
+                {user?.role && (
+                  <Badge className={getRoleBadgeColor(user.role)} variant="secondary">
+                    {getRoleDisplayName(user.role)}
+                  </Badge>
+                )}
+                <Link to="/profile">
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <UserCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">{user?.firstname || 'User'}</span>
+                  </Button>
+                </Link>
                 <Button variant="outline" size="sm" onClick={logout} className="gap-2">
                   <LogOut className="h-4 w-4" />
                   Logout
@@ -105,8 +126,13 @@ const MainLayout = () => {
                   </Link>
                 );
               })}
-              <div className="mt-4 border-t pt-4">
-                <p className="px-3 text-sm font-medium mb-2">{user?.firstname || 'User'}</p>
+              <div className="mt-4 border-t pt-4 space-y-2">
+                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                    <UserCircle className="h-4 w-4" />
+                    Profile
+                  </Button>
+                </Link>
                 <Button 
                   variant="outline" 
                   size="sm" 
