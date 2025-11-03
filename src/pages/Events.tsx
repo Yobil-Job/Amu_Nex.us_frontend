@@ -14,15 +14,21 @@ import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Calendar, Plus, Pencil, Trash2, MapPin, Clock, Map } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { canCreateEvent, canUpdateEvent } from '@/lib/roles';
+import { useMemo } from 'react';
+import { Filter, X } from 'lucide-react';
 
 const Events = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<any[]>([]); // Store all events for filtering
   const [clubs, setClubs] = useState<any[]>([]);
   const [userAuthorities, setUserAuthorities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterClubId, setFilterClubId] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -66,10 +72,10 @@ const Events = () => {
         eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
         clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
       ]);
-      const eventsList = extractCollection<any>(eventsRes);
-      const allClubs = extractCollection<any>(clubsRes);
-      
-      setEvents(eventsList);
+              const eventsList = extractCollection<any>(eventsRes);
+        const allClubs = extractCollection<any>(clubsRes);
+        
+        setAllEvents(eventsList); // Store all events
       
       // Load user authorities to filter clubs
       if (user?.id && user?.role !== 'SUPER_ADMIN') {
@@ -92,19 +98,73 @@ const Events = () => {
         const allowedClubs = filterClubsByPermissions(allClubs, []);
         setClubs(allowedClubs);
       }
-    } catch (error: any) {
-      console.error('Failed to load data:', error);
-      toast.error(error.message || 'Failed to load data');
-      setEvents([]);
-      setClubs([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id, user?.role, filterClubsByPermissions]);
+          } catch (error: any) {
+        console.error('Failed to load data:', error);
+        toast.error(error.message || 'Failed to load data');
+        setAllEvents([]);
+        setClubs([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, [user?.id, user?.role, filterClubsByPermissions]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    useEffect(() => {
+      loadData();
+    }, [loadData]);
+
+    // Filter events based on club and date filters
+    const filteredEvents = useMemo(() => {
+      let filtered = [...allEvents];
+
+      // Filter by club
+      if (filterClubId && filterClubId !== 'all') {
+        const clubIdNum = parseInt(filterClubId);
+        filtered = filtered.filter((event: any) => {
+          const eventClubId = event.club?.id || event.clubId;
+          return eventClubId === clubIdNum;
+        });
+      }
+
+      // Filter by date range
+      if (filterDateFrom) {
+        const fromDate = startOfDay(new Date(filterDateFrom));
+        filtered = filtered.filter((event: any) => {
+          if (!event.startAt) return false;
+          const eventDate = startOfDay(parseISO(event.startAt));
+          return isAfter(eventDate, fromDate) || eventDate.getTime() === fromDate.getTime();
+        });
+      }
+
+      if (filterDateTo) {
+        const toDate = endOfDay(new Date(filterDateTo));
+        filtered = filtered.filter((event: any) => {
+          if (!event.startAt) return false;
+          const eventDate = endOfDay(parseISO(event.startAt));
+          return isBefore(eventDate, toDate) || eventDate.getTime() === toDate.getTime();
+        });
+      }
+
+      return filtered;
+    }, [allEvents, filterClubId, filterDateFrom, filterDateTo]);
+
+    // Update displayed events when filters change
+    useEffect(() => {
+      setEvents(filteredEvents);
+    }, [filteredEvents]);
+
+    // Get unique clubs from all events for filter dropdown
+    const uniqueClubsFromEvents = useMemo(() => {
+      const clubsMap = new Map<number, { id: number; name: string }>();
+      allEvents.forEach((event: any) => {
+        const club = event.club;
+        const clubId = club?.id || event.clubId;
+        const clubName = club?.title || club?.name || 'Unknown Club';
+        if (clubId && !clubsMap.has(clubId)) {
+          clubsMap.set(clubId, { id: clubId, name: clubName });
+        }
+      });
+      return Array.from(clubsMap.values());
+    }, [allEvents]);
 
   // Convert datetime-local input to ISO string for LocalDateTime
   const convertToISO = (dateTimeLocal: string): string | null => {
@@ -306,14 +366,88 @@ const Events = () => {
             Create Event
           </Button>
         )}
-      </div>
+              </div>
 
-      {isLoading ? (
-        <div className="text-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-success border-r-transparent"></div>
-          <p className="mt-4 text-muted-foreground font-medium">Loading events...</p>
-        </div>
-      ) : events.length === 0 ? (
+        {/* Filter Section */}
+        <Card className="border-success/20">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filter Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Club Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="filter-club">Filter by Club</Label>
+                <Select value={filterClubId} onValueChange={setFilterClubId}>
+                  <SelectTrigger id="filter-club">
+                    <SelectValue placeholder="All Clubs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clubs</SelectItem>
+                    {uniqueClubsFromEvents.map((club) => (
+                      <SelectItem key={club.id} value={club.id.toString()}>
+                        {club.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date From Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-from">From Date</Label>
+                <Input
+                  id="filter-date-from"
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+              </div>
+
+              {/* Date To Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-to">To Date</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="filter-date-to"
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                  />
+                  {(filterClubId !== 'all' || filterDateFrom || filterDateTo) && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setFilterClubId('all');
+                        setFilterDateFrom('');
+                        setFilterDateTo('');
+                      }}
+                      title="Clear filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {(filterClubId !== 'all' || filterDateFrom || filterDateTo) && (
+              <div className="mt-3 text-sm text-muted-foreground">
+                Showing {events.length} of {allEvents.length} events
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-success border-r-transparent"></div>
+            <p className="mt-4 text-muted-foreground font-medium">Loading events...</p>
+          </div>
+        ) : events.length === 0 ? (
         <Card className="border-success/20">
           <CardContent className="text-center py-16">
             <div className="p-4 rounded-2xl bg-gradient-success/10 inline-block mb-4">

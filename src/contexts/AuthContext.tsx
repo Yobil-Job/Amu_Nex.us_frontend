@@ -254,9 +254,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      // Clear any existing tokens before login to prevent unique constraint violations
+      // This handles cases where old refresh tokens exist in the database
+      // We clear local tokens only (don't call logout API as it requires authentication)
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      setAccessToken(null);
+      setRefreshToken(null);
+      setUser(null);
+
       // Backend login response: { accessToken, refreshToken, role }
       // NO user object in response
+      console.log('🔐 Attempting login for:', email);
       const response = await authApi.login(email, password);
+      console.log('✅ Login API response received:', { 
+        hasAccessToken: !!response.accessToken, 
+        hasRefreshToken: !!response.refreshToken, 
+        role: response.role 
+      });
       
       // Store tokens
       setAccessToken(response.accessToken);
@@ -284,8 +300,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast.success('Login successful!');
     } catch (error: any) {
+      // Log detailed error information for debugging
+      console.error('❌ Login error details:', {
+        message: error.message,
+        status: error.status,
+        fullError: error,
+        stack: error.stack
+      });
+
+      // Handle specific database constraint violation error
       const errorMessage = error.message || 'Login failed. Please check your credentials.';
-      toast.error(errorMessage);
+      const errorString = JSON.stringify(error).toLowerCase();
+      const fullErrorText = `${errorMessage} ${errorString}`;
+      
+      // Check for constraint violation errors (multiple patterns)
+      // This error occurs when backend tries to create a new refresh token but one already exists
+      const isConstraintViolation = 
+        errorMessage.includes('Unique index') || 
+        errorMessage.includes('refresh_tokens') || 
+        errorMessage.includes('STUDENT_ID') ||
+        errorMessage.includes('23505') || // PostgreSQL unique violation code
+        errorMessage.includes('UKCKMMP76WPKOE5BQK1A3PKA1HL') || // Specific constraint name from error
+        fullErrorText.includes('unique index') ||
+        fullErrorText.includes('refresh_tokens') ||
+        fullErrorText.includes('constraint') ||
+        fullErrorText.includes('23505');
+      
+      if (isConstraintViolation) {
+        // This is a backend database constraint issue
+        // The backend is trying to INSERT a new refresh token but one already exists
+        // This requires a backend fix (should DELETE old token before INSERT, or use UPSERT)
+        console.warn('⚠️ Refresh token constraint violation detected.');
+        console.warn('⚠️ Backend needs to delete old refresh token before creating new one.');
+        
+        // Show helpful error message to user
+        toast.error(
+          'Login failed: Database constraint violation. An old session token exists for this account. ' +
+          'Please contact your administrator to resolve this issue, or try again in a few minutes.',
+          { duration: 8000 }
+        );
+        
+        // Still clear local tokens
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        setAccessToken(null);
+        setRefreshToken(null);
+        setUser(null);
+        
+        // Create a more informative error for the caller
+        const constraintError = new Error(
+          'REFRESH_TOKEN_CONSTRAINT_VIOLATION: Backend database constraint violation. ' +
+          'An old refresh token exists for this user. The backend needs to be fixed to delete old tokens before creating new ones.'
+        );
+        (constraintError as any).status = 409; // Conflict status code
+        (constraintError as any).isConstraintViolation = true;
+        throw constraintError;
+      }
+      
+      // For other errors, show the actual error message
+      // Check for authentication errors
+      if (error.status === 401 || errorMessage.toLowerCase().includes('invalid') || errorMessage.toLowerCase().includes('credential')) {
+        toast.error('Invalid email or password. Please check your credentials and try again.');
+      } else if (error.status === 500) {
+        toast.error('Server error. Please try again later or contact support.');
+      } else {
+        toast.error(errorMessage);
+      }
+      
       throw error;
     }
   };

@@ -26,60 +26,75 @@ export class ApiError extends Error {
   }
 }
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+// Retry function for network errors and 5xx errors
+const retryRequest = async (
+  fn: () => Promise<Response>,
+  retries = MAX_RETRIES
+): Promise<Response> => {
+  try {
+    return await fn();
+  } catch (error: any) {
+    // Don't retry on client errors (4xx) except 401
+    if (error?.status && error.status >= 400 && error.status < 500 && error.status !== 401) {
+      throw error;
+    }
+
+    // Retry on network errors or 5xx errors
+    if (retries > 0) {
+      if (import.meta.env.DEV) {
+        console.log(`🔄 Retrying request (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})...`);
+      }
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return retryRequest(fn, retries - 1);
+    }
+
+    throw error;
+  }
+};
+
 // Helper function to handle API responses with enhanced error handling
 const handleResponse = async (response: Response): Promise<any> => {
-  // Handle network errors
   if (!response.ok) {
-    let errorMessage = 'API request failed';
-    let errorData = null;
+    let errorMessage = 'An error occurred';
+    let errorData: any = null;
 
     try {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
+        errorMessage = errorData.message || errorData.error || errorMessage;
+        
+        // Handle validation errors
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          errorMessage = errorData.errors.map((e: any) => 
+            `${e.field}: ${e.message}`
+          ).join(', ');
+        }
       } else {
-        errorMessage = await response.text() || errorMessage;
+        const text = await response.text();
+        errorMessage = text || errorMessage;
       }
-    } catch (parseError) {
-      // If we can't parse the error, use status text
-      errorMessage = response.statusText || errorMessage;
-    }
-
-    // Handle 401 Unauthorized - token expired or invalid
-    if (response.status === 401 && tokenRefreshCallback) {
-      try {
-        await tokenRefreshCallback();
-        // Don't throw here - let the caller retry
-        throw new ApiError('Token expired, please retry', 401, errorData);
-      } catch (refreshError) {
-        throw new ApiError('Authentication failed. Please login again.', 401, errorData);
+    } catch (e) {
+      // If parsing fails, use status-based messages
+      if (response.status === 401) {
+        errorMessage = 'Authentication required. Please login again.';
+      } else if (response.status === 403) {
+        errorMessage = 'Access denied. You do not have permission to perform this action.';
+      } else if (response.status === 404) {
+        errorMessage = 'Resource not found.';
+      } else if (response.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (response.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (response.status >= 400) {
+        errorMessage = 'Request failed. Please check your input and try again.';
       }
     }
 
-    // Handle 403 Forbidden
-    if (response.status === 403) {
-      throw new ApiError('You do not have permission to perform this action.', 403, errorData);
-    }
-
-    // Handle 500 Internal Server Error
-    if (response.status === 500) {
-      throw new ApiError(
-        errorMessage || 'Server error. Please try again later or contact support.',
-        500,
-        errorData
-      );
-    }
-
-    // Handle CORS errors
-    if (response.status === 0 || response.type === 'opaque') {
-      throw new ApiError(
-        'Network error: Unable to connect to the server. Please check if the backend is running and CORS is configured correctly.',
-        0
-      );
-    }
-
-    // Log errors in development
     if (import.meta.env.DEV) {
       console.error(`❌ API Error:`, { 
         url: response.url, 
@@ -90,12 +105,9 @@ const handleResponse = async (response: Response): Promise<any> => {
     }
     throw new ApiError(errorMessage, response.status, errorData);
   }
-
-  // Handle successful responses
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     const jsonData = await response.json();
-    // Log successful responses in development
     if (import.meta.env.DEV) {
       console.log(`✅ API Success:`, { url: response.url, data: jsonData });
     }
@@ -114,55 +126,68 @@ const getAuthToken = (): string | null => {
 };
 
 // Helper function for authenticated requests with retry logic
-const authFetch = async (url: string, options: RequestInit = {}, retry = true): Promise<Response> => {
-  const token = getAuthToken();
+const authFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const accessToken = localStorage.getItem('accessToken');
   
-  // Log API calls in development
-  if (import.meta.env.DEV) {
-    console.log(`🌐 API Call: ${options.method || 'GET'} ${url}`);
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  } as HeadersInit;
+
+  if (accessToken) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
   }
-  
-  const fetchOptions: RequestInit = {
+
+  const makeRequest = () => fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
+    headers,
+    credentials: 'include',
+  });
 
   try {
-    const response = await fetch(url, fetchOptions);
-    
-    // If 401 and we have a refresh callback, try to refresh and retry once
-    if (response.status === 401 && retry && tokenRefreshCallback) {
-      try {
-        await tokenRefreshCallback();
-        // Retry the request with new token
-        const newToken = getAuthToken();
-        const retryOptions: RequestInit = {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(newToken && { Authorization: `Bearer ${newToken}` }),
-            ...options.headers,
-          },
-        };
-        return fetch(url, retryOptions);
-      } catch (refreshError) {
-        // Refresh failed, return original response
-        return response;
+    let response = await retryRequest(makeRequest);
+
+    // Handle 401 with token refresh
+    if (response.status === 401) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      
+      if (refreshToken && tokenRefreshCallback) {
+        try {
+          await tokenRefreshCallback();
+          // Retry the original request with new token
+          const newAccessToken = localStorage.getItem('accessToken');
+          if (newAccessToken) {
+            (headers as Record<string, string>)['Authorization'] = `Bearer ${newAccessToken}`;
+            response = await retryRequest(() => fetch(url, {
+              ...options,
+              headers,
+              credentials: 'include',
+            }));
+          }
+        } catch (refreshError) {
+          // Refresh failed, redirect to login
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+          throw new ApiError('Session expired. Please login again.', 401);
+        }
+      } else {
+        // No refresh token, redirect to login
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        throw new ApiError('Authentication required. Please login again.', 401);
       }
     }
-    
+
     return response;
-  } catch (error) {
-    // Network errors (CORS, connection refused, etc.)
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new ApiError(
-        'Network error: Unable to connect to the API server. Please ensure the backend is running on ' + API_BASE_URL,
-        0
-      );
+  } catch (error: any) {
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new ApiError('Network error. Please check your connection and try again.', 0, { networkError: true });
     }
     throw error;
   }

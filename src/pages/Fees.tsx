@@ -7,11 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { feeApi, clubApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
+import { feeSchema, type FeeFormData } from '@/lib/schemas';
 import { toast } from 'sonner';
-import { DollarSign, Plus, Search } from 'lucide-react';
+import { DollarSign, Plus, Search, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 
 const Fees = () => {
   const [fees, setFees] = useState<any[]>([]);
@@ -29,6 +33,27 @@ const Fees = () => {
     studentId: '',
   });
 
+  // Form validation with Zod
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setValue,
+    watch,
+    reset,
+  } = useForm<FeeFormData>({
+    resolver: zodResolver(feeSchema),
+    defaultValues: {
+      amount: '',
+      purpose: '',
+      clubId: '',
+      studentId: '',
+    },
+  });
+
+  const watchedClubId = watch('clubId');
+  const watchedStudentId = watch('studentId');
+
   // ✅ Status enum values - must match backend exactly
   const FEE_STATUSES = {
     PAID: 'PAID',
@@ -36,11 +61,14 @@ const Fees = () => {
     FAILED: 'FAILED',
   } as const;
 
+  const [isLoadingClubsStudents, setIsLoadingClubsStudents] = useState(true);
+
   useEffect(() => {
     loadClubsAndStudents();
   }, []);
 
   const loadClubsAndStudents = async () => {
+    setIsLoadingClubsStudents(true);
     try {
       const [clubsRes, studentsRes] = await Promise.all([
         clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
@@ -52,6 +80,9 @@ const Fees = () => {
       setStudents(studentsList);
     } catch (error: any) {
       console.error('Failed to load data:', error);
+      toast.error('Failed to load clubs and students');
+    } finally {
+      setIsLoadingClubsStudents(false);
     }
   };
 
@@ -84,19 +115,20 @@ const Fees = () => {
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async (data: FeeFormData) => {
     try {
       await feeApi.record(
-        parseInt(formData.clubId),
-        parseInt(formData.studentId),
+        parseInt(data.clubId),
+        parseInt(data.studentId),
         {
-          amount: parseFloat(formData.amount),
-          purpose: formData.purpose,
+          amount: parseFloat(data.amount),
+          purpose: data.purpose,
         }
       );
       toast.success('Fee recorded successfully');
       setIsCreateDialogOpen(false);
       resetForm();
+      reset();
       loadFees();
     } catch (error: any) {
       toast.error(error.message || 'Failed to record fee');
@@ -127,6 +159,7 @@ const Fees = () => {
       clubId: '',
       studentId: '',
     });
+    reset();
   };
 
   const getStatusColor = (status: string) => {
@@ -163,50 +196,71 @@ const Fees = () => {
           <CardTitle>Search Fees</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="searchClubId">Search by Club</Label>
-              <div className="flex gap-2">
-                <Select value={searchClubId} onValueChange={setSearchClubId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a club" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clubs</SelectItem>
-                    {clubs.map((club) => (
-                      <SelectItem key={club.id} value={club.id.toString()}>
-                        {club.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
-                  <Search className="h-4 w-4" />
-                </Button>
+          {isLoadingClubsStudents ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-10 w-full" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="searchStudentId">Search by Student</Label>
-              <div className="flex gap-2">
-                <Select value={searchStudentId} onValueChange={setSearchStudentId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Students</SelectItem>
-                    {students.map((student) => (
-                      <SelectItem key={student.id} value={student.id.toString()}>
-                        {student.firstname} {student.lastname} ({student.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
-                  <Search className="h-4 w-4" />
-                </Button>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="searchClubId">Search by Club</Label>
+                <div className="flex gap-2">
+                  <Select value={searchClubId} onValueChange={setSearchClubId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a club" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clubs</SelectItem>
+                      {clubs.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">No clubs available</div>
+                      ) : (
+                        clubs.map((club) => (
+                          <SelectItem key={club.id} value={club.id.toString()}>
+                            {club.title}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="searchStudentId">Search by Student</Label>
+                <div className="flex gap-2">
+                  <Select value={searchStudentId} onValueChange={setSearchStudentId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Students</SelectItem>
+                      {students.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">No students available</div>
+                      ) : (
+                        students.map((student) => (
+                          <SelectItem key={student.id} value={student.id.toString()}>
+                            {student.firstname} {student.lastname} ({student.email})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={loadFees} disabled={(!searchClubId || searchClubId === 'all') && (!searchStudentId || searchStudentId === 'all')}>
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -234,14 +288,26 @@ const Fees = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading fees...</div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-12 flex-1" />
+                  <Skeleton className="h-12 w-32" />
+                  <Skeleton className="h-12 w-24" />
+                  <Skeleton className="h-12 w-32" />
+                </div>
+              ))}
+            </div>
           ) : fees.length === 0 ? (
             <div className="text-center py-12">
-              <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <DollarSign className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No fee records found</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 {searchClubId || searchStudentId 
-                  ? 'No fee records found for your search criteria.' 
-                  : 'Search for fees by club or student to view records.'}
+                  ? 'No fee records match your search criteria. Try selecting a different club or student.' 
+                  : 'Search for fees by selecting a club or student from the dropdowns above.'}
               </p>
             </div>
           ) : (
@@ -292,71 +358,124 @@ const Fees = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+        setIsCreateDialogOpen(open);
+        if (!open) {
+          resetForm();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record New Fee</DialogTitle>
             <DialogDescription>Create a fee record for a student</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit(handleCreate)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">Amount *</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
                 placeholder="50.00"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                {...register('amount')}
+                onChange={(e) => {
+                  setValue('amount', e.target.value);
+                  setFormData({ ...formData, amount: e.target.value });
+                }}
+                className={errors.amount ? 'border-destructive' : ''}
               />
+              {errors.amount && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.amount.message}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="purpose">Purpose</Label>
+              <Label htmlFor="purpose">Purpose *</Label>
               <Input
                 id="purpose"
                 placeholder="Annual membership fee"
-                value={formData.purpose}
-                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                {...register('purpose')}
+                onChange={(e) => {
+                  setValue('purpose', e.target.value);
+                  setFormData({ ...formData, purpose: e.target.value });
+                }}
+                className={errors.purpose ? 'border-destructive' : ''}
               />
+              {errors.purpose && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.purpose.message}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="clubId">Club *</Label>
               <Select 
-                value={formData.clubId} 
-                onValueChange={(value) => setFormData({ ...formData, clubId: value })}
+                value={watchedClubId || formData.clubId}
+                onValueChange={(value) => {
+                  setValue('clubId', value, { shouldValidate: true });
+                  setFormData({ ...formData, clubId: value });
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger className={errors.clubId ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select a club" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clubs.map((club) => (
-                    <SelectItem key={club.id} value={club.id.toString()}>
-                      {club.title}
-                    </SelectItem>
-                  ))}
+                  {clubs.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">No clubs available</div>
+                  ) : (
+                    clubs.map((club) => (
+                      <SelectItem key={club.id} value={club.id.toString()}>
+                        {club.title}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {errors.clubId && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.clubId.message}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="studentId">Student *</Label>
               <Select 
-                value={formData.studentId} 
-                onValueChange={(value) => setFormData({ ...formData, studentId: value })}
+                value={watchedStudentId || formData.studentId}
+                onValueChange={(value) => {
+                  setValue('studentId', value, { shouldValidate: true });
+                  setFormData({ ...formData, studentId: value });
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger className={errors.studentId ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select a student" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.firstname} {student.lastname} ({student.email})
-                    </SelectItem>
-                  ))}
+                  {students.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">No students available</div>
+                  ) : (
+                    students.map((student) => (
+                      <SelectItem key={student.id} value={student.id.toString()}>
+                        {student.firstname} {student.lastname} ({student.email})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {errors.studentId && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{errors.studentId.message}</span>
+                </div>
+              )}
             </div>
-            <Button onClick={handleCreate} className="w-full">Record Fee</Button>
-          </div>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Recording...' : 'Record Fee'}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
