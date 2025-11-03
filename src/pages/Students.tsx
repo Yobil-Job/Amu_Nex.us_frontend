@@ -55,7 +55,18 @@ const Students = () => {
       setStudents(studentsList);
     } catch (error: any) {
       console.error('❌ Error loading students:', error); // Debug log
-      toast.error(error.message || 'Failed to load students');
+      
+      // Show user-friendly error messages
+      if (error.status === 403) {
+        toast.error('Access denied: Only SUPER_ADMIN can view all students.');
+      } else if (error.status === 401) {
+        toast.error('Authentication required. Please login again.');
+      } else if (error.status === 500) {
+        toast.error('Server error. Please try again or contact support.');
+      } else {
+        toast.error(error.message || 'Failed to load students');
+      }
+      
       setStudents([]);
     } finally {
       setIsLoading(false);

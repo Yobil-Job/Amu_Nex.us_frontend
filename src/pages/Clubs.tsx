@@ -46,13 +46,23 @@ const Clubs = () => {
   });
 
   useEffect(() => {
-    loadClubs();
+    // Load user clubs first (for students, this is the only way to see clubs)
     if (user?.id) {
       loadUserClubs();
     }
+    // Try to load all clubs (will work for SUPER_ADMIN/ADMIN, fail for STUDENT)
+    loadClubs();
   }, [user?.id]);
 
   const loadClubs = async () => {
+    // For STUDENT role, backend blocks access to /clubs/all-clubs
+    // We'll show a message that students can only see clubs they've joined
+    if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
+      console.log('ℹ️ Student/SUPER_USER role detected. Skipping all-clubs fetch (will show only joined clubs)');
+      // Don't set loading to false here, as loadUserClubs will handle it
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const response = await clubApi.getAll();
@@ -75,7 +85,16 @@ const Clubs = () => {
       setClubs(clubsList);
     } catch (error: any) {
       console.error('❌ Error loading clubs:', error); // Debug log
-      toast.error(error.message || 'Failed to load clubs');
+      
+      // Show user-friendly error message
+      if (error.status === 403) {
+        toast.error('Access denied: You do not have permission to view all clubs.');
+      } else if (error.status === 401) {
+        toast.error('Authentication required. Please login again.');
+      } else {
+        toast.error(error.message || 'Failed to load clubs');
+      }
+      
       setClubs([]);
     } finally {
       setIsLoading(false);
@@ -84,13 +103,32 @@ const Clubs = () => {
 
   const loadUserClubs = async () => {
     if (!user?.id) return;
+    setIsLoading(true);
     try {
+      console.log('📊 Loading clubs for user:', user.id);
       const response = await studentApi.getClubs(user.id);
+      console.log('📊 User clubs API Response:', JSON.stringify(response, null, 2));
+      
       const clubsList = extractCollection<any>(response);
+      console.log('✅ Extracted user clubs:', clubsList.length, clubsList);
+      
       setUserClubs(clubsList);
+      
+      // For STUDENT/SUPER_USER, show only their joined clubs as available clubs
+      if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
+        setClubs(clubsList);
+        console.log('✅ Set clubs list to user clubs for STUDENT/SUPER_USER:', clubsList.length, 'clubs');
+      }
     } catch (error: any) {
-      console.error('Failed to load user clubs:', error);
+      console.error('❌ Failed to load user clubs:', error);
+      toast.error('Failed to load your clubs. Please try again.');
       setUserClubs([]);
+      // For students, set empty clubs if the request fails
+      if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
+        setClubs([]);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
