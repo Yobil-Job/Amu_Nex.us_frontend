@@ -154,16 +154,16 @@ const Events = () => {
 
     // Get unique clubs from all events for filter dropdown
     const uniqueClubsFromEvents = useMemo(() => {
-      const clubsMap = new Map<number, { id: number; name: string }>();
+      const clubsMap: Record<number, { id: number; name: string }> = {};
       allEvents.forEach((event: any) => {
         const club = event.club;
         const clubId = club?.id || event.clubId;
         const clubName = club?.title || club?.name || 'Unknown Club';
-        if (clubId && !clubsMap.has(clubId)) {
-          clubsMap.set(clubId, { id: clubId, name: clubName });
+        if (clubId && !clubsMap[clubId]) {
+          clubsMap[clubId] = { id: clubId, name: clubName };
         }
       });
-      return Array.from(clubsMap.values());
+      return Object.values(clubsMap);
     }, [allEvents]);
 
   // Convert datetime-local input to ISO string for LocalDateTime
