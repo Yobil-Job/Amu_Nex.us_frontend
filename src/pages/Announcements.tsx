@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { announcementApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Bell, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -29,9 +30,10 @@ const Announcements = () => {
     setIsLoading(true);
     try {
       const response = await announcementApi.getAll();
-      setAnnouncements(response?._embedded?.announcementList || []);
-    } catch (error) {
-      toast.error('Failed to load announcements');
+      const announcementsList = extractCollection<any>(response);
+      setAnnouncements(announcementsList);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load announcements');
     } finally {
       setIsLoading(false);
     }

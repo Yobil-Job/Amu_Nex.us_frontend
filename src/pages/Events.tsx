@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { eventApi, clubApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Calendar, Plus, Pencil, Trash2, MapPin, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -38,10 +39,12 @@ const Events = () => {
         eventApi.getAll(),
         clubApi.getAll(),
       ]);
-      setEvents(eventsRes?._embedded?.eventList || []);
-      setClubs(clubsRes?._embedded?.responseClubDtoList || []);
-    } catch (error) {
-      toast.error('Failed to load data');
+      const eventsList = extractCollection<any>(eventsRes);
+      const clubsList = extractCollection<any>(clubsRes);
+      setEvents(eventsList);
+      setClubs(clubsList);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load data');
     } finally {
       setIsLoading(false);
     }

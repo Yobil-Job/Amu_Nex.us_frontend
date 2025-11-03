@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, Calendar, DollarSign, TrendingUp } from 'lucide-react';
 import { studentApi, clubApi, eventApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -23,10 +24,15 @@ const Dashboard = () => {
         eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
       ]);
 
+      // Use HATEOAS helper to extract collections
+      const students = extractCollection<any>(studentsRes);
+      const clubs = extractCollection<any>(clubsRes);
+      const events = extractCollection<any>(eventsRes);
+
       setStats({
-        totalStudents: studentsRes?._embedded?.studentResponseDtoList?.length || 0,
-        totalClubs: clubsRes?._embedded?.responseClubDtoList?.length || 0,
-        totalEvents: eventsRes?._embedded?.eventList?.length || 0,
+        totalStudents: students.length,
+        totalClubs: clubs.length,
+        totalEvents: events.length,
         isLoading: false,
       });
     } catch (error) {

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { clubApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle } from 'lucide-react';
 
@@ -32,9 +33,10 @@ const Clubs = () => {
     setIsLoading(true);
     try {
       const response = await clubApi.getAll();
-      setClubs(response?._embedded?.responseClubDtoList || []);
-    } catch (error) {
-      toast.error('Failed to load clubs');
+      const clubsList = extractCollection<any>(response);
+      setClubs(clubsList);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load clubs');
     } finally {
       setIsLoading(false);
     }

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { studentApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Pencil, Trash2, Eye, Plus, Users } from 'lucide-react';
 
@@ -32,9 +33,10 @@ const Students = () => {
     setIsLoading(true);
     try {
       const response = await studentApi.getAll();
-      setStudents(response?._embedded?.studentResponseDtoList || []);
+      const studentsList = extractCollection<any>(response);
+      setStudents(studentsList);
     } catch (error: any) {
-      toast.error('Failed to load students');
+      toast.error(error.message || 'Failed to load students');
     } finally {
       setIsLoading(false);
     }
