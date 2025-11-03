@@ -65,27 +65,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('user', JSON.stringify(userData));
       return userData;
     } catch (error: any) {
-      console.warn('Failed to fetch user profile from /student/me:', error);
+      // Log the error for debugging (backend lazy loading issue)
+      if (error.status === 500) {
+        console.warn('⚠️ Backend /student/me returned 500 (likely lazy loading issue). Using JWT fallback.');
+      } else {
+        console.warn('Failed to fetch user profile from /student/me:', error);
+      }
       
       // Fallback: Extract user info from JWT token
       if (currentAccessToken) {
         try {
           const tokenUser = extractUserFromToken(currentAccessToken);
-          if (tokenUser) {
+          if (tokenUser && tokenUser.email) {
             const fallbackUser: User = {
               email: tokenUser.email,
               id: tokenUser.id,
               role: tokenUser.role,
             };
             
-            console.log('Using JWT token data as fallback:', fallbackUser);
+            console.log('✅ Using JWT token data as fallback (user info extracted from token):', {
+              email: fallbackUser.email,
+              id: fallbackUser.id,
+              role: fallbackUser.role
+            });
             setUser(fallbackUser);
             localStorage.setItem('user', JSON.stringify(fallbackUser));
             return fallbackUser;
+          } else {
+            console.warn('⚠️ JWT token does not contain valid user data');
           }
         } catch (tokenError) {
-          console.error('Failed to extract user from token:', tokenError);
+          console.error('❌ Failed to extract user from token:', tokenError);
         }
+      } else {
+        console.warn('⚠️ No access token available for JWT fallback');
       }
       
       // Final fallback: Use stored user data
