@@ -79,15 +79,33 @@ const handleResponse = async (response: Response): Promise<any> => {
       );
     }
 
+    // Log errors in development
+    if (import.meta.env.DEV) {
+      console.error(`❌ API Error:`, { 
+        url: response.url, 
+        status: response.status, 
+        message: errorMessage,
+        data: errorData 
+      });
+    }
     throw new ApiError(errorMessage, response.status, errorData);
   }
 
   // Handle successful responses
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    return response.json();
+    const jsonData = await response.json();
+    // Log successful responses in development
+    if (import.meta.env.DEV) {
+      console.log(`✅ API Success:`, { url: response.url, data: jsonData });
+    }
+    return jsonData;
   }
-  return response.text();
+  const textData = await response.text();
+  if (import.meta.env.DEV) {
+    console.log(`✅ API Success (text):`, { url: response.url, data: textData });
+  }
+  return textData;
 };
 
 // Helper function to get auth token
@@ -98,6 +116,11 @@ const getAuthToken = (): string | null => {
 // Helper function for authenticated requests with retry logic
 const authFetch = async (url: string, options: RequestInit = {}, retry = true): Promise<Response> => {
   const token = getAuthToken();
+  
+  // Log API calls in development
+  if (import.meta.env.DEV) {
+    console.log(`🌐 API Call: ${options.method || 'GET'} ${url}`);
+  }
   
   const fetchOptions: RequestInit = {
     ...options,

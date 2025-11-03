@@ -42,24 +42,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Try to fetch from /student/me endpoint
       const meResponse = await studentApi.getMe();
+      console.log('📊 /student/me response:', JSON.stringify(meResponse, null, 2));
       
-      // Backend returns: { principal, name, authorities }
-      // We need to extract user info from principal
-      const principal = meResponse.principal;
-      const name = meResponse.name; // This is the email
+      // Backend returns: { principal, name, authorities } OR direct student object
+      // Try multiple response structures
+      let userData: User = {};
       
-      // If principal is CustomUserDetails, it has student info
-      // Otherwise, we construct from available data
-      const userData: User = {
-        email: name || principal?.username || principal?.email,
-        role: meResponse.authorities?.[0]?.authority?.replace('ROLE_', '') || principal?.role || 'STUDENT',
-        id: principal?.id || principal?.studentId,
-        firstname: principal?.firstname || principal?.student?.firstname,
-        lastname: principal?.lastname || principal?.student?.lastname,
-        gender: principal?.gender || principal?.student?.gender,
-        yearOfStay: principal?.yearOfStay || principal?.student?.yearOfStay,
-        ...principal, // Include any additional fields
-      };
+      // Strategy 1: Response has principal object
+      if (meResponse.principal) {
+        const principal = meResponse.principal;
+        const name = meResponse.name; // This is the email
+        userData = {
+          email: name || principal?.username || principal?.email,
+          role: meResponse.authorities?.[0]?.authority?.replace('ROLE_', '') || principal?.role || 'STUDENT',
+          id: principal?.id || principal?.studentId,
+          firstname: principal?.firstname || principal?.student?.firstname,
+          lastname: principal?.lastname || principal?.student?.lastname,
+          gender: principal?.gender || principal?.student?.gender,
+          yearOfStay: principal?.yearOfStay || principal?.student?.yearOfStay,
+          department: principal?.department || principal?.student?.department,
+          ...principal, // Include any additional fields
+        };
+      }
+      // Strategy 2: Response is direct Map (backend returns Map<String, Object>)
+      // Backend /student/me returns: { id, email, firstname, lastname, gender, yearOfStay, department, etc. }
+      if (meResponse.id || meResponse.email) {
+        userData = {
+          email: meResponse.email,
+          role: meResponse.role || 'STUDENT',
+          id: meResponse.id,
+          firstname: meResponse.firstname,
+          lastname: meResponse.lastname,
+          gender: meResponse.gender,
+          yearOfStay: meResponse.yearOfStay,
+          department: meResponse.department,
+          ...meResponse, // Include all fields from the map
+        };
+      }
+      // Strategy 3: Response has student nested object
+      else if (meResponse.student) {
+        const student = meResponse.student;
+        userData = {
+          email: student.email || meResponse.email,
+          role: student.role || meResponse.role || 'STUDENT',
+          id: student.id,
+          firstname: student.firstname,
+          lastname: student.lastname,
+          gender: student.gender,
+          yearOfStay: student.yearOfStay,
+          department: student.department,
+          ...student,
+        };
+      }
+      
+      console.log('✅ Extracted user data:', userData);
 
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));

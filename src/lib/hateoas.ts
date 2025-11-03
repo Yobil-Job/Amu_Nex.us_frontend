@@ -32,45 +32,85 @@ interface HATEOASResponse {
  * Handles different collection names used by the API
  */
 export function extractCollection<T>(response: any): T[] {
-  if (!response) return [];
+  if (!response) {
+    console.warn('⚠️ extractCollection: response is null/undefined');
+    return [];
+  }
   
-  // If response is already an array, return it
+  // Strategy 1: Response is already an array
   if (Array.isArray(response)) {
+    console.log('✅ extractCollection: Response is direct array, length:', response.length);
     return response;
   }
 
-  // If response has _embedded, extract from it
+  // Strategy 2: Response has _embedded (Spring HATEOAS CollectionModel)
   if (response._embedded) {
     const embedded = response._embedded as HATEOASEmbedded;
+    console.log('📦 extractCollection: Found _embedded, keys:', Object.keys(embedded));
     
-    // Try common collection names
+    // Try common collection names (Spring HATEOAS CollectionModel)
     const collectionKeys = [
       'studentResponseDtoList',
       'responseClubDtoList',
       'eventList',
       'announcementList',
+      'authorityList',
+      'feeList',
+      'pendingRequestGetterDtoList',
+      // Also try camelCase variations
+      'students',
+      'clubs',
+      'events',
+      'announcements',
+      'authorities',
+      'fees',
     ];
 
     for (const key of collectionKeys) {
       if (embedded[key] && Array.isArray(embedded[key])) {
+        console.log(`✅ extractCollection: Found collection in _embedded.${key}:`, embedded[key].length, 'items');
         return embedded[key] as T[];
       }
     }
 
-    // If no known key found, return first array value in _embedded
+    // Strategy 3: If no known key found, return first array value in _embedded
     const firstArrayValue = Object.values(embedded).find(
       (value) => Array.isArray(value)
     );
     if (firstArrayValue) {
+      console.log('✅ extractCollection: Using first array in _embedded, length:', firstArrayValue.length);
       return firstArrayValue as T[];
     }
+    
+    console.warn('⚠️ extractCollection: _embedded exists but no array found. Keys:', Object.keys(embedded));
   }
 
-  // If single entity, wrap in array
+  // Strategy 4: Response might have content property (Spring Data pagination)
+  if (response.content && Array.isArray(response.content)) {
+    console.log('✅ extractCollection: Found content array, length:', response.content.length);
+    return response.content as T[];
+  }
+
+  // Strategy 5: Check if response has array-like properties
+  const arrayKeys = Object.keys(response).filter(key => Array.isArray(response[key]));
+  if (arrayKeys.length > 0) {
+    console.log('✅ extractCollection: Found array property:', arrayKeys[0], 'length:', response[arrayKeys[0]].length);
+    return response[arrayKeys[0]] as T[];
+  }
+
+  // Strategy 6: If single entity, wrap in array
   if (response.id !== undefined) {
+    console.log('✅ extractCollection: Single entity found, wrapping in array');
     return [response] as T[];
   }
 
+  console.warn('⚠️ extractCollection: No collection found. Response structure:', {
+    hasEmbedded: !!response._embedded,
+    keys: Object.keys(response),
+    isArray: Array.isArray(response),
+    sample: JSON.stringify(response).substring(0, 200)
+  });
+  
   return [];
 }
 

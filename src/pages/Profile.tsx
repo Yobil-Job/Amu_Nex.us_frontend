@@ -65,17 +65,42 @@ const Profile = () => {
       
       // Update profile if we got more data from API
       if (profileRes) {
-        const profileData = profileRes.student || profileRes;
-        setProfile(profileData);
-        setFormData({
-          firstname: profileData.firstname || user.firstname || '',
-          lastname: profileData.lastname || user.lastname || '',
-          email: profileData.email || user.email || '',
-          gender: profileData.gender || user.gender || '',
-          yearOfStay: profileData.yearOfStay || user.yearOfStay || '',
-          department: profileData.department || user.department || '',
-          password: '', // Password never pre-filled
-        });
+        console.log('📊 Profile API response:', JSON.stringify(profileRes, null, 2));
+        
+        // Try multiple response structures
+        let profileData: any = null;
+        
+        // Strategy 1: Direct student object
+        if (profileRes.id || profileRes.email) {
+          profileData = profileRes;
+        }
+        // Strategy 2: Nested student object
+        else if (profileRes.student) {
+          profileData = profileRes.student;
+        }
+        // Strategy 3: Principal structure
+        else if (profileRes.principal) {
+          profileData = profileRes.principal.student || profileRes.principal;
+        }
+        // Strategy 4: Use response as-is
+        else {
+          profileData = profileRes;
+        }
+        
+        console.log('✅ Extracted profile data:', profileData);
+        
+        if (profileData) {
+          setProfile(profileData);
+          setFormData({
+            firstname: profileData.firstname || user.firstname || '',
+            lastname: profileData.lastname || user.lastname || '',
+            email: profileData.email || user.email || '',
+            gender: profileData.gender || user.gender || '',
+            yearOfStay: profileData.yearOfStay || user.yearOfStay || '',
+            department: profileData.department || user.department || '',
+            password: '', // Password never pre-filled
+          });
+        }
       }
     } catch (error: any) {
       console.error('Failed to load profile:', error);
