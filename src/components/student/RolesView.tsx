@@ -53,19 +53,30 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
     return 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30';
   };
 
-  const isActive = (authority: Authority) => {
-    if (!authority.endDate) return true;
-    return isAfter(new Date(authority.endDate), new Date());
-  };
-
   const isUpcoming = (authority: Authority) => {
+    // Upcoming: startDate exists and is in the future
     if (!authority.startDate) return false;
     return isAfter(new Date(authority.startDate), new Date());
   };
 
-  const activeAuthorities = authorities.filter(isActive);
-  const expiredAuthorities = authorities.filter((auth) => !isActive(auth));
+  const isActive = (authority: Authority) => {
+    // Active: not upcoming, and (no endDate OR endDate is in the future)
+    if (isUpcoming(authority)) return false;
+    if (!authority.endDate) return true;
+    return isAfter(new Date(authority.endDate), new Date());
+  };
+
+  const isExpired = (authority: Authority) => {
+    // Expired: not upcoming, and endDate exists and is in the past
+    if (isUpcoming(authority)) return false;
+    if (!authority.endDate) return false;
+    return !isAfter(new Date(authority.endDate), new Date());
+  };
+
+  // Filter authorities into categories (upcoming takes precedence)
   const upcomingAuthorities = authorities.filter(isUpcoming);
+  const activeAuthorities = authorities.filter(isActive);
+  const expiredAuthorities = authorities.filter(isExpired);
 
   if (isLoading) {
     return (

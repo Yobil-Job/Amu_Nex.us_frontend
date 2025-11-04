@@ -122,22 +122,60 @@ const Profile = () => {
       // Don't show error toast, we have user context data
     }
 
+    // Try to extract authorities from profile response (for students)
+    let authoritiesFromProfile: any[] = [];
+    if (profileRes) {
+      if (profileRes.authorities && Array.isArray(profileRes.authorities)) {
+        authoritiesFromProfile = profileRes.authorities;
+        console.log('✅ Found authorities in profile response:', authoritiesFromProfile.length);
+      } else if (profileRes.student?.authorities && Array.isArray(profileRes.student.authorities)) {
+        authoritiesFromProfile = profileRes.student.authorities;
+        console.log('✅ Found authorities in profile.student:', authoritiesFromProfile.length);
+      }
+    }
+
     // Load clubs, events, authorities in parallel (non-blocking UI)
+    // For authorities: Try API endpoint first, fallback to profile authorities for students
+    const authoritiesPromise = isStudent(user?.role)
+      ? authorityApi.getByStudent(user.id)
+          .then((res) => extractCollection<any>(res))
+          .catch((error) => {
+            console.log('⚠️ Authority API failed for student (expected), using profile authorities if available');
+            return authoritiesFromProfile;
+          })
+      : authorityApi.getByStudent(user.id)
+          .then((res) => extractCollection<any>(res))
+          .catch((error) => {
+            console.log('⚠️ Authority API failed, trying profile authorities');
+            return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
+          });
+
     Promise.all([
-      studentApi.getClubs(user.id).catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-      studentApi.getEvents(user.id).catch(() => ({ _embedded: { eventList: [] } })),
-      authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityList: [] } })),
-    ]).then(([clubsRes, eventsRes, authoritiesRes]) => {
+      studentApi.getClubs(user.id).catch((error) => {
+        console.error('❌ Failed to load user clubs:', error);
+        return { _embedded: { responseClubDtoList: [] } };
+      }),
+      studentApi.getEvents(user.id).catch((error) => {
+        console.error('❌ Failed to load user events:', error);
+        return { _embedded: { eventList: [] } };
+      }),
+      authoritiesPromise,
+    ]).then(([clubsRes, eventsRes, authoritiesList]) => {
       const clubsList = extractCollection<any>(clubsRes);
       const eventsList = extractCollection<any>(eventsRes);
-      const authoritiesList = extractCollection<any>(authoritiesRes);
+
+      console.log('✅ Loaded profile data:', {
+        clubs: clubsList.length,
+        events: eventsList.length,
+        authorities: Array.isArray(authoritiesList) ? authoritiesList.length : 0,
+      });
 
       setUserClubs(clubsList);
       setUserEvents(eventsList);
-      setUserAuthorities(authoritiesList);
+      setUserAuthorities(Array.isArray(authoritiesList) ? authoritiesList : []);
       setIsLoading(false);
     }).catch((error) => {
-      console.error('Failed to load profile collections:', error);
+      console.error('❌ Failed to load profile collections:', error);
       setIsLoading(false);
     });
   };
@@ -593,12 +631,12 @@ const Profile = () => {
 
       {/* Edit Profile Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
             <DialogDescription>Update your personal information</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2 -mr-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstname">First Name</Label>
@@ -865,11 +903,24 @@ const Profile = () => {
                      </div>
                    );
                  })()}
-              </div>
-            )}
-             <Button onClick={handleUpdateProfile} className="w-full mt-4 bg-gradient-primary shadow-colored-primary">
-               Save Changes
-             </Button>
+                             </div>
+             )}
+          </div>
+          <div className="flex gap-3 pt-4 border-t mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setShowPasswordFields(false);
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateProfile} className="flex-1 bg-gradient-primary shadow-colored-primary">
+              Save Changes
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

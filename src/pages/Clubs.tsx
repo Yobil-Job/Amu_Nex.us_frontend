@@ -47,32 +47,27 @@ const Clubs = () => {
   });
 
   useEffect(() => {
-    // Load user clubs first (for students, this is the only way to see clubs)
+    // Load both in parallel - all clubs and user clubs
+    // For students, if all-clubs fails, loadUserClubs will fallback to joined clubs
     if (user?.id) {
+      loadClubs();
       loadUserClubs();
+    } else {
+      loadClubs();
     }
-    // Try to load all clubs (will work for SUPER_ADMIN/ADMIN, fail for STUDENT)
-    loadClubs();
   }, [user?.id]);
 
   const loadClubs = async () => {
-    // For STUDENT role, backend blocks access to /clubs/all-clubs
-    // We'll show a message that students can only see clubs they've joined
-    if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
-      console.log('ℹ️ Student/SUPER_USER role detected. Skipping all-clubs fetch (will show only joined clubs)');
-      // Don't set loading to false here, as loadUserClubs will handle it
-      return;
-    }
-    
     setIsLoading(true);
     try {
+      // Try to fetch all clubs - according to backend docs, this should work for all authenticated users
       const response = await clubApi.getAll();
-      console.log('📊 Clubs API Response (full):', JSON.stringify(response, null, 2)); // Debug log
+      console.log('📊 Clubs API Response (full):', JSON.stringify(response, null, 2));
       
       // Use extractCollection which handles multiple formats
       const clubsList = extractCollection<any>(response);
       
-      console.log('✅ Extracted clubs:', clubsList.length, clubsList); // Debug log
+      console.log('✅ Extracted clubs:', clubsList.length, clubsList);
       
       if (clubsList.length === 0 && response) {
         console.warn('⚠️ No clubs extracted. Response structure:', {
@@ -85,18 +80,23 @@ const Clubs = () => {
       
       setClubs(clubsList);
     } catch (error: any) {
-      console.error('❌ Error loading clubs:', error); // Debug log
+      console.error('❌ Error loading all clubs:', error);
       
-      // Show user-friendly error message
-      if (error.status === 403) {
-        toast.error('Access denied: You do not have permission to view all clubs.');
-      } else if (error.status === 401) {
-        toast.error('Authentication required. Please login again.');
+      // For students, if all-clubs fails, we'll use joined clubs (handled in loadUserClubs)
+      if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
+        console.log('⚠️ All-clubs fetch failed for student, will use joined clubs instead');
+        // Don't show error toast for students, as they have joined clubs as fallback
       } else {
-        toast.error(error.message || 'Failed to load clubs');
+        // For admins, show error
+        if (error.status === 403) {
+          toast.error('Access denied: You do not have permission to view all clubs.');
+        } else if (error.status === 401) {
+          toast.error('Authentication required. Please login again.');
+        } else {
+          toast.error(error.message || 'Failed to load clubs');
+        }
+        setClubs([]);
       }
-      
-      setClubs([]);
     } finally {
       setIsLoading(false);
     }
@@ -115,19 +115,25 @@ const Clubs = () => {
       
       setUserClubs(clubsList);
       
-      // For STUDENT/SUPER_USER, show only their joined clubs as available clubs
+      // For STUDENT/SUPER_USER, use joined clubs as available clubs if all-clubs failed
+      // Check current clubs state - if empty, set to joined clubs
       if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
-        setClubs(clubsList);
-        console.log('✅ Set clubs list to user clubs for STUDENT/SUPER_USER:', clubsList.length, 'clubs');
+        // Use setTimeout to check after state updates
+        setTimeout(() => {
+          setClubs(currentClubs => {
+            // Only update if clubs list is empty (all-clubs failed)
+            if (currentClubs.length === 0 && clubsList.length > 0) {
+              console.log('✅ Set clubs list to user clubs for STUDENT/SUPER_USER (fallback):', clubsList.length, 'clubs');
+              return clubsList;
+            }
+            return currentClubs;
+          });
+        }, 100);
       }
     } catch (error: any) {
       console.error('❌ Failed to load user clubs:', error);
       toast.error('Failed to load your clubs. Please try again.');
       setUserClubs([]);
-      // For students, set empty clubs if the request fails
-      if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
-        setClubs([]);
-      }
     } finally {
       setIsLoading(false);
     }
