@@ -15,13 +15,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Calendar, Plus, Pencil, Trash2, MapPin, Clock, Map, HelpCircle } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { canCreateEvent, canUpdateEvent } from '@/lib/roles';
+import { canCreateEvent, canUpdateEvent, isStudent } from '@/lib/roles';
 import { useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import StudentEventsView from './student/StudentEventsView';
 
 const Events = () => {
   const { user } = useAuth();
+
+  // Render student-specific events page for students
+  if (isStudent(user?.role)) {
+    return <StudentEventsView />;
+  }
   const [events, setEvents] = useState<any[]>([]);
   const [allEvents, setAllEvents] = useState<any[]>([]); // Store all events for filtering
   const [clubs, setClubs] = useState<any[]>([]);
