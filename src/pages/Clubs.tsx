@@ -17,7 +17,8 @@ import {
   canRejectRequests, 
   canViewClubMembers,
   canManageClubs,
-  canAssignClubAdmin
+  canAssignClubAdmin,
+  isStudent
 } from '@/lib/roles';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,9 +26,15 @@ import { toast } from 'sonner';
 import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus, Clock, HelpCircle, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import ClubsDiscovery from './student/ClubsDiscovery';
 
 const Clubs = () => {
   const { user } = useAuth();
+
+  // Render student-specific clubs page for students
+  if (isStudent(user?.role)) {
+    return <ClubsDiscovery />;
+  }
   const [clubs, setClubs] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [selectedClubForRequests, setSelectedClubForRequests] = useState<number | null>(null);
