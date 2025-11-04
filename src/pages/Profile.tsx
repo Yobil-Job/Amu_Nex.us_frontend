@@ -14,9 +14,12 @@ import { studentApi, clubApi, eventApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, Pencil, Building2, Calendar, Shield, Mail, Phone, MapPin, GraduationCap, Clock, HelpCircle } from 'lucide-react';
+import { User, Pencil, Building2, Calendar, Shield, Mail, Phone, MapPin, GraduationCap, Clock, HelpCircle, Lock, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import PasswordChange from '@/components/student/PasswordChange';
+import RolesView from '@/components/student/RolesView';
+import { isStudent } from '@/lib/roles';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -35,6 +38,17 @@ const Profile = () => {
     department: '',
     password: '', // Optional password field for update
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [showPasswordVisibility, setShowPasswordVisibility] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
   useEffect(() => {
     loadProfileData();
@@ -52,7 +66,7 @@ const Profile = () => {
           email: user.email || '',
           gender: user.gender || '',
           yearOfStay: user.yearOfStay || '',
-          department: user.department || '',
+          department: user.department || '', // Ensure department is properly set, not email
           password: '', // Password never pre-filled
         });
     }
@@ -98,7 +112,7 @@ const Profile = () => {
             email: profileData.email || user.email || '',
             gender: profileData.gender || user.gender || '',
             yearOfStay: profileData.yearOfStay || user.yearOfStay || '',
-            department: profileData.department || user.department || '',
+            department: profileData.department || '', // Only use department, never email
             password: '', // Password never pre-filled
           });
         }
@@ -177,8 +191,10 @@ const Profile = () => {
       await studentApi.update(user.id, updatePayload);
       toast.success('Profile updated successfully');
       setIsEditDialogOpen(false);
-      // Reset password field
+      // Reset password fields
       setFormData({ ...formData, password: '' });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowPasswordFields(false);
       loadProfileData();
       // Refresh user context if needed
       window.location.reload(); // Simple refresh to update context
@@ -282,11 +298,16 @@ const Profile = () => {
 
       {/* Profile Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${isStudent(user?.role) ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="clubs">My Clubs ({userClubs.length})</TabsTrigger>
           <TabsTrigger value="events">My Events ({userEvents.length})</TabsTrigger>
-          <TabsTrigger value="authorities">Authorities ({userAuthorities.length})</TabsTrigger>
+          <TabsTrigger value="authorities">
+            {isStudent(user?.role) ? 'My Roles' : 'Authorities'} ({userAuthorities.length})
+          </TabsTrigger>
+          {isStudent(user?.role) && (
+            <TabsTrigger value="security">Security</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Overview Tab */}
@@ -349,6 +370,23 @@ const Profile = () => {
                   <Label className="text-muted-foreground">Account Status</Label>
                   <Badge className="bg-success/10 text-success">Active</Badge>
                 </div>
+                {isStudent(user?.role) && userAuthorities.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-muted-foreground">Active Roles</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {userAuthorities
+                        .filter((auth) => {
+                          if (!auth.endDate) return true;
+                          return new Date(auth.endDate) > new Date();
+                        })
+                        .map((auth) => (
+                          <Badge key={auth.id} variant="secondary" className="text-xs">
+                            {auth.name}
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -448,56 +486,67 @@ const Profile = () => {
           )}
         </TabsContent>
 
-        {/* Authorities Tab */}
+        {/* Authorities/Roles Tab */}
         <TabsContent value="authorities" className="space-y-4">
-          {userAuthorities.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">You don't have any authority roles assigned.</p>
-              </CardContent>
-            </Card>
+          {isStudent(user?.role) ? (
+            <RolesView authorities={userAuthorities} isLoading={isLoading} />
           ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Authority Roles</CardTitle>
-                <CardDescription>Your leadership positions in clubs</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Club</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {userAuthorities.map((authority) => (
-                      <TableRow key={authority.id}>
-                        <TableCell className="font-medium">{authority.name}</TableCell>
-                        <TableCell>{authority.club?.title || 'N/A'}</TableCell>
-                        <TableCell>
-                          {authority.startDate && format(new Date(authority.startDate), 'MMM dd, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          {authority.endDate && format(new Date(authority.endDate), 'MMM dd, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {new Date(authority.endDate) > new Date() ? 'Active' : 'Expired'}
-                          </Badge>
-                        </TableCell>
+            userAuthorities.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">You don't have any authority roles assigned.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Authority Roles</CardTitle>
+                  <CardDescription>Your leadership positions in clubs</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Club</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {userAuthorities.map((authority) => (
+                        <TableRow key={authority.id}>
+                          <TableCell className="font-medium">{authority.name}</TableCell>
+                          <TableCell>{authority.club?.title || authority.club?.name || 'N/A'}</TableCell>
+                          <TableCell>
+                            {authority.startDate && format(new Date(authority.startDate), 'MMM dd, yyyy')}
+                          </TableCell>
+                          <TableCell>
+                            {authority.endDate && format(new Date(authority.endDate), 'MMM dd, yyyy')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {authority.endDate && new Date(authority.endDate) > new Date() ? 'Active' : 'Expired'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )
           )}
         </TabsContent>
+
+        {/* Security Tab (Student Only) */}
+        {isStudent(user?.role) && (
+          <TabsContent value="security" className="space-y-4">
+            <PasswordChange />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Edit Profile Dialog */}
@@ -537,6 +586,22 @@ const Profile = () => {
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
+            {isStudent(user?.role) && (
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Input
+                  id="department"
+                  value={formData.department || ''}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="e.g., Computer Science"
+                  minLength={3}
+                  maxLength={50}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {formData.department?.length || 0}/50 characters (min 3)
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="gender">Gender</Label>
@@ -568,44 +633,218 @@ const Profile = () => {
                 </Select>
               </div>
             </div>
-             <div className="space-y-2">
-               <Label htmlFor="department">Department</Label>
-               <Input
-                 id="department"
-                 value={formData.department}
-                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                 placeholder="e.g., Computer Science"
-                 minLength={3}
-                 maxLength={50}
-               />
-               <p className="text-xs text-muted-foreground">
-                 {formData.department.length}/50 characters (min 3)
-               </p>
-             </div>
-             <div className="space-y-2">
-               <div className="flex items-center gap-2">
-                 <Label htmlFor="password">Password (Optional)</Label>
-                 <Tooltip>
-                   <TooltipTrigger asChild>
-                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                   </TooltipTrigger>
-                   <TooltipContent>
-                     <p>Leave blank to keep your current password. Enter a new password (min 8 characters) to change it.</p>
-                   </TooltipContent>
-                 </Tooltip>
-               </div>
-               <Input
-                 id="password"
-                 type="password"
-                 value={formData.password}
-                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                 placeholder="Leave blank to keep current password"
-                 minLength={8}
-               />
-               <p className="text-xs text-muted-foreground">
-                 Minimum 8 characters. Leave blank to keep current password.
-               </p>
-             </div>
+            {!isStudent(user?.role) && (
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Input
+                  id="department"
+                  value={formData.department || ''}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="e.g., Computer Science"
+                  minLength={3}
+                  maxLength={50}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {formData.department?.length || 0}/50 characters (min 3)
+                </p>
+              </div>
+            )}
+            
+            {/* Password Change Section for Students */}
+            {isStudent(user?.role) && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-primary" />
+                    <Label className="text-base font-semibold">Change Password</Label>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowPasswordFields(!showPasswordFields);
+                      if (!showPasswordFields) {
+                        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                      }
+                    }}
+                  >
+                    {showPasswordFields ? 'Cancel' : 'Change Password'}
+                  </Button>
+                </div>
+                
+                {showPasswordFields && (() => {
+                  const validatePassword = (password: string) => {
+                    const minLength = password.length >= 8;
+                    const hasUpperCase = /[A-Z]/.test(password);
+                    const hasLowerCase = /[a-z]/.test(password);
+                    const hasNumber = /[0-9]/.test(password);
+                    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+                    return {
+                      minLength,
+                      hasUpperCase,
+                      hasLowerCase,
+                      hasNumber,
+                      hasSpecialChar,
+                      isValid: minLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar,
+                    };
+                  };
+                  
+                  const passwordValidation = passwordData.newPassword ? validatePassword(passwordData.newPassword) : null;
+                  
+                  return (
+                    <div className="space-y-4 bg-muted/30 p-4 rounded-lg">
+                      {/* Current Password */}
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="currentPassword"
+                            type={showPasswordVisibility.current ? 'text' : 'password'}
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                            placeholder="Enter your current password"
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPasswordVisibility({ ...showPasswordVisibility, current: !showPasswordVisibility.current })}
+                          >
+                            {showPasswordVisibility.current ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* New Password */}
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="newPassword"
+                            type={showPasswordVisibility.new ? 'text' : 'password'}
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                            placeholder="Enter your new password"
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPasswordVisibility({ ...showPasswordVisibility, new: !showPasswordVisibility.new })}
+                          >
+                            {showPasswordVisibility.new ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                        {passwordValidation && (
+                          <div className="space-y-1 mt-2 text-xs">
+                            <div className={`flex items-center gap-2 ${passwordValidation.minLength ? 'text-success' : 'text-muted-foreground'}`}>
+                              {passwordValidation.minLength ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              <span>At least 8 characters</span>
+                            </div>
+                            <div className={`flex items-center gap-2 ${passwordValidation.hasUpperCase ? 'text-success' : 'text-muted-foreground'}`}>
+                              {passwordValidation.hasUpperCase ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              <span>One uppercase letter</span>
+                            </div>
+                            <div className={`flex items-center gap-2 ${passwordValidation.hasLowerCase ? 'text-success' : 'text-muted-foreground'}`}>
+                              {passwordValidation.hasLowerCase ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              <span>One lowercase letter</span>
+                            </div>
+                            <div className={`flex items-center gap-2 ${passwordValidation.hasNumber ? 'text-success' : 'text-muted-foreground'}`}>
+                              {passwordValidation.hasNumber ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              <span>One number</span>
+                            </div>
+                            <div className={`flex items-center gap-2 ${passwordValidation.hasSpecialChar ? 'text-success' : 'text-muted-foreground'}`}>
+                              {passwordValidation.hasSpecialChar ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              <span>One special character</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="confirmPassword"
+                            type={showPasswordVisibility.confirm ? 'text' : 'password'}
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                            placeholder="Confirm your new password"
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPasswordVisibility({ ...showPasswordVisibility, confirm: !showPasswordVisibility.confirm })}
+                          >
+                            {showPasswordVisibility.confirm ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                        {passwordData.confirmPassword && (
+                          <div className="flex items-center gap-2 text-xs mt-1">
+                            {passwordData.newPassword === passwordData.confirmPassword ? (
+                              <>
+                                <CheckCircle2 className="h-3 w-3 text-success" />
+                                <span className="text-success">Passwords match</span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-3 w-3 text-destructive" />
+                                <span className="text-destructive">Passwords do not match</span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground pt-2 border-t">
+                        <p>Note: Password change is UI-only. Backend integration required for actual password update.</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
              <Button onClick={handleUpdateProfile} className="w-full mt-4 bg-gradient-primary shadow-colored-primary">
                Save Changes
              </Button>

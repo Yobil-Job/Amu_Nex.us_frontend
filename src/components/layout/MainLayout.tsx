@@ -52,14 +52,14 @@ const MainLayout = () => {
                   {/* Outer glow ring */}
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   {/* Beautiful rounded frame with gradient border */}
-                  <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 backdrop-blur-md border-2 border-primary/40 group-hover:border-primary/60 transition-all duration-300 shadow-lg shadow-primary/20 group-hover:shadow-primary/30 overflow-hidden">
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 backdrop-blur-md border-2 border-primary/40 group-hover:border-primary/60 transition-all duration-300 shadow-lg shadow-primary/20 group-hover:shadow-primary/30 overflow-hidden">
                     {/* Inner glow */}
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     {/* Logo with rounded corners */}
                     <img 
                       src={Logo} 
                       alt="AMU NEX.US" 
-                      className="relative z-10 h-8 w-8 object-contain rounded-lg p-1 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
+                      className="relative z-10 h-12 w-12 object-contain rounded-lg p-1.5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
                       style={{ filter: 'drop-shadow(0 2px 8px rgba(248, 181, 0, 0.3))' }}
                     />
                   </div>
@@ -75,14 +75,14 @@ const MainLayout = () => {
                   {/* Outer glow */}
                   <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   {/* Beautiful circular frame */}
-                  <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/40 shadow-lg shadow-primary/20 overflow-hidden">
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/40 shadow-lg shadow-primary/20 overflow-hidden">
                     {/* Inner ring */}
                     <div className="absolute inset-1 rounded-full border border-primary/30"></div>
                     {/* Logo */}
                     <img 
                       src={Logo} 
                       alt="AMU NEX.US" 
-                      className="relative z-10 h-6 w-6 object-contain rounded-md p-0.5 transition-transform duration-300 group-hover:scale-110"
+                      className="relative z-10 h-8 w-8 object-contain rounded-md p-1 transition-transform duration-300 group-hover:scale-110"
                       style={{ filter: 'drop-shadow(0 1px 4px rgba(248, 181, 0, 0.4))' }}
                     />
                   </div>

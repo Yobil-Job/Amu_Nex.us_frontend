@@ -52,7 +52,7 @@ const Register = () => {
               {/* Outer animated glow ring */}
               <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/40 via-accent/30 to-primary/40 blur-xl animate-pulse"></div>
               {/* Beautiful rounded frame with luxury styling */}
-              <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/50 shadow-2xl shadow-primary/30 overflow-hidden animate-float">
+              <div className="relative flex h-32 w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/50 shadow-2xl shadow-primary/30 overflow-hidden animate-float">
                 {/* Inner gradient ring */}
                 <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20"></div>
                 {/* Animated shimmer effect */}
@@ -61,7 +61,7 @@ const Register = () => {
                 <img 
                   src={Logo} 
                   alt="AMU NEX.US" 
-                  className="relative z-10 h-16 w-16 object-contain rounded-xl p-2 transition-transform duration-300 hover:scale-110"
+                  className="relative z-10 h-24 w-24 object-contain rounded-xl p-2 transition-transform duration-300 hover:scale-110"
                   style={{ 
                     filter: 'drop-shadow(0 4px 12px rgba(248, 181, 0, 0.4))',
                     borderRadius: '12px'
