@@ -12,8 +12,9 @@ import { feeApi, clubApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { feeSchema, type FeeFormData } from '@/lib/schemas';
 import { toast } from 'sonner';
-import { DollarSign, Plus, Search, AlertCircle } from 'lucide-react';
+import { DollarSign, Plus, Search, AlertCircle, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
@@ -173,7 +174,8 @@ const Fees = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <TooltipProvider>
+      <div className="space-y-8 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-gradient-to-br from-warning to-warning/70 shadow-md">
@@ -184,16 +186,33 @@ const Fees = () => {
             <p className="text-muted-foreground text-lg">Track and manage club membership fees</p>
           </div>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2 bg-gradient-to-r from-warning to-warning/80 shadow-md hover:shadow-lg">
-          <Plus className="h-4 w-4" />
-          Record Fee
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2 bg-gradient-to-r from-warning to-warning/80 shadow-md hover:shadow-lg">
+              <Plus className="h-4 w-4" />
+              Record Fee
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Record a new fee payment for a student</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Search Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Search Fees</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Search Fees</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Search for fees by selecting a club or student. Select one filter and click the search button.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoadingClubsStudents ? (
@@ -371,7 +390,17 @@ const Fees = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit(handleCreate)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Enter the fee amount in ETB (Ethiopian Birr)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="amount"
                 type="number"
@@ -479,6 +508,7 @@ const Fees = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 

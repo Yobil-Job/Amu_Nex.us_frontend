@@ -12,11 +12,12 @@ import { extractCollection } from '@/lib/hateoas';
 import { announcementSchema, type AnnouncementFormData } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Bell, Plus, Trash2, Pencil, AlertCircle } from 'lucide-react';
+import { Bell, Plus, Trash2, Pencil, AlertCircle, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { canManageAnnouncements, isSuperAdmin } from '@/lib/roles';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -210,7 +211,8 @@ const Announcements = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <TooltipProvider>
+      <div className="space-y-8 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-gradient-to-br from-warning to-accent shadow-md">
@@ -222,17 +224,34 @@ const Announcements = () => {
           </div>
         </div>
                   {canManageAnnouncements(user?.role) && (
-          <Button onClick={handleOpenCreateDialog} className="gap-2 bg-gradient-to-r from-warning to-accent shadow-md hover:shadow-lg">
-              <Plus className="h-4 w-4" />
-              New Announcement
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleOpenCreateDialog} className="gap-2 bg-gradient-to-r from-warning to-accent shadow-md hover:shadow-lg">
+                  <Plus className="h-4 w-4" />
+                  New Announcement
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create a new announcement for your club</p>
+              </TooltipContent>
+            </Tooltip>
           )}
       </div>
 
       {/* Filter Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Announcements</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Filter Announcements</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Filter announcements by club to see specific club updates</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -485,7 +504,8 @@ const Announcements = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

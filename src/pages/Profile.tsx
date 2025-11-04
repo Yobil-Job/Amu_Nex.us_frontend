@@ -14,8 +14,9 @@ import { studentApi, clubApi, eventApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, Pencil, Building2, Calendar, Shield, Mail, Phone, MapPin, GraduationCap, Clock } from 'lucide-react';
+import { User, Pencil, Building2, Calendar, Shield, Mail, Phone, MapPin, GraduationCap, Clock, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -222,7 +223,8 @@ const Profile = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <TooltipProvider>
+      <div className="space-y-8 animate-fade-in">
       {/* Profile Header */}
       <Card className="border-primary/20 shadow-lg">
         <CardContent className="p-8">
@@ -289,7 +291,7 @@ const Profile = () => {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -352,7 +354,7 @@ const Profile = () => {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
             <Card className="border-primary/20">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -399,7 +401,7 @@ const Profile = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {userClubs.map((club) => (
                 <Card key={club.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
@@ -581,7 +583,17 @@ const Profile = () => {
                </p>
              </div>
              <div className="space-y-2">
-               <Label htmlFor="password">Password (Optional)</Label>
+               <div className="flex items-center gap-2">
+                 <Label htmlFor="password">Password (Optional)</Label>
+                 <Tooltip>
+                   <TooltipTrigger asChild>
+                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                   </TooltipTrigger>
+                   <TooltipContent>
+                     <p>Leave blank to keep your current password. Enter a new password (min 8 characters) to change it.</p>
+                   </TooltipContent>
+                 </Tooltip>
+               </div>
                <Input
                  id="password"
                  type="password"
@@ -600,7 +612,8 @@ const Profile = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

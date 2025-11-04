@@ -10,10 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
-import { Pencil, Trash2, Eye, Plus, Users, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, Eye, Plus, Users, Search, X, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
 import { canViewAllStudents } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Students = () => {
   const { user } = useAuth();
@@ -148,28 +149,39 @@ const Students = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-primary shadow-colored-primary">
-            <Users className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Students</h1>
-            <p className="text-muted-foreground text-lg">Manage student information and enrollments</p>
+    <TooltipProvider>
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-gradient-primary shadow-colored-primary">
+              <Users className="h-7 w-7 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">Students</h1>
+              <p className="text-muted-foreground text-lg">Manage student information and enrollments</p>
+            </div>
           </div>
         </div>
-      </div>
 
-              <Card className="border-primary/10 shadow-lg">
+        <Card className="border-primary/10 shadow-lg">
           <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-transparent">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-gradient-primary animate-pulse"></div>
-                All Students ({filteredStudents.length}{searchQuery ? ` (filtered from ${allStudents.length})` : ''})
-              </CardTitle>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-gradient-primary animate-pulse"></div>
+                  All Students ({filteredStudents.length}{searchQuery ? ` (filtered from ${allStudents.length})` : ''})
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Search and filter students by name, email, or department</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               {/* Search Bar */}
-              <div className="relative w-full max-w-md">
+              <div className="relative w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
@@ -179,14 +191,21 @@ const Students = () => {
                   className="pl-10 pr-10"
                 />
                 {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Clear search</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -375,7 +394,8 @@ const Students = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 

@@ -13,11 +13,12 @@ import { eventApi, clubApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Calendar, Plus, Pencil, Trash2, MapPin, Clock, Map } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, MapPin, Clock, Map, HelpCircle } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { canCreateEvent, canUpdateEvent } from '@/lib/roles';
 import { useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Events = () => {
   const { user } = useAuth();
@@ -349,35 +350,53 @@ const Events = () => {
 
   return (
     <ErrorBoundary>
-      <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-success">
-            <Calendar className="h-7 w-7 text-success-foreground" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-success bg-clip-text text-transparent">Events</h1>
-            <p className="text-muted-foreground text-lg">Manage club events and activities</p>
-          </div>
-        </div>
-        {canCreateEvent(user?.role) && (
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2 bg-gradient-success shadow-md hover:shadow-lg">
-            <Plus className="h-4 w-4" />
-            Create Event
-          </Button>
-        )}
+      <TooltipProvider>
+        <div className="space-y-8 animate-fade-in">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-success">
+                <Calendar className="h-7 w-7 text-success-foreground" />
               </div>
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight bg-gradient-success bg-clip-text text-transparent">Events</h1>
+                <p className="text-muted-foreground text-lg">Manage club events and activities</p>
+              </div>
+            </div>
+            {canCreateEvent(user?.role) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2 bg-gradient-success shadow-md hover:shadow-lg">
+                    <Plus className="h-4 w-4" />
+                    Create Event
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create a new event for your club</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
 
         {/* Filter Section */}
         <Card className="border-success/20">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filter Events
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filter Events
+              </CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Filter events by club or date range to find specific events</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
               {/* Club Filter */}
               <div className="space-y-2">
                 <Label htmlFor="filter-club">Filter by Club</Label>
@@ -969,7 +988,8 @@ const Events = () => {
           )}
         </DialogContent>
       </Dialog>
-      </div>
+        </div>
+      </TooltipProvider>
     </ErrorBoundary>
   );
 };

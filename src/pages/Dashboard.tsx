@@ -272,7 +272,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -314,7 +314,7 @@ const Dashboard = () => {
           <CardDescription>Frequently used actions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
@@ -340,7 +340,7 @@ const Dashboard = () => {
       </Card>
 
       {/* Charts Row */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Events Over Time Chart */}
         <Card className="border-primary/10">
           <CardHeader>
@@ -403,7 +403,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activities */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Recent Events */}
         <Card className="border-primary/10">
           <CardHeader>

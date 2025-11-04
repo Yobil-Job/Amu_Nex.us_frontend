@@ -22,8 +22,9 @@ import {
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus, Clock } from 'lucide-react';
+import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus, Clock, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Clubs = () => {
   const { user } = useAuth();
@@ -300,24 +301,32 @@ const Clubs = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-accent shadow-colored-accent">
-            <Building2 className="h-7 w-7 text-accent-foreground" />
+    <TooltipProvider>
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-gradient-accent shadow-colored-accent">
+              <Building2 className="h-7 w-7 text-accent-foreground" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight bg-gradient-accent bg-clip-text text-transparent">Clubs</h1>
+              <p className="text-muted-foreground text-lg">Manage university clubs and memberships</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-accent bg-clip-text text-transparent">Clubs</h1>
-            <p className="text-muted-foreground text-lg">Manage university clubs and memberships</p>
-          </div>
+          {canCreateClub(user?.role) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={() => setIsCreateDialogOpen(true)} variant="accent" className="gap-2 shadow-colored-accent">
+                  <Plus className="h-4 w-4" />
+                  Create Club
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create a new club for your university</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
-        {canCreateClub(user?.role) && (
-          <Button onClick={() => setIsCreateDialogOpen(true)} variant="accent" className="gap-2 shadow-colored-accent">
-            <Plus className="h-4 w-4" />
-            Create Club
-          </Button>
-        )}
-      </div>
 
       {isLoading ? (
         <div className="text-center py-12">
@@ -334,7 +343,7 @@ const Clubs = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {clubs.map((club, index) => (
             <Card key={club.id} className="card-hover border-accent/10 animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
               <CardHeader>
@@ -376,50 +385,74 @@ const Clubs = () => {
                     </Badge>
                   )}
                   {canViewClubMembers(user?.role) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openMembersDialog(club)}
-                      className="hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
-                      title="View Members"
-                    >
-                      <Users className="h-4 w-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openMembersDialog(club)}
+                          className="hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>View club members</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {(canManageClubs(user?.role) || hasAuthorityInClub(club.id)) && (
                     <>
                       {canApproveRequests(user?.role) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openRequestsDialog(club)}
-                          className="hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-all"
-                          title="Pending Requests"
-                        >
-                          <Clock className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openRequestsDialog(club)}
+                              className="hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-all"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View and manage pending join requests</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {canManageClubs(user?.role) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(club)}
-                          className="hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all"
-                          title="Edit Club"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(club)}
+                              className="hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit club information</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {canDeleteClub(user?.role) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(club.id)}
-                          className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all"
-                          title="Delete Club"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(club.id)}
+                              className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete club permanently</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </>
                   )}
@@ -447,7 +480,17 @@ const Clubs = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="club_Type">Club Type</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="club_Type">Club Type</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Select the category that best describes your club</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Select value={formData.club_Type} onValueChange={(value) => setFormData({ ...formData, club_Type: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -651,6 +694,7 @@ const Clubs = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
