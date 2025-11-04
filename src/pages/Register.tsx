@@ -48,12 +48,26 @@ const Register = () => {
       <Card className="w-full max-w-xl relative animate-scale-in shadow-lg hover:shadow-xl border-primary/10">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-primary/10 backdrop-blur-sm border border-primary/20 shadow-colored-primary animate-fade-in">
-              <img 
-                src={Logo} 
-                alt="AMU NEX.US" 
-                className="h-14 w-auto object-contain"
-              />
+            <div className="relative flex items-center justify-center animate-fade-in">
+              {/* Outer animated glow ring */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/40 via-accent/30 to-primary/40 blur-xl animate-pulse"></div>
+              {/* Beautiful rounded frame with luxury styling */}
+              <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/50 shadow-2xl shadow-primary/30 overflow-hidden animate-float">
+                {/* Inner gradient ring */}
+                <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20"></div>
+                {/* Animated shimmer effect */}
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+                {/* Logo with rounded corners and premium styling */}
+                <img 
+                  src={Logo} 
+                  alt="AMU NEX.US" 
+                  className="relative z-10 h-16 w-16 object-contain rounded-xl p-2 transition-transform duration-300 hover:scale-110"
+                  style={{ 
+                    filter: 'drop-shadow(0 4px 12px rgba(248, 181, 0, 0.4))',
+                    borderRadius: '12px'
+                  }}
+                />
+              </div>
             </div>
           </div>
           <div className="space-y-2">

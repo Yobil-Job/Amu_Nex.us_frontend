@@ -46,28 +46,46 @@ const MainLayout = () => {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity group">
-              {/* Desktop Logo - Full Branding */}
+              {/* Desktop Logo - Full Branding with Beautiful Rounded Frame */}
               <div className="hidden sm:flex items-center gap-3">
                 <div className="relative flex items-center justify-center">
-                  <img 
-                    src={Logo} 
-                    alt="AMU NEX.US" 
-                    className="h-8 w-auto object-contain transition-all duration-300 group-hover:opacity-90 group-hover:scale-105"
-                  />
+                  {/* Outer glow ring */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  {/* Beautiful rounded frame with gradient border */}
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 backdrop-blur-md border-2 border-primary/40 group-hover:border-primary/60 transition-all duration-300 shadow-lg shadow-primary/20 group-hover:shadow-primary/30 overflow-hidden">
+                    {/* Inner glow */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    {/* Logo with rounded corners */}
+                    <img 
+                      src={Logo} 
+                      alt="AMU NEX.US" 
+                      className="relative z-10 h-8 w-8 object-contain rounded-lg p-1 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
+                      style={{ filter: 'drop-shadow(0 2px 8px rgba(248, 181, 0, 0.3))' }}
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col">
                   <h1 className="text-xl font-bold neon-text text-white leading-tight">AMU NEX.US</h1>
                   <p className="text-xs text-muted-foreground font-medium leading-tight">Management System</p>
                 </div>
               </div>
-              {/* Mobile Logo - Compact with Round Icon */}
+              {/* Mobile Logo - Compact with Beautiful Round Frame */}
               <div className="flex sm:hidden items-center gap-2">
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary/20 backdrop-blur-sm border border-primary/30 overflow-hidden">
-                  <img 
-                    src={Logo} 
-                    alt="AMU NEX.US" 
-                    className="h-5 w-5 object-contain"
-                  />
+                <div className="relative flex items-center justify-center">
+                  {/* Outer glow */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  {/* Beautiful circular frame */}
+                  <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 via-accent/10 to-primary/15 backdrop-blur-md border-2 border-primary/40 shadow-lg shadow-primary/20 overflow-hidden">
+                    {/* Inner ring */}
+                    <div className="absolute inset-1 rounded-full border border-primary/30"></div>
+                    {/* Logo */}
+                    <img 
+                      src={Logo} 
+                      alt="AMU NEX.US" 
+                      className="relative z-10 h-6 w-6 object-contain rounded-md p-0.5 transition-transform duration-300 group-hover:scale-110"
+                      style={{ filter: 'drop-shadow(0 1px 4px rgba(248, 181, 0, 0.4))' }}
+                    />
+                  </div>
                 </div>
                 <span className="text-base font-bold neon-text text-white">AMU NEX.US</span>
               </div>
