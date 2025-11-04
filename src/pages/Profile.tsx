@@ -142,6 +142,22 @@ const Profile = () => {
     });
   };
 
+  const validatePassword = (password: string) => {
+    const minLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    return {
+      minLength,
+      hasUpperCase,
+      hasLowerCase,
+      hasNumber,
+      hasSpecialChar,
+      isValid: minLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar,
+    };
+  };
+
   const handleUpdateProfile = async () => {
     if (!user?.id) return;
 
@@ -161,9 +177,33 @@ const Profile = () => {
       return;
     }
 
-    if (formData.password && formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters long');
-      return;
+    // Validate password change if password fields are shown
+    if (showPasswordFields && isStudent(user?.role)) {
+      if (!passwordData.currentPassword) {
+        toast.error('Please enter your current password');
+        return;
+      }
+
+      if (!passwordData.newPassword) {
+        toast.error('Please enter a new password');
+        return;
+      }
+
+      const passwordValidation = validatePassword(passwordData.newPassword);
+      if (!passwordValidation.isValid) {
+        toast.error('New password does not meet requirements. Please check all validation rules.');
+        return;
+      }
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return;
+      }
+
+      if (passwordData.currentPassword === passwordData.newPassword) {
+        toast.error('New password must be different from current password');
+        return;
+      }
     }
 
     try {
@@ -184,8 +224,10 @@ const Profile = () => {
       if (formData.yearOfStay) {
         updatePayload.yearOfStay = formData.yearOfStay;
       }
-      if (formData.password && formData.password.length >= 8) {
-        updatePayload.password = formData.password;
+
+      // Include new password if password change is being performed
+      if (showPasswordFields && isStudent(user?.role) && passwordData.newPassword) {
+        updatePayload.password = passwordData.newPassword;
       }
 
       await studentApi.update(user.id, updatePayload);
@@ -674,22 +716,6 @@ const Profile = () => {
                 </div>
                 
                 {showPasswordFields && (() => {
-                  const validatePassword = (password: string) => {
-                    const minLength = password.length >= 8;
-                    const hasUpperCase = /[A-Z]/.test(password);
-                    const hasLowerCase = /[a-z]/.test(password);
-                    const hasNumber = /[0-9]/.test(password);
-                    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-                    return {
-                      minLength,
-                      hasUpperCase,
-                      hasLowerCase,
-                      hasNumber,
-                      hasSpecialChar,
-                      isValid: minLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar,
-                    };
-                  };
-                  
                   const passwordValidation = passwordData.newPassword ? validatePassword(passwordData.newPassword) : null;
                   
                   return (
@@ -834,15 +860,11 @@ const Profile = () => {
                               </>
                             )}
                           </div>
-                        )}
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground pt-2 border-t">
-                        <p>Note: Password change is UI-only. Backend integration required for actual password update.</p>
-                      </div>
-                    </div>
-                  );
-                })()}
+                                                 )}
+                       </div>
+                     </div>
+                   );
+                 })()}
               </div>
             )}
              <Button onClick={handleUpdateProfile} className="w-full mt-4 bg-gradient-primary shadow-colored-primary">
