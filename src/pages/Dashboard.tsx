@@ -164,7 +164,7 @@ const Dashboard = () => {
       .slice(0, 5);
   }, [recentEvents]);
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const COLORS = ['#6a4c93', '#f8b500', '#c06c84', '#ff6b6b', '#4ecdc4'];
 
   const statCards = [
     {
@@ -259,10 +259,10 @@ const Dashboard = () => {
   ].filter(action => action.visible);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in min-h-screen pb-8">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold tracking-tight neon-text text-white">
             Dashboard
           </h1>
           <p className="text-muted-foreground text-lg">
@@ -270,6 +270,7 @@ const Dashboard = () => {
           </p>
         </div>
       </div>
+      <div className="luxury-divider"></div>
 
       {/* Stats Cards */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -278,14 +279,14 @@ const Dashboard = () => {
           return (
             <Link key={stat.title} to={stat.link || '#'} className="block">
               <Card 
-                className="card-hover border-primary/10 animate-slide-up h-full"
+                className="glass-card stat-card border-primary/20 animate-slide-up h-full glow-effect"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                   <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                     {stat.title}
                   </CardTitle>
-                  <div className={`p-3 rounded-xl ${stat.bgColor} shadow-sm`}>
+                  <div className={`p-3 rounded-xl ${stat.bgColor} shadow-sm animate-float`} style={{ animationDelay: `${index * 200}ms` }}>
                     <Icon className={`h-5 w-5 ${stat.color}`} />
                   </div>
                 </CardHeader>
@@ -294,7 +295,7 @@ const Dashboard = () => {
                     {stats.isLoading || (userStats.isLoading && stat.title.includes('My')) ? (
                       <span className="animate-pulse">...</span>
                     ) : (
-                      <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      <span className="neon-text text-white">
                         {stat.value}
                       </span>
                     )}
@@ -308,10 +309,10 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <Card className="border-primary/10">
+      <Card className="glass-card border-primary/20">
         <CardHeader>
-          <CardTitle className="text-xl">Quick Actions</CardTitle>
-          <CardDescription>Frequently used actions</CardDescription>
+          <CardTitle className="text-xl neon-text text-white">Quick Actions</CardTitle>
+          <CardDescription className="text-muted-foreground">Frequently used actions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -321,15 +322,15 @@ const Dashboard = () => {
                 <Button
                   key={action.title}
                   variant="outline"
-                  className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-primary/5 transition-all"
+                  className="glass-card h-auto p-4 flex flex-col items-start gap-2 hover:bg-primary/10 transition-all hover:scale-105 border-primary/20 hover:border-primary/40"
                   onClick={action.action}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <div className={`p-2 rounded-lg ${action.bgColor}`}>
+                  <div className={`p-2 rounded-lg ${action.bgColor} animate-float`} style={{ animationDelay: `${index * 150}ms` }}>
                     <Icon className={`h-5 w-5 ${action.color}`} />
                   </div>
                   <div className="text-left">
-                    <div className="font-semibold">{action.title}</div>
+                    <div className="font-semibold text-white">{action.title}</div>
                     <div className="text-xs text-muted-foreground">{action.description}</div>
                   </div>
                 </Button>
@@ -342,20 +343,27 @@ const Dashboard = () => {
       {/* Charts Row */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Events Over Time Chart */}
-        <Card className="border-primary/10">
+        <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
-            <CardTitle className="text-xl">Events Over Time</CardTitle>
-            <CardDescription>Events scheduled in the last 7 days</CardDescription>
+            <CardTitle className="text-xl neon-text text-white">Events Over Time</CardTitle>
+            <CardDescription className="text-muted-foreground">Events scheduled in the last 7 days</CardDescription>
           </CardHeader>
           <CardContent>
             {eventsChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={eventsChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                  <XAxis dataKey="date" stroke="rgba(255, 255, 255, 0.7)" />
+                  <YAxis stroke="rgba(255, 255, 255, 0.7)" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(26, 11, 46, 0.95)', 
+                      border: '1px solid rgba(248, 181, 0, 0.3)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }} 
+                  />
+                  <Bar dataKey="count" fill="#f8b500" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -367,10 +375,10 @@ const Dashboard = () => {
         </Card>
 
         {/* Clubs Distribution Chart */}
-        <Card className="border-primary/10">
+        <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
-            <CardTitle className="text-xl">Events by Club</CardTitle>
-            <CardDescription>Top clubs by event count</CardDescription>
+            <CardTitle className="text-xl neon-text text-white">Events by Club</CardTitle>
+            <CardDescription className="text-muted-foreground">Top clubs by event count</CardDescription>
           </CardHeader>
           <CardContent>
             {clubsDistributionData.length > 0 ? (
@@ -383,14 +391,21 @@ const Dashboard = () => {
                     labelLine={false}
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     outerRadius={100}
-                    fill="#8884d8"
+                    fill="#f8b500"
                     dataKey="value"
                   >
                     {clubsDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'rgba(26, 11, 46, 0.95)', 
+                      border: '1px solid rgba(248, 181, 0, 0.3)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }} 
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -405,26 +420,27 @@ const Dashboard = () => {
       {/* Recent Activities */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Recent Events */}
-        <Card className="border-primary/10">
+        <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+            <CardTitle className="text-xl flex items-center gap-2 neon-text text-white">
+              <Clock className="h-5 w-5 animate-float" />
               Recent Events
             </CardTitle>
-            <CardDescription>Latest scheduled events</CardDescription>
+            <CardDescription className="text-muted-foreground">Latest scheduled events</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
             {recentEvents.length > 0 ? (
               <div className="space-y-3">
                 {recentEvents.map((event: any, index: number) => (
                   <div
                     key={event.id || index}
-                    className="p-3 rounded-lg border border-border/50 hover:bg-primary/5 transition-all cursor-pointer"
+                    className="glass-card p-3 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.02]"
                     onClick={() => navigate('/events')}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <div className="font-semibold text-sm">{event.title || 'Untitled Event'}</div>
+                        <div className="font-semibold text-sm text-white">{event.title || 'Untitled Event'}</div>
                         <div className="text-xs text-muted-foreground mt-1">
                           {event.startAt ? format(parseISO(event.startAt), 'MMM dd, yyyy HH:mm') : 'No date'}
                         </div>
@@ -438,7 +454,7 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50 animate-float" />
                 <p>No recent events</p>
               </div>
             )}
@@ -446,26 +462,27 @@ const Dashboard = () => {
         </Card>
 
         {/* Recent Announcements */}
-        <Card className="border-primary/10">
+        <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Activity className="h-5 w-5" />
+            <CardTitle className="text-xl flex items-center gap-2 neon-text text-white">
+              <Activity className="h-5 w-5 animate-float" />
               Recent Announcements
             </CardTitle>
-            <CardDescription>Latest club announcements</CardDescription>
+            <CardDescription className="text-muted-foreground">Latest club announcements</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
             {recentAnnouncements.length > 0 ? (
               <div className="space-y-3">
                 {recentAnnouncements.map((announcement: any, index: number) => (
                   <div
                     key={announcement.id || index}
-                    className="p-3 rounded-lg border border-border/50 hover:bg-primary/5 transition-all cursor-pointer"
+                    className="glass-card p-3 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.02]"
                     onClick={() => navigate('/announcements')}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <div className="font-semibold text-sm">{announcement.title || 'Untitled Announcement'}</div>
+                        <div className="font-semibold text-sm text-white">{announcement.title || 'Untitled Announcement'}</div>
                         <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
                           {announcement.description || 'No description'}
                         </div>
@@ -479,7 +496,7 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Activity className="h-12 w-12 mx-auto mb-2 opacity-50 animate-float" />
                 <p>No recent announcements</p>
               </div>
             )}

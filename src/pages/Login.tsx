@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { Building2 } from 'lucide-react';
+import Logo from '/logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -36,12 +37,16 @@ const Login = () => {
       <Card className="w-full max-w-md relative animate-scale-in shadow-lg hover:shadow-xl border-primary/10">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="flex justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-primary shadow-colored-primary animate-fade-in">
-              <Building2 className="h-11 w-11 text-primary-foreground" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-primary/10 backdrop-blur-sm border border-primary/20 shadow-colored-primary animate-fade-in">
+              <img 
+                src={Logo} 
+                alt="AMU NEX.US" 
+                className="h-14 w-auto object-contain"
+              />
             </div>
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">Welcome to UniClub</CardTitle>
+            <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">Welcome to AMU NEX.US</CardTitle>
             <CardDescription className="text-base">Login to manage your university clubs</CardDescription>
           </div>
         </CardHeader>

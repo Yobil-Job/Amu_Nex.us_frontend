@@ -13,6 +13,7 @@ import {
   getRoleBadgeColor
 } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
+import Logo from '/logo.png';
 
 const MainLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -41,18 +42,36 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
+      <header className="sticky top-0 z-40 glass-card border-b border-primary/20 shadow-lg">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary shadow-colored-primary">
-                <Building2 className="h-7 w-7 text-primary-foreground" />
+            <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity group">
+              {/* Desktop Logo - Full Branding */}
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="relative flex items-center justify-center">
+                  <img 
+                    src={Logo} 
+                    alt="AMU NEX.US" 
+                    className="h-8 w-auto object-contain transition-all duration-300 group-hover:opacity-90 group-hover:scale-105"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-xl font-bold neon-text text-white leading-tight">AMU NEX.US</h1>
+                  <p className="text-xs text-muted-foreground font-medium leading-tight">Management System</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">UniClub</h1>
-                <p className="text-xs text-muted-foreground font-medium">Management System</p>
+              {/* Mobile Logo - Compact with Round Icon */}
+              <div className="flex sm:hidden items-center gap-2">
+                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary/20 backdrop-blur-sm border border-primary/30 overflow-hidden">
+                  <img 
+                    src={Logo} 
+                    alt="AMU NEX.US" 
+                    className="h-5 w-5 object-contain"
+                  />
+                </div>
+                <span className="text-base font-bold neon-text text-white">AMU NEX.US</span>
               </div>
-            </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
@@ -63,7 +82,11 @@ const MainLayout = () => {
                     <Button
                       variant={isActive(item.href) ? 'default' : 'ghost'}
                       size="sm"
-                      className={`gap-2 transition-all ${isActive(item.href) ? 'shadow-md' : ''}`}
+                      className={`gap-2 transition-all ${
+                        isActive(item.href) 
+                          ? 'purple-gold-gradient text-white shadow-colored-primary hover:scale-105' 
+                          : 'glass-card border-primary/20 hover:bg-primary/10 text-white'
+                      }`}
                     >
                       <Icon className="h-4 w-4" />
                       <span className="font-medium">{item.name}</span>
@@ -149,7 +172,7 @@ const MainLayout = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6 min-h-[calc(100vh-80px)]">
         <Outlet />
       </main>
     </div>

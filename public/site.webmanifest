@@ -1,0 +1,32 @@
+{
+  "name": "AMU NEX.US - University Club Management System",
+  "short_name": "AMU NEX.US",
+  "description": "Professional University Club Management System",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#6a4c93",
+  "background_color": "#1a0b2e",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/"
+}
+

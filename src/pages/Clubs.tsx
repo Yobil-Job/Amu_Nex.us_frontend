@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus, Clock, HelpCircle } from 'lucide-react';
+import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus, Clock, HelpCircle, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -300,16 +300,27 @@ const Clubs = () => {
     return colors[type] || 'bg-muted text-muted-foreground';
   };
 
+  // Client-side statistics (computed from loaded data)
+  const clubStats = useMemo(() => {
+    const totalMembers = clubs.reduce((sum, club) => sum + (club.memberCount || 0), 0);
+    const clubsByType = clubs.reduce((acc, club) => {
+      const type = club.club_Type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return { totalMembers, clubsByType, totalClubs: clubs.length };
+  }, [clubs]);
+
   return (
     <TooltipProvider>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in min-h-screen pb-8">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-accent shadow-colored-accent">
-              <Building2 className="h-7 w-7 text-accent-foreground" />
+            <div className="p-3 rounded-xl purple-gold-gradient shadow-colored-primary animate-float">
+              <Building2 className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold tracking-tight bg-gradient-accent bg-clip-text text-transparent">Clubs</h1>
+              <h1 className="text-4xl font-bold tracking-tight neon-text text-white">Clubs</h1>
               <p className="text-muted-foreground text-lg">Manage university clubs and memberships</p>
             </div>
           </div>
@@ -325,8 +336,49 @@ const Clubs = () => {
                 <p>Create a new club for your university</p>
               </TooltipContent>
             </Tooltip>
-          )}
+        )}
+      </div>
+
+      {/* Client-side Statistics */}
+      {!isLoading && clubs.length > 0 && (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <Card className="glass-card stat-card border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Clubs</p>
+                  <p className="text-3xl font-bold neon-text text-white">{clubStats.totalClubs}</p>
+                </div>
+                <Building2 className="h-8 w-8 text-primary/50 animate-float" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card stat-card border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Members</p>
+                  <p className="text-3xl font-bold neon-text text-white">{clubStats.totalMembers}</p>
+                </div>
+                <Users className="h-8 w-8 text-primary/50 animate-float" style={{ animationDelay: '200ms' }} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card stat-card border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Avg Members/Club</p>
+                  <p className="text-3xl font-bold neon-text text-white">
+                    {clubStats.totalClubs > 0 ? Math.round(clubStats.totalMembers / clubStats.totalClubs) : 0}
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-primary/50 animate-float" style={{ animationDelay: '400ms' }} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
+      )}
 
       {isLoading ? (
         <div className="text-center py-12">
@@ -345,25 +397,25 @@ const Clubs = () => {
       ) : (
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {clubs.map((club, index) => (
-            <Card key={club.id} className="card-hover border-accent/10 animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
+            <Card key={club.id} className="glass-card glow-effect border-primary/20 animate-slide-up hover:scale-105 transition-all" style={{ animationDelay: `${index * 50}ms` }}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg mb-1">{club.title}</CardTitle>
-                    <Badge className={getClubTypeColor(club.club_Type)}>
+                    <CardTitle className="text-lg mb-1 neon-text text-white">{club.title}</CardTitle>
+                    <Badge className={`${getClubTypeColor(club.club_Type)} border-primary/20`}>
                       {club.club_Type}
                     </Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground line-clamp-2">
+                <p className="text-sm text-muted-foreground line-clamp-3">
                   {club.description}
                 </p>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    <span>{club.memberCount || 0} members</span>
+                    <Users className="h-4 w-4 animate-float" style={{ animationDelay: `${index * 100}ms` }} />
+                    <span className="text-white">{club.memberCount || 0} members</span>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2 border-t">
