@@ -19,9 +19,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StudentAnnouncements from './student/Announcements';
+import AdminAnnouncements from './admin/Announcements';
 
 const Announcements = () => {
   const { user } = useAuth();
+
+  // Route SUPER_ADMIN to admin version
+  if (isSuperAdmin(user?.role)) {
+    return <AdminAnnouncements />;
+  }
 
   // Render student-specific announcements page for students
   if (isStudent(user?.role)) {
