@@ -1,15 +1,17 @@
-import { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Users, Building2, Calendar, 
   DollarSign, Bell, Shield, Home, LogOut, UserCircle,
   Settings, Activity, UserCheck, ChevronDown
 } from 'lucide-react';
+import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   getRoleDisplayName,
-  getRoleBadgeColor
+  getRoleBadgeColor,
+  isSuperAdmin
 } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,7 +28,74 @@ import Footer from './Footer';
 const MainLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout, user } = useAuth();
+  
+  // Notifications state (only for SUPER_ADMIN)
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const STORAGE_KEY = 'admin_notifications';
+
+  // Load notifications for SUPER_ADMIN
+  useEffect(() => {
+    if (isSuperAdmin(user?.role)) {
+      loadNotifications();
+      // Refresh notifications every 30 seconds
+      const interval = setInterval(loadNotifications, 30000);
+      
+      // Listen for notifications update events from other components
+      const handleNotificationsUpdate = (event: CustomEvent) => {
+        setNotifications(event.detail);
+      };
+      window.addEventListener('notificationsUpdated', handleNotificationsUpdate as EventListener);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('notificationsUpdated', handleNotificationsUpdate as EventListener);
+      };
+    }
+  }, [user?.role]);
+
+  const loadNotifications = async () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const savedNotifications: Notification[] = JSON.parse(saved);
+        setNotifications(savedNotifications);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (notification.link) {
+      navigate(notification.link);
+    }
+  };
+
+  const handleViewAllNotifications = () => {
+    navigate('/notifications');
+  };
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
 
   // Define main navigation items (always visible for relevant roles)
   const mainNavigationItems = [
@@ -175,6 +244,18 @@ const MainLayout = () => {
 
             <div className="flex items-center gap-2">
               <div className="hidden md:flex items-center gap-2">
+                {/* Notification Center (SUPER_ADMIN only) */}
+                {isSuperAdmin(user?.role) && (
+                  <NotificationCenter
+                    notifications={notifications}
+                    unreadCount={unreadCount}
+                    onMarkAsRead={handleMarkAsRead}
+                    onMarkAllAsRead={handleMarkAllAsRead}
+                    onNotificationClick={handleNotificationClick}
+                    onViewAll={handleViewAllNotifications}
+                  />
+                )}
+                
                 {user?.role && (
                   <Badge className={getRoleBadgeColor(user.role)} variant="secondary">
                     {getRoleDisplayName(user.role)}
