@@ -11,13 +11,19 @@ import { studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { Pencil, Trash2, Eye, Plus, Users, Search, X, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
-import { canViewAllStudents } from '@/lib/roles';
+import { canViewAllStudents, isSuperAdmin } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import AdminStudents from './admin/Students';
 
 const Students = () => {
   const { user } = useAuth();
+
+  // Route SUPER_ADMIN to admin version
+  if (isSuperAdmin(user?.role)) {
+    return <AdminStudents />;
+  }
   const [students, setStudents] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]); // Store all students for filtering
   const [isLoading, setIsLoading] = useState(true);
