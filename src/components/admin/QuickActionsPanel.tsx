@@ -69,27 +69,27 @@ const QuickActionsPanel = ({ pendingRequestsCount = 0 }: QuickActionsPanelProps)
               <Button
                 key={action.title}
                 variant="outline"
-                className={`glass-card h-auto p-4 flex flex-col items-start transition-all hover:scale-105 border-primary/20 ${action.hoverColor} relative`}
+                className={`glass-card h-auto p-4 flex flex-col items-start transition-all hover:scale-105 border-primary/20 ${action.hoverColor} relative min-h-[140px]`}
                 onClick={action.action}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className={`p-3 rounded-lg ${action.bgColor} animate-float flex-shrink-0 mb-3`} style={{ animationDelay: `${index * 150}ms` }}>
                   <Icon className={`h-5 w-5 ${action.color}`} />
                 </div>
-                <div className="text-left w-full flex-1 min-w-0 pr-6">
-                  <div className="font-semibold text-white mb-1.5 leading-tight">
+                <div className="text-left w-full flex-1 min-w-0 pr-8 pb-6">
+                  <div className="font-semibold text-white mb-1.5 leading-tight line-clamp-2">
                     {action.title}
                   </div>
-                  <div className="text-xs text-muted-foreground leading-relaxed">
+                  <div className="text-xs text-muted-foreground leading-relaxed line-clamp-2 break-words">
                     {action.description}
                   </div>
                 </div>
                 {action.badge !== undefined && action.badge > 0 && (
-                  <span className="absolute top-4 right-4 text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full">
+                  <span className="absolute top-3 right-3 text-xs bg-warning/20 text-warning px-2 py-0.5 rounded-full z-10">
                     {action.badge}
                   </span>
                 )}
-                <ArrowRight className="h-4 w-4 text-muted-foreground absolute bottom-4 right-4" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground absolute bottom-3 right-3 flex-shrink-0" />
               </Button>
             );
           })}
