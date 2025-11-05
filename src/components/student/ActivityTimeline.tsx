@@ -36,29 +36,28 @@ const ActivityTimeline = ({ userId, isLoading }: ActivityTimelineProps) => {
       if (stored) {
         const activitiesList: any[] = JSON.parse(stored);
         // Clean up activities - remove icon/color if present and ensure valid structure
+        // Also replace any old "Guildmate Nexus" references with "AMU NEX.US"
         const cleanedActivities: ActivityItem[] = activitiesList
           .filter((a) => a && a.id && a.type && a.title && a.timestamp)
           .map(({ id, type, title, description, timestamp }) => ({
             id,
             type,
-            title,
-            description: description || '',
+            title: (title || '').replace(/Guildmate Nexus/gi, 'AMU NEX.US'),
+            description: (description || '').replace(/Guildmate Nexus/gi, 'AMU NEX.US'),
             timestamp,
           }))
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .slice(0, 10);
         setActivities(cleanedActivities);
-        // Save cleaned version back if it was different
-        if (cleanedActivities.length !== activitiesList.length) {
-          saveActivities(cleanedActivities);
-        }
+        // Save cleaned version back (always save to replace old names)
+        saveActivities(cleanedActivities);
       } else {
         // Initialize with some default activities
         const defaultActivities: ActivityItem[] = [
           {
             id: '1',
             type: 'profile_updated',
-            title: 'Welcome to Guildmate Nexus!',
+            title: 'Welcome to AMU NEX.US!',
             description: 'Your account has been created successfully',
             timestamp: new Date().toISOString(),
           },
@@ -73,7 +72,7 @@ const ActivityTimeline = ({ userId, isLoading }: ActivityTimelineProps) => {
         {
           id: '1',
           type: 'profile_updated',
-          title: 'Welcome to Guildmate Nexus!',
+          title: 'Welcome to AMU NEX.US!',
           description: 'Your account has been created successfully',
           timestamp: new Date().toISOString(),
         },

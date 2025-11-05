@@ -2,17 +2,24 @@ import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   Menu, X, Users, Building2, Calendar, 
-  DollarSign, Bell, Shield, Home, LogOut, UserCircle
+  DollarSign, Bell, Shield, Home, LogOut, UserCircle,
+  Settings, Activity, UserCheck, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  canViewAllStudents, 
-  canManageAuthorities,
   getRoleDisplayName,
   getRoleBadgeColor
 } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import Logo from '/logo.png';
 import Footer from './Footer';
 
@@ -21,22 +28,37 @@ const MainLayout = () => {
   const location = useLocation();
   const { logout, user } = useAuth();
 
-  // Define navigation items with role-based visibility
-  const allNavigationItems = [
+  // Define main navigation items (always visible for relevant roles)
+  const mainNavigationItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Students', href: '/students', icon: Users, roles: ['SUPER_ADMIN'] },
     { name: 'Clubs', href: '/clubs', icon: Building2, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Events', href: '/events', icon: Calendar, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+  ];
+
+  // Define admin navigation items (grouped in dropdown)
+  const adminNavigationItems = [
+    { name: 'Students', href: '/students', icon: Users, roles: ['SUPER_ADMIN'] },
+    { name: 'Join Requests', href: '/join-requests', icon: UserCheck, roles: ['SUPER_ADMIN'] },
     { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'System Logs', href: '/system-logs', icon: Activity, roles: ['SUPER_ADMIN'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN'] },
   ];
 
   // Filter navigation items based on user role
-  const navigation = allNavigationItems.filter(item => {
+  const mainNavigation = mainNavigationItems.filter(item => {
     if (!user?.role) return false;
     return item.roles.includes(user.role);
   });
+
+  const adminNavigation = adminNavigationItems.filter(item => {
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+
+  // Combine for mobile menu
+  const allNavigation = [...mainNavigation, ...adminNavigation];
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -93,8 +115,8 @@ const MainLayout = () => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navigation.map((item) => {
+            <nav className="hidden md:flex items-center gap-1 flex-1 justify-center max-w-4xl">
+              {mainNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link key={item.name} to={item.href}>
@@ -113,6 +135,42 @@ const MainLayout = () => {
                   </Link>
                 );
               })}
+              
+              {/* Admin Menu Dropdown */}
+              {adminNavigation.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') ? 'default' : 'ghost'}
+                      size="sm"
+                      className={`gap-2 transition-all ${
+                        isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities')
+                          ? 'purple-gold-gradient text-white shadow-colored-primary hover:scale-105' 
+                          : 'glass-card border-primary/20 hover:bg-primary/10 text-white'
+                      }`}
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span className="font-medium">Admin</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20">
+                    <DropdownMenuLabel>Administration</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {adminNavigation.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.name} asChild>
+                          <Link to={item.href} className="flex items-center gap-2 cursor-pointer">
+                            <Icon className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </nav>
 
             <div className="flex items-center gap-2">
@@ -122,16 +180,41 @@ const MainLayout = () => {
                     {getRoleDisplayName(user.role)}
                   </Badge>
                 )}
-                <Link to="/profile">
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <UserCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">{user?.firstname || 'User'}</span>
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" onClick={logout} className="gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </Button>
+                
+                {/* User Menu Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <UserCircle className="h-4 w-4" />
+                      <span className="text-sm font-medium">{user?.firstname || 'User'}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user?.firstname} {user?.lastname}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                        <UserCircle className="h-4 w-4" />
+                        <span>Profile</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      <span>Logout</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Mobile menu button */}
@@ -149,7 +232,7 @@ const MainLayout = () => {
           {/* Mobile Navigation */}
           {isMobileMenuOpen && (
             <nav className="mt-4 flex flex-col gap-1 pb-4 md:hidden">
-              {navigation.map((item) => {
+              {mainNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
@@ -168,7 +251,35 @@ const MainLayout = () => {
                   </Link>
                 );
               })}
-              <div className="mt-4 border-t pt-4 space-y-2">
+              
+              {adminNavigation.length > 0 && (
+                <>
+                  <div className="mt-2 pt-2 border-t border-primary/20">
+                    <p className="text-xs text-muted-foreground px-3 py-1 font-semibold">ADMINISTRATION</p>
+                  </div>
+                  {adminNavigation.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Button
+                          variant={isActive(item.href) ? 'default' : 'ghost'}
+                          size="sm"
+                          className="w-full justify-start gap-2"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {item.name}
+                        </Button>
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
+              
+              <div className="mt-4 border-t border-primary/20 pt-4 space-y-2">
                 <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
                     <UserCircle className="h-4 w-4" />
@@ -178,8 +289,11 @@ const MainLayout = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={logout} 
-                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full justify-start gap-2 text-destructive"
                 >
                   <LogOut className="h-4 w-4" />
                   Logout

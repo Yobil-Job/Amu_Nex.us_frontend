@@ -107,7 +107,7 @@ const Footer = () => {
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Building2 className="h-4 w-4 text-primary" />
-                <span>Addis Ababa University</span>
+                <span>Arba Minch University</span>
               </li>
               <li className="pt-2 border-t border-primary/20">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">

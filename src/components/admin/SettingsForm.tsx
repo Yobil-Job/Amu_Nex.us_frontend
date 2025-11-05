@@ -13,7 +13,7 @@ const SettingsForm = () => {
     universityAddress: '',
     universityEmail: '',
     universityWebsite: '',
-    systemName: 'Guildmate Nexus',
+    systemName: 'AMU NEX.US',
     systemLogo: '',
     contactPhone: '',
     contactEmail: '',
@@ -25,7 +25,13 @@ const SettingsForm = () => {
     const saved = localStorage.getItem('systemSettings');
     if (saved) {
       try {
-        setFormData(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Ensure systemName is set to AMU NEX.US if it's the old name
+        if (parsed.systemName && (parsed.systemName.includes('Guildmate') || parsed.systemName.includes('guildmate'))) {
+          parsed.systemName = 'AMU NEX.US';
+          localStorage.setItem('systemSettings', JSON.stringify(parsed));
+        }
+        setFormData(parsed);
       } catch {
         // Ignore parse errors
       }
@@ -75,7 +81,7 @@ const SettingsForm = () => {
                 id="systemName"
                 value={formData.systemName}
                 onChange={(e) => setFormData({ ...formData, systemName: e.target.value })}
-                placeholder="Guildmate Nexus"
+                placeholder="AMU NEX.US"
               />
             </div>
 

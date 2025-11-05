@@ -132,8 +132,8 @@ export const LocationPicker = ({
   // Set default position if none provided
   useEffect(() => {
     if (!position && !latitude && !longitude) {
-      // Default to Addis Ababa, Ethiopia if no location provided
-      setPosition([9.0054, 38.7636]);
+      // Default to Arba Minch, Ethiopia if no location provided
+      setPosition([6.0292, 37.5917]); // Arba Minch coordinates
     }
   }, [position, latitude, longitude]);
 
@@ -154,7 +154,7 @@ export const LocationPicker = ({
   };
 
   // Always ensure we have a valid position
-  const mapCenter: [number, number] = position || [9.0054, 38.7636];
+  const mapCenter: [number, number] = position || [6.0292, 37.5917]; // Arba Minch coordinates
   const mapZoom = (latitude && longitude) ? 16 : 13;
 
   if (!position && !latitude && !longitude) {
