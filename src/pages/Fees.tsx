@@ -17,8 +17,18 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { isStudent } from '@/lib/roles';
+import { useAuth } from '@/contexts/AuthContext';
+import StudentFees from './student/Fees';
 
 const Fees = () => {
+  const { user } = useAuth();
+
+  // Render student-specific fees page for students
+  if (isStudent(user?.role)) {
+    return <StudentFees />;
+  }
+
   const [fees, setFees] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);

@@ -14,13 +14,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Bell, Plus, Trash2, Pencil, AlertCircle, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { canManageAnnouncements, isSuperAdmin } from '@/lib/roles';
+import { canManageAnnouncements, isSuperAdmin, isStudent } from '@/lib/roles';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import StudentAnnouncements from './student/Announcements';
 
 const Announcements = () => {
   const { user } = useAuth();
+
+  // Render student-specific announcements page for students
+  if (isStudent(user?.role)) {
+    return <StudentAnnouncements />;
+  }
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [filteredAnnouncements, setFilteredAnnouncements] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
