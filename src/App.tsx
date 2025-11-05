@@ -19,6 +19,8 @@ import Authorities from "./pages/Authorities";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import AdminJoinRequests from "./pages/admin/JoinRequests";
+import AdminSettings from "./pages/admin/Settings";
+import AdminSystemLogs from "./pages/admin/SystemLogs";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +54,8 @@ const App = () => (
                 <Route path="/announcements" element={<Announcements />} />
                 <Route path="/authorities" element={<ProtectedRoute requiredRole={['SUPER_ADMIN', 'ADMIN']}><Authorities /></ProtectedRoute>} />
                 <Route path="/join-requests" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminJoinRequests /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSettings /></ProtectedRoute>} />
+                <Route path="/system-logs" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSystemLogs /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               
