@@ -27,9 +27,16 @@ import { Building2, Plus, Pencil, Trash2, Users, CheckCircle, XCircle, UserPlus,
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ClubsDiscovery from './student/ClubsDiscovery';
+import { isSuperAdmin } from '@/lib/roles';
+import AdminClubs from './admin/Clubs';
 
 const Clubs = () => {
   const { user } = useAuth();
+
+  // Route SUPER_ADMIN to admin version
+  if (isSuperAdmin(user?.role)) {
+    return <AdminClubs />;
+  }
 
   // Render student-specific clubs page for students
   if (isStudent(user?.role)) {

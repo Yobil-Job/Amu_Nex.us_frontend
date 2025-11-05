@@ -18,6 +18,7 @@ import Announcements from "./pages/Announcements";
 import Authorities from "./pages/Authorities";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import AdminJoinRequests from "./pages/admin/JoinRequests";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/fees" element={<Fees />} />
                 <Route path="/announcements" element={<Announcements />} />
                 <Route path="/authorities" element={<ProtectedRoute requiredRole={['SUPER_ADMIN', 'ADMIN']}><Authorities /></ProtectedRoute>} />
+                <Route path="/join-requests" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminJoinRequests /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               
