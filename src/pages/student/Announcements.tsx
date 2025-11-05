@@ -14,6 +14,7 @@ import { format, parseISO } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import AnnouncementCard from '@/components/student/AnnouncementCard';
 import NotificationsPanel from '@/components/student/NotificationsPanel';
+import { addActivity } from '@/components/student/ActivityTimeline';
 
 const STORAGE_KEY = 'student_read_announcements';
 
@@ -171,6 +172,17 @@ const StudentAnnouncements = () => {
     if (readAnnouncements.includes(announcementId)) return;
     const updated = [...readAnnouncements, announcementId];
     saveReadAnnouncements(updated);
+    
+    // Track activity
+    const announcement = allAnnouncements.find(a => a.id === announcementId);
+    if (announcement) {
+      addActivity(
+        'announcement_read',
+        `Read announcement: ${announcement.title || 'Untitled'}`,
+        announcement.club ? `From ${announcement.club.title || announcement.club.name}` : 'Announcement read'
+      );
+    }
+    
     toast.success('Marked as read');
   };
 

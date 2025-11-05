@@ -9,10 +9,23 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
 import { useMemo } from 'react';
+import { isStudent, isSuperAdmin } from '@/lib/roles';
+import StudentDashboard from './student/Dashboard';
+import AdminDashboard from './admin/Dashboard';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Route students to their dedicated dashboard
+  if (isStudent(user?.role)) {
+    return <StudentDashboard />;
+  }
+
+  // Route SUPER_ADMIN to admin dashboard
+  if (isSuperAdmin(user?.role)) {
+    return <AdminDashboard />;
+  }
   
   const [stats, setStats] = useState({
     totalStudents: 0,

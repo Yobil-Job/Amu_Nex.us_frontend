@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Building2, Search, UserPlus, CheckCircle2, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClubRequestStatus from '@/components/student/ClubRequestStatus';
+import { addActivity } from '@/components/student/ActivityTimeline';
 
 interface JoinRequest {
   id: string;
@@ -177,6 +178,13 @@ const ClubsDiscovery = () => {
 
       const updated = [...joinRequests, newRequest];
       saveJoinRequests(updated);
+      
+      // Track activity
+      addActivity(
+        'club_joined',
+        `Requested to join ${club.title || club.name}`,
+        `Join request sent for ${club.club_Type || 'club'}`
+      );
       
       toast.success('Request sent successfully! Waiting for approval.');
     } catch (error: any) {

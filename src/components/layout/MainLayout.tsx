@@ -14,6 +14,7 @@ import {
 } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import Logo from '/logo.png';
+import Footer from './Footer';
 
 const MainLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -193,6 +194,9 @@ const MainLayout = () => {
       <main className="container mx-auto px-4 py-6 min-h-[calc(100vh-80px)]">
         <Outlet />
       </main>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
