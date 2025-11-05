@@ -17,12 +17,18 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { isStudent } from '@/lib/roles';
+import { isStudent, isSuperAdmin } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 import StudentFees from './student/Fees';
+import AdminFees from './admin/Fees';
 
 const Fees = () => {
   const { user } = useAuth();
+
+  // Route SUPER_ADMIN to admin version
+  if (isSuperAdmin(user?.role)) {
+    return <AdminFees />;
+  }
 
   // Render student-specific fees page for students
   if (isStudent(user?.role)) {
