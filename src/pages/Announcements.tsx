@@ -20,6 +20,7 @@ import { useForm } from 'react-hook-form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StudentAnnouncements from './student/Announcements';
 import AdminAnnouncements from './admin/Announcements';
+import ClubAdminAnnouncements from './club-admin/Announcements';
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -27,6 +28,11 @@ const Announcements = () => {
   // Route SUPER_ADMIN to admin version
   if (isSuperAdmin(user?.role)) {
     return <AdminAnnouncements />;
+  }
+
+  // Route ADMIN (club admin) to club admin version
+  if (user?.role === 'ADMIN') {
+    return <ClubAdminAnnouncements />;
   }
 
   // Render student-specific announcements page for students
