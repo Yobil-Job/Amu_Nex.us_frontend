@@ -21,6 +21,7 @@ import { isStudent, isSuperAdmin } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 import StudentFees from './student/Fees';
 import AdminFees from './admin/Fees';
+import ClubAdminFees from './club-admin/Fees';
 
 const Fees = () => {
   const { user } = useAuth();
@@ -28,6 +29,11 @@ const Fees = () => {
   // Route SUPER_ADMIN to admin version
   if (isSuperAdmin(user?.role)) {
     return <AdminFees />;
+  }
+
+  // Route ADMIN (club admin) to club admin version
+  if (user?.role === 'ADMIN') {
+    return <ClubAdminFees />;
   }
 
   // Render student-specific fees page for students

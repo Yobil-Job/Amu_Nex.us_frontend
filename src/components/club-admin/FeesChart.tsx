@@ -1,9 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { DollarSign } from 'lucide-react';
-import { useMemo } from 'react';
-import { format, subDays, parseISO } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { DollarSign, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMemo } from 'react';
 
 interface FeesChartProps {
   fees: any[];
@@ -12,128 +11,161 @@ interface FeesChartProps {
 
 const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
   const chartData = useMemo(() => {
-    if (!fees || fees.length === 0) return [];
+    const paid = fees
+      .filter((fee) => (fee.status || '').toUpperCase() === 'PAID')
+      .reduce((sum, fee) => {
+        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        return sum + amount;
+      }, 0);
 
-    // Get last 30 days
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-      const date = subDays(new Date(), 29 - i);
-      return {
-        date: format(date, 'MMM dd'),
-        fullDate: date,
-        amount: 0,
-        cumulative: 0,
-      };
-    });
+    const unpaid = fees
+      .filter((fee) => (fee.status || '').toUpperCase() !== 'PAID')
+      .reduce((sum, fee) => {
+        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        return sum + amount;
+      }, 0);
 
-    // Calculate daily fees and cumulative total
-    fees.forEach((fee: any) => {
-      const feeDate = fee.paymentDate || fee.createdAt || fee.date;
-      if (feeDate && fee.amount) {
-        try {
-          const date = parseISO(feeDate);
-          const dayIndex = last30Days.findIndex((d) => {
-            return d.fullDate.toDateString() === date.toDateString();
-          });
-          if (dayIndex >= 0) {
-            last30Days[dayIndex].amount += fee.amount || 0;
-          }
-        } catch {
-          // Ignore invalid dates
+    return [
+      { name: 'Paid', value: paid, color: '#10b981' },
+      { name: 'Unpaid', value: unpaid, color: '#f59e0b' },
+    ];
+  }, [fees]);
+
+  // Monthly data for bar chart
+  const monthlyData = useMemo(() => {
+    const monthMap: Record<string, { paid: number; unpaid: number }> = {};
+
+    fees.forEach((fee) => {
+      const date = fee.paidAt || fee.createdAt || fee.date;
+      if (!date) return;
+
+      try {
+        const dateObj = new Date(date);
+        const monthKey = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+        if (!monthMap[monthKey]) {
+          monthMap[monthKey] = { paid: 0, unpaid: 0 };
         }
+
+        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        const status = (fee.status || '').toUpperCase();
+
+        if (status === 'PAID') {
+          monthMap[monthKey].paid += amount;
+        } else {
+          monthMap[monthKey].unpaid += amount;
+        }
+      } catch {
+        // Ignore invalid dates
       }
     });
 
-    // Calculate cumulative total
-    let cumulative = 0;
-    last30Days.forEach((day) => {
-      cumulative += day.amount;
-      day.cumulative = cumulative;
-    });
-
-    return last30Days;
+    return Object.entries(monthMap)
+      .map(([month, data]) => ({
+        month,
+        paid: data.paid,
+        unpaid: data.unpaid,
+      }))
+      .sort((a, b) => {
+        const dateA = new Date(a.month);
+        const dateB = new Date(b.month);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(-6); // Last 6 months
   }, [fees]);
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <Card className="glass-card border-primary/20">
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+        <Card className="glass-card border-primary/20">
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const COLORS = ['#10b981', '#f59e0b'];
+
   return (
-    <Card className="glass-card border-primary/20 glow-effect">
-      <CardHeader>
-        <CardTitle className="text-xl neon-text text-white flex items-center gap-2">
-          <DollarSign className="h-5 w-5 text-primary" />
-          Fee Collection Trend
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Daily fees collected and cumulative total over the last 30 days
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <Skeleton className="h-full w-full" />
-          </div>
-        ) : chartData.length === 0 ? (
-          <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
-            <DollarSign className="h-12 w-12 mb-3 opacity-50" />
-            <p>No fee data available</p>
-          </div>
-        ) : (
+    <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+      {/* Total vs Unpaid Pie Chart */}
+      <Card className="glass-card border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-lg text-white flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Total vs Unpaid
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-              <XAxis
-                dataKey="date"
-                stroke="rgba(255, 255, 255, 0.7)"
-                tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
-              />
-              <YAxis
-                stroke="rgba(255, 255, 255, 0.7)"
-                tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
-                yAxisId="left"
-              />
-              <YAxis
-                stroke="rgba(255, 255, 255, 0.7)"
-                tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
-                yAxisId="right"
-                orientation="right"
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'rgba(26, 11, 46, 0.95)',
-                  border: '1px solid rgba(248, 181, 0, 0.3)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                }}
-                formatter={(value: number, name: string) => {
-                  if (name === 'cumulative') {
-                    return [`ETB ${value.toLocaleString()}`, 'Cumulative Total'];
-                  }
-                  return [`ETB ${value.toLocaleString()}`, 'Daily Amount'];
-                }}
-              />
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
+                outerRadius={100}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
               <Legend />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="amount"
-                stroke="#f8b500"
-                strokeWidth={2}
-                dot={{ fill: '#f8b500', r: 4 }}
-                name="Daily Amount"
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="cumulative"
-                stroke="#6a4c93"
-                strokeWidth={2}
-                dot={{ fill: '#6a4c93', r: 4 }}
-                name="Cumulative Total"
-              />
-            </LineChart>
+            </PieChart>
           </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Trend Bar Chart */}
+      <Card className="glass-card border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-lg text-white flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-accent" />
+            Monthly Trend (Last 6 Months)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="month" stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" tickFormatter={formatCurrency} />
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              <Legend />
+              <Bar dataKey="paid" fill="#10b981" name="Paid" />
+              <Bar dataKey="unpaid" fill="#f59e0b" name="Unpaid" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
 export default FeesChart;
-
