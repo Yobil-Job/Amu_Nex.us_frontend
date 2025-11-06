@@ -215,6 +215,7 @@ const MainLayout = () => {
     { name: 'Authorities', href: '/club-authorities', icon: Shield, roles: ['ADMIN'] },
     { name: 'System Logs', href: '/system-logs', icon: Activity, roles: ['SUPER_ADMIN'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN'] },
+    { name: 'Club Settings', href: '/club-settings', icon: Settings, roles: ['ADMIN'] },
   ];
 
   // Filter navigation items based on user role
