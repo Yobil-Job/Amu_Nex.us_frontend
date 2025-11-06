@@ -21,6 +21,7 @@ import { Filter, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StudentEventsView from './student/StudentEventsView';
 import AdminEvents from './admin/Events';
+import ClubAdminEvents from './club-admin/Events';
 
 const Events = () => {
   const { user } = useAuth();
@@ -28,6 +29,11 @@ const Events = () => {
   // Route SUPER_ADMIN to admin version
   if (isSuperAdmin(user?.role)) {
     return <AdminEvents />;
+  }
+
+  // Route ADMIN (club admin) to club admin version
+  if (user?.role === 'ADMIN') {
+    return <ClubAdminEvents />;
   }
 
   // Render student-specific events page for students
