@@ -6,7 +6,8 @@ import {
   Settings, Activity, UserCheck, ChevronDown
 } from 'lucide-react';
 import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
-import { clubApi, eventApi } from '@/lib/api';
+import ClubAdminNotificationsPanel from '@/components/club-admin/NotificationsPanel';
+import { clubApi, eventApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +37,34 @@ const MainLayout = () => {
   // Notifications state (only for SUPER_ADMIN)
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const STORAGE_KEY = 'admin_notifications';
+  
+  // Club admin managed clubs (for notifications)
+  const [managedClubIds, setManagedClubIds] = useState<number[]>([]);
+
+  // Load managed clubs for club admin
+  useEffect(() => {
+    if (user?.role === 'ADMIN' && user?.id) {
+      loadManagedClubs();
+    }
+  }, [user?.role, user?.id]);
+
+  const loadManagedClubs = async () => {
+    try {
+      const authoritiesRes = await authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+
+      const userAuthorities = allAuthorities.filter((auth: any) => {
+        const studentId = auth.student?.id || auth.studentId;
+        const authName = (auth.name || '').toUpperCase();
+        return studentId === user?.id && authName === 'ADMIN';
+      });
+
+      const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
+      setManagedClubIds(clubIds);
+    } catch (error) {
+      console.error('Failed to load managed clubs:', error);
+    }
+  };
 
   // Load notifications for SUPER_ADMIN
   useEffect(() => {
@@ -361,6 +390,11 @@ const MainLayout = () => {
                     onNotificationClick={handleNotificationClick}
                     onViewAll={handleViewAllNotifications}
                   />
+                )}
+                
+                {/* Club Admin Notification Center */}
+                {user?.role === 'ADMIN' && managedClubIds.length > 0 && (
+                  <ClubAdminNotificationsPanel managedClubIds={managedClubIds} />
                 )}
                 
                 {user?.role && (
