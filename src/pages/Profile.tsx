@@ -216,7 +216,7 @@ const Profile = () => {
     }
 
     // Validate password change if password fields are shown
-    if (showPasswordFields && isStudent(user?.role)) {
+    if (showPasswordFields) {
       if (!passwordData.currentPassword) {
         toast.error('Please enter your current password');
         return;
@@ -264,7 +264,7 @@ const Profile = () => {
       }
 
       // Include new password if password change is being performed
-      if (showPasswordFields && isStudent(user?.role) && passwordData.newPassword) {
+      if (showPasswordFields && passwordData.newPassword) {
         updatePayload.password = passwordData.newPassword;
       }
 
@@ -730,9 +730,8 @@ const Profile = () => {
               </div>
             )}
             
-            {/* Password Change Section for Students */}
-            {isStudent(user?.role) && (
-              <div className="space-y-4 pt-4 border-t">
+            {/* Password Change Section for All Roles */}
+            <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Lock className="h-4 w-4 text-primary" />
@@ -903,8 +902,7 @@ const Profile = () => {
                      </div>
                    );
                  })()}
-                             </div>
-             )}
+            </div>
           </div>
           <div className="flex gap-3 pt-4 border-t mt-4">
             <Button
