@@ -324,16 +324,20 @@ const MainLayout = () => {
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20">
-                    <DropdownMenuLabel>Administration</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
+                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                    <DropdownMenuLabel className="text-white font-semibold">Administration</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-primary/20" />
                     {adminNavigation.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <DropdownMenuItem key={item.name} asChild>
-                          <Link to={item.href} className="flex items-center gap-2 cursor-pointer">
-                            <Icon className="h-4 w-4" />
-                            <span>{item.name}</span>
+                        <DropdownMenuItem 
+                          key={item.name} 
+                          asChild
+                          className="text-white focus:text-white focus:bg-primary/20 cursor-pointer"
+                        >
+                          <Link to={item.href} className="flex items-center gap-2 text-white hover:text-white focus:text-white">
+                            <Icon className="h-4 w-4 text-white" />
+                            <span className="text-white">{item.name}</span>
                           </Link>
                         </DropdownMenuItem>
                       );
@@ -372,10 +376,10 @@ const MainLayout = () => {
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20">
-                    <DropdownMenuLabel>
+                  <DropdownMenuContent align="end" className="w-56 glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                    <DropdownMenuLabel className="text-white font-semibold">
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">
+                        <p className="text-sm font-medium leading-none text-white">
                           {user?.firstname} {user?.lastname}
                         </p>
                         <p className="text-xs leading-none text-muted-foreground">
@@ -383,15 +387,18 @@ const MainLayout = () => {
                         </p>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
-                        <UserCircle className="h-4 w-4" />
-                        <span>Profile</span>
+                    <DropdownMenuSeparator className="bg-primary/20" />
+                    <DropdownMenuItem 
+                      asChild
+                      className="text-white focus:text-white focus:bg-primary/20 cursor-pointer"
+                    >
+                      <Link to="/profile" className="flex items-center gap-2 text-white hover:text-white focus:text-white">
+                        <UserCircle className="h-4 w-4 text-white" />
+                        <span className="text-white">Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive hover:text-destructive">
                       <LogOut className="h-4 w-4 mr-2" />
                       <span>Logout</span>
                     </DropdownMenuItem>
