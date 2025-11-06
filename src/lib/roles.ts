@@ -3,9 +3,10 @@
  * 
  * Role hierarchy (from backend):
  * - STUDENT: Regular user who registers
- * - SUPER_USER: Club admin (promoted by SUPER_ADMIN)
- * - SUPER_ADMIN: System admin (can create/delete clubs, manage all students)
- * - ADMIN: Master admin for the whole system
+ * - ADMIN: Club admin (assigned by SUPER_ADMIN, manages specific club(s))
+ * - SUPER_ADMIN: System admin (can create/delete clubs, manage all students, assign club admins)
+ * 
+ * Note: In backend enum, club admin role name is 'ADMIN'
  */
 
 export type UserRole = 'STUDENT' | 'SUPER_USER' | 'SUPER_ADMIN' | 'ADMIN';
@@ -35,10 +36,18 @@ export function isSuperAdmin(userRole: string | undefined | null): boolean {
 }
 
 /**
- * Check if user is an ADMIN
+ * Check if user is an ADMIN (Club Admin)
+ * Note: In backend, ADMIN = Club Admin role
  */
 export function isAdmin(userRole: string | undefined | null): boolean {
   return hasRole(userRole, 'ADMIN');
+}
+
+/**
+ * Check if user is a Club Admin (alias for isAdmin for clarity)
+ */
+export function isClubAdmin(userRole: string | undefined | null): boolean {
+  return isAdmin(userRole);
 }
 
 /**
@@ -161,9 +170,8 @@ export function getRoleDisplayName(role: string | undefined | null): string {
   
   const roleMap: Record<string, string> = {
     'STUDENT': 'Student',
-    'SUPER_USER': 'Club Admin',
+    'ADMIN': 'Club Admin',
     'SUPER_ADMIN': 'System Admin',
-    'ADMIN': 'Administrator',
   };
   
   return roleMap[role.toUpperCase()] || role;
@@ -177,9 +185,8 @@ export function getRoleBadgeColor(role: string | undefined | null): string {
   
   const colorMap: Record<string, string> = {
     'STUDENT': 'bg-success/10 text-success',
-    'SUPER_USER': 'bg-primary/10 text-primary',
+    'ADMIN': 'bg-primary/10 text-primary',
     'SUPER_ADMIN': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-    'ADMIN': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   };
   
   return colorMap[role.toUpperCase()] || 'bg-muted text-muted-foreground';

@@ -16,6 +16,9 @@ import StudentProfileModal from '@/components/admin/StudentProfileModal';
 import EditStudentDialog from '@/components/admin/EditStudentDialog';
 import DeleteStudentDialog from '@/components/admin/DeleteStudentDialog';
 import ResetPasswordDialog from '@/components/admin/ResetPasswordDialog';
+import Breadcrumbs from '@/components/admin/Breadcrumbs';
+import Pagination from '@/components/admin/Pagination';
+import EmptyState from '@/components/admin/EmptyState';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +53,7 @@ const AdminStudents = () => {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     loadData();
@@ -238,6 +241,9 @@ const AdminStudents = () => {
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Students' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
@@ -338,15 +344,25 @@ const AdminStudents = () => {
               ))}
             </div>
           ) : filteredStudents.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground text-lg">No students found</p>
-              {(searchQuery || departmentFilter !== 'all' || yearFilter !== 'all' || roleFilter !== 'all') && (
-                <Button variant="outline" onClick={clearFilters} className="mt-4">
-                  Clear Filters
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No students found"
+              description={
+                searchQuery || departmentFilter !== 'all' || yearFilter !== 'all' || roleFilter !== 'all'
+                  ? "Try adjusting your filters to see more results"
+                  : "No students have been registered yet"
+              }
+              actionLabel={
+                searchQuery || departmentFilter !== 'all' || yearFilter !== 'all' || roleFilter !== 'all'
+                  ? "Clear Filters"
+                  : undefined
+              }
+              onAction={
+                searchQuery || departmentFilter !== 'all' || yearFilter !== 'all' || roleFilter !== 'all'
+                  ? clearFilters
+                  : undefined
+              }
+            />
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -457,55 +473,16 @@ const AdminStudents = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t border-primary/20">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of{' '}
-                    {filteredStudents.length} students
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <Button
-                              key={page}
-                              variant={currentPage === page ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setCurrentPage(page)}
-                              className="min-w-[40px]"
-                            >
-                              {page}
-                            </Button>
-                          );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2">...</span>;
-                        }
-                        return null;
-                      })}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="p-4 border-t border-primary/20">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredStudents.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onItemsPerPageChange={setItemsPerPage}
+                    itemsPerPageOptions={[10, 20, 50, 100]}
+                  />
                 </div>
               )}
             </>

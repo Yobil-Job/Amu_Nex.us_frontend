@@ -12,6 +12,7 @@ import JoinRequestFilters from '@/components/admin/JoinRequestFilters';
 import JoinRequestDetailsModal from '@/components/admin/JoinRequestDetailsModal';
 import BulkRequestActions from '@/components/admin/BulkRequestActions';
 import { format, parseISO, isToday, isThisWeek, isThisMonth, startOfDay, subDays } from 'date-fns';
+import Breadcrumbs from '@/components/admin/Breadcrumbs';
 
 const AdminJoinRequests = () => {
   const { user } = useAuth();
@@ -297,6 +298,9 @@ const AdminJoinRequests = () => {
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Join Requests' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">

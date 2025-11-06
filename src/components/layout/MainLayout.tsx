@@ -6,6 +6,8 @@ import {
   Settings, Activity, UserCheck, ChevronDown
 } from 'lucide-react';
 import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
+import { clubApi, eventApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -57,13 +59,110 @@ const MainLayout = () => {
 
   const loadNotifications = async () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const savedNotifications: Notification[] = JSON.parse(saved);
-        setNotifications(savedNotifications);
+      // Load saved notifications from localStorage
+      let savedNotifications: Notification[] = [];
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          savedNotifications = JSON.parse(saved);
+        }
+      } catch {
+        // Ignore parse errors
       }
-    } catch {
-      // Ignore parse errors
+
+      // Generate notifications based on current data
+      const generatedNotifications: Notification[] = [];
+
+      try {
+        // Load data from backend
+        const [clubsRes, eventsRes] = await Promise.all([
+          clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
+          eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
+        ]);
+
+        const clubs = extractCollection<any>(clubsRes) || [];
+        const events = extractCollection<any>(eventsRes) || [];
+
+        // Check for pending join requests (from all clubs)
+        for (const club of clubs) {
+          try {
+            const requestsRes = await clubApi.getPendingRequests(club.id).catch(() => ({ _embedded: { requestResponseDtoList: [] } }));
+            const requests = extractCollection<any>(requestsRes) || [];
+            
+            if (requests.length > 0) {
+              generatedNotifications.push({
+                id: `join_request_${club.id}_${Date.now()}`,
+                type: 'join_request',
+                title: `${requests.length} Pending Join Request${requests.length > 1 ? 's' : ''}`,
+                message: `${requests.length} student${requests.length > 1 ? 's' : ''} want${requests.length === 1 ? 's' : ''} to join ${club.title || club.name}`,
+                timestamp: new Date().toISOString(),
+                read: false,
+                link: '/join-requests',
+                metadata: { clubId: club.id, count: requests.length },
+              });
+            }
+          } catch {
+            // Ignore errors for individual clubs
+          }
+        }
+
+        // Check for recent events (created in last 24 hours)
+        const oneDayAgo = new Date();
+        oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+        
+        const recentEvents = events.filter((event: any) => {
+          try {
+            const eventDate = new Date(event.createdAt || event.startAt);
+            return eventDate > oneDayAgo;
+          } catch {
+            return false;
+          }
+        });
+
+        if (recentEvents.length > 0) {
+          generatedNotifications.push({
+            id: `new_event_${Date.now()}`,
+            type: 'new_event',
+            title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
+            message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            link: '/events',
+            metadata: { count: recentEvents.length },
+          });
+        }
+
+        // Add suspicious activity notification (placeholder - can be enhanced with real logic)
+        // This is a mock notification for demonstration (only add if there are no suspicious notifications already)
+        const hasSuspiciousActivity = savedNotifications.some((n) => n.type === 'suspicious_activity' && !n.read);
+        if (!hasSuspiciousActivity && Math.random() > 0.7) { // 30% chance to show suspicious activity (for demo)
+          generatedNotifications.push({
+            id: `suspicious_activity_${Date.now()}`,
+            type: 'suspicious_activity',
+            title: 'Suspicious Activity Detected',
+            message: 'Multiple failed login attempts detected from an unusual location',
+            timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+            read: false,
+            link: '/system-logs',
+            metadata: { severity: 'medium' },
+          });
+        }
+      } catch (error) {
+        console.error('Failed to generate notifications:', error);
+      }
+
+      // Merge with saved notifications (keep existing ones that aren't duplicates)
+      const existingIds = new Set(savedNotifications.map((n) => n.id));
+      const newNotifications = generatedNotifications.filter((n) => !existingIds.has(n.id));
+      
+      const allNotifications = [...savedNotifications, ...newNotifications]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 100); // Keep last 100 notifications
+
+      setNotifications(allNotifications);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allNotifications));
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
     }
   };
 

@@ -17,6 +17,7 @@ import AssignClubAdminDialog from '@/components/admin/AssignClubAdminDialog';
 import ClubMembersList from '@/components/admin/ClubMembersList';
 import ClubRankingCard from '@/components/admin/ClubRankingCard';
 import ClubActivityDashboard from '@/components/admin/ClubActivityDashboard';
+import Breadcrumbs from '@/components/admin/Breadcrumbs';
 import {
   Dialog,
   DialogContent,
@@ -191,6 +192,9 @@ const AdminClubs = () => {
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Clubs' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">

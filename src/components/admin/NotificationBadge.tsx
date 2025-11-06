@@ -9,10 +9,6 @@ interface NotificationBadgeProps {
 }
 
 const NotificationBadge = ({ count, className, showZero = false }: NotificationBadgeProps) => {
-  if (!showZero && count === 0) {
-    return null;
-  }
-
   return (
     <div className={cn('relative inline-flex items-center', className)}>
       <Bell className="h-5 w-5 text-white" />

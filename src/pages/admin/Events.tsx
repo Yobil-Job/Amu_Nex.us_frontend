@@ -15,6 +15,7 @@ import DeleteEventDialog from '@/components/admin/DeleteEventDialog';
 import EventCalendarView from '@/components/admin/EventCalendarView';
 import EventParticipationStats from '@/components/admin/EventParticipationStats';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import Breadcrumbs from '@/components/admin/Breadcrumbs';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO, isToday, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { Building2, MapPin, Clock, Users } from 'lucide-react';
@@ -210,6 +211,9 @@ const AdminEvents = () => {
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Events' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">

@@ -7,12 +7,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Activity, TrendingUp, Sparkles, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
+import { toast } from 'sonner';
 import StatsCards from '@/components/admin/StatsCards';
 import StudentGrowthChart from '@/components/admin/StudentGrowthChart';
 import TopClubsChart from '@/components/admin/TopClubsChart';
 import EventsChart from '@/components/admin/EventsChart';
 import QuickActionsPanel from '@/components/admin/QuickActionsPanel';
+import NotificationsPanel from '@/components/admin/NotificationsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Notification } from '@/components/admin/NotificationCenter';
+import Breadcrumbs from '@/components/admin/Breadcrumbs';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -33,6 +37,8 @@ const AdminDashboard = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const STORAGE_KEY = 'admin_notifications';
 
   useEffect(() => {
     loadDashboardData();
@@ -139,9 +145,51 @@ const AdminDashboard = () => {
         totalAnnouncements: announcementsList.length,
         isLoading: false,
       });
+
+      // Load notifications
+      loadNotifications();
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       setStats((prev) => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const savedNotifications: Notification[] = JSON.parse(saved);
+        setNotifications(savedNotifications);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      // Trigger update event for header
+      window.dispatchEvent(new CustomEvent('notificationsUpdated', { detail: updated }));
+      return updated;
+    });
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      // Trigger update event for header
+      window.dispatchEvent(new CustomEvent('notificationsUpdated', { detail: updated }));
+      return updated;
+    });
+    toast.success('All notifications marked as read');
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (notification.link) {
+      navigate(notification.link);
     }
   };
 
@@ -187,6 +235,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Dashboard' }]} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="space-y-2">
@@ -219,11 +270,22 @@ const AdminDashboard = () => {
       {/* Events Chart */}
       <EventsChart events={events} isLoading={stats.isLoading} />
 
-      {/* Quick Actions & Recent Activity */}
+      {/* Quick Actions & Notifications */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <QuickActionsPanel pendingRequestsCount={stats.totalPendingRequests} />
 
-        {/* Recent Activity Feed */}
+        {/* Notifications Panel */}
+        <NotificationsPanel
+          notifications={notifications}
+          isLoading={false}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
+      </div>
+
+      {/* Recent Activity Feed */}
+      <div className="grid gap-6 grid-cols-1">
         <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
             <CardTitle className="text-xl neon-text text-white flex items-center gap-2">
