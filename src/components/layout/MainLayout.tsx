@@ -209,6 +209,7 @@ const MainLayout = () => {
   const adminNavigationItems = [
     { name: 'Students', href: '/students', icon: Users, roles: ['SUPER_ADMIN'] },
     { name: 'Join Requests', href: '/join-requests', icon: UserCheck, roles: ['SUPER_ADMIN'] },
+    { name: 'Members', href: '/club-members', icon: Users, roles: ['ADMIN'] },
     { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { name: 'System Logs', href: '/system-logs', icon: Activity, roles: ['SUPER_ADMIN'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN'] },

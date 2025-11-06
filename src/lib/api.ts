@@ -117,6 +117,23 @@ const handleResponse = async (response: Response): Promise<any> => {
   if (import.meta.env.DEV) {
     console.log(`✅ API Success (text):`, { url: response.url, data: textData });
   }
+  
+  // Try to parse as JSON if it looks like JSON
+  if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(textData);
+      if (import.meta.env.DEV) {
+        console.log(`✅ Parsed text response as JSON:`, { url: response.url });
+      }
+      return parsed;
+    } catch (e) {
+      // If parsing fails, return as text
+      if (import.meta.env.DEV) {
+        console.warn(`⚠️ Failed to parse text as JSON, returning as text:`, e);
+      }
+    }
+  }
+  
   return textData;
 };
 

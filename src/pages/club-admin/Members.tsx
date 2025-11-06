@@ -69,7 +69,7 @@ const ClubAdminMembers = () => {
       const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
 
       if (clubIds.length === 0) {
-        toast.info('You are not assigned as a club admin for any club yet');
+        toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator.');
         setIsLoading(false);
         return;
       }

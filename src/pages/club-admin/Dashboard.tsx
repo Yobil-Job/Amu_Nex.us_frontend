@@ -54,6 +54,9 @@ const ClubAdminDashboard = () => {
       const authoritiesRes = await authorityApi.getAll().catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
       const allAuthorities = extractCollection<any>(authoritiesRes) || [];
 
+      console.log('All authorities:', allAuthorities);
+      console.log('Current user ID:', user?.id);
+
       // Filter authorities where user is the club admin (ADMIN role)
       // Authority has studentId (the club admin) and clubId (the club they manage)
       // In backend, authority name 'ADMIN' means club admin role
@@ -61,14 +64,51 @@ const ClubAdminDashboard = () => {
         const studentId = auth.student?.id || auth.studentId;
         const authName = (auth.name || '').toUpperCase();
         // Check if user is assigned as club admin (ADMIN role) for this club
-        return studentId === user?.id && authName === 'ADMIN';
+        const matches = studentId === user?.id && authName === 'ADMIN';
+        if (matches) {
+          console.log('Found matching authority:', auth);
+        }
+        return matches;
       });
+
+      console.log('User authorities:', userAuthorities);
 
       // Get unique club IDs
       const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
 
+      console.log('Club IDs found:', clubIds);
+
       if (clubIds.length === 0) {
-        toast.info('You are not assigned as a club admin for any club yet');
+        // If no authorities found, try alternative approach: check if user is a member of any clubs
+        // and has role ADMIN (they might be club admin without explicit authority record)
+        try {
+          const allClubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
+          const allClubs = extractCollection<any>(allClubsRes) || [];
+          
+          // For each club, check if user is a member
+          const memberPromises = allClubs.map(async (club: any) => {
+            try {
+              const membersRes = await clubApi.getMembers(club.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
+              const members = extractCollection<any>(membersRes) || [];
+              const isMember = members.some((m: any) => m.id === user?.id);
+              return isMember ? club : null;
+            } catch {
+              return null;
+            }
+          });
+          
+          const memberClubs = (await Promise.all(memberPromises)).filter(Boolean);
+          
+          if (memberClubs.length > 0) {
+            // User is a member of clubs, but not assigned as admin via authorities
+            // This might mean they need to be assigned by system admin
+            console.log('User is member of clubs but not assigned as admin:', memberClubs);
+          }
+        } catch (err) {
+          console.error('Error checking club membership:', err);
+        }
+        
+        toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator to assign you as a club admin.');
         setStats((prev) => ({ ...prev, isLoading: false }));
         return;
       }

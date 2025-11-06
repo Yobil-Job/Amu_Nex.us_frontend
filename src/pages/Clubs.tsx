@@ -42,6 +42,10 @@ const Clubs = () => {
   if (isStudent(user?.role)) {
     return <ClubsDiscovery />;
   }
+
+  // For club admins (ADMIN role), filter clubs based on their authorities
+  const isClubAdmin = user?.role === 'ADMIN';
+  
   const [clubs, setClubs] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [selectedClubForRequests, setSelectedClubForRequests] = useState<number | null>(null);
@@ -65,31 +69,75 @@ const Clubs = () => {
     // For students, if all-clubs fails, loadUserClubs will fallback to joined clubs
     if (user?.id) {
       loadClubs();
-      loadUserClubs();
+      if (!isClubAdmin) {
+        loadUserClubs();
+      }
     } else {
       loadClubs();
     }
-  }, [user?.id]);
+  }, [user?.id, isClubAdmin]);
 
   const loadClubs = async () => {
     setIsLoading(true);
     try {
-      // Try to fetch all clubs - according to backend docs, this should work for all authenticated users
-      const response = await clubApi.getAll();
-      console.log('📊 Clubs API Response (full):', JSON.stringify(response, null, 2));
+      let clubsList: any[] = [];
       
-      // Use extractCollection which handles multiple formats
-      const clubsList = extractCollection<any>(response);
-      
-      console.log('✅ Extracted clubs:', clubsList.length, clubsList);
-      
-      if (clubsList.length === 0 && response) {
-        console.warn('⚠️ No clubs extracted. Response structure:', {
-          hasEmbedded: !!response._embedded,
-          embeddedKeys: response._embedded ? Object.keys(response._embedded) : [],
-          isArray: Array.isArray(response),
-          responseKeys: Object.keys(response),
+      if (isClubAdmin) {
+        // For club admins, only load clubs they are assigned to manage via authorities
+        const authoritiesRes = await authorityApi.getAll().catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+        const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+        
+        // Filter authorities where user is the club admin (ADMIN role)
+        const userAuthorities = allAuthorities.filter((auth: any) => {
+          const studentId = auth.student?.id || auth.studentId;
+          const authName = (auth.name || '').toUpperCase();
+          return studentId === user?.id && authName === 'ADMIN';
         });
+        
+        // Get unique club IDs
+        const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
+        
+        if (clubIds.length > 0) {
+          // Fetch club details for each club ID
+          const clubPromises = clubIds.map(async (clubId: number) => {
+            try {
+              const club = await clubApi.getById(clubId);
+              return club;
+            } catch {
+              return null;
+            }
+          });
+          
+          clubsList = (await Promise.all(clubPromises)).filter(Boolean);
+        }
+      } else {
+        // For SUPER_ADMIN and others, load all clubs
+        const response = await clubApi.getAll();
+        console.log('📊 Clubs API Response (full):', JSON.stringify(response, null, 2));
+        
+        // Handle string response (if API returns JSON string)
+        let parsedResponse = response;
+        if (typeof response === 'string') {
+          try {
+            parsedResponse = JSON.parse(response);
+          } catch (e) {
+            console.error('Failed to parse response as JSON:', e);
+          }
+        }
+        
+        // Use extractCollection which handles multiple formats
+        clubsList = extractCollection<any>(parsedResponse);
+        
+        console.log('✅ Extracted clubs:', clubsList.length, clubsList);
+        
+        if (clubsList.length === 0 && parsedResponse) {
+          console.warn('⚠️ No clubs extracted. Response structure:', {
+            hasEmbedded: !!parsedResponse._embedded,
+            embeddedKeys: parsedResponse._embedded ? Object.keys(parsedResponse._embedded) : [],
+            isArray: Array.isArray(parsedResponse),
+            responseKeys: Object.keys(parsedResponse),
+          });
+        }
       }
       
       setClubs(clubsList);
@@ -411,7 +459,16 @@ const Clubs = () => {
             <div className="p-4 rounded-2xl bg-gradient-accent/10 inline-block mb-4">
               <Building2 className="h-16 w-16 text-accent" />
             </div>
-            <p className="text-muted-foreground text-lg">No clubs found. Create your first club!</p>
+            {isClubAdmin ? (
+              <>
+                <p className="text-muted-foreground text-lg font-semibold mb-2">No clubs assigned</p>
+                <p className="text-muted-foreground text-sm">
+                  You are not assigned as a club admin for any club yet. Please contact the system administrator to assign you as a club admin.
+                </p>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-lg">No clubs found. Create your first club!</p>
+            )}
           </CardContent>
         </Card>
       ) : (
