@@ -22,6 +22,7 @@ import AdminJoinRequests from "./pages/admin/JoinRequests";
 import AdminSettings from "./pages/admin/Settings";
 import AdminSystemLogs from "./pages/admin/SystemLogs";
 import AdminNotifications from "./pages/admin/Notifications";
+import ClubAdminMembers from "./pages/club-admin/Members";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSettings /></ProtectedRoute>} />
                 <Route path="/system-logs" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSystemLogs /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminNotifications /></ProtectedRoute>} />
+                <Route path="/club-members" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminMembers /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               
