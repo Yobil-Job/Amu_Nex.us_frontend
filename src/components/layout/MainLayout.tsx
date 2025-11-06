@@ -211,7 +211,8 @@ const MainLayout = () => {
     { name: 'Join Requests', href: '/join-requests', icon: UserCheck, roles: ['SUPER_ADMIN'] },
     { name: 'Members', href: '/club-members', icon: Users, roles: ['ADMIN'] },
     { name: 'Club Requests', href: '/club-join-requests', icon: UserCheck, roles: ['ADMIN'] },
-    { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN'] },
+    { name: 'Authorities', href: '/club-authorities', icon: Shield, roles: ['ADMIN'] },
     { name: 'System Logs', href: '/system-logs', icon: Activity, roles: ['SUPER_ADMIN'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN'] },
   ];
@@ -311,10 +312,10 @@ const MainLayout = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') ? 'default' : 'ghost'}
+                      variant={isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') || isActive('/club-authorities') || isActive('/club-members') || isActive('/club-join-requests') ? 'default' : 'ghost'}
                       size="sm"
                       className={`gap-2 transition-all ${
-                        isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities')
+                        isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') || isActive('/club-authorities') || isActive('/club-members') || isActive('/club-join-requests')
                           ? 'purple-gold-gradient text-white shadow-colored-primary hover:scale-105' 
                           : 'glass-card border-primary/20 hover:bg-primary/10 text-white'
                       }`}
