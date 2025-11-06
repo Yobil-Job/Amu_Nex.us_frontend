@@ -163,6 +163,55 @@ export function canViewClubMembers(userRole: string | undefined | null): boolean
 }
 
 /**
+ * Check if user can view/manage club settings (ADMIN only - for their assigned clubs)
+ */
+export function canManageClubSettings(userRole: string | undefined | null): boolean {
+  return isAdmin(userRole);
+}
+
+/**
+ * Check if user can view join requests for their clubs (ADMIN only)
+ */
+export function canViewClubJoinRequests(userRole: string | undefined | null): boolean {
+  return isAdmin(userRole);
+}
+
+/**
+ * Check if user can view fees for their clubs (SUPER_ADMIN or ADMIN)
+ */
+export function canViewFees(userRole: string | undefined | null): boolean {
+  return hasAnyRole(userRole, 'SUPER_ADMIN', 'ADMIN', 'STUDENT');
+}
+
+/**
+ * Check if user can manage fees (SUPER_ADMIN or ADMIN)
+ */
+export function canManageFees(userRole: string | undefined | null): boolean {
+  return hasAnyRole(userRole, 'SUPER_ADMIN', 'ADMIN');
+}
+
+/**
+ * Check if user can view events for their clubs (all roles)
+ */
+export function canViewEvents(userRole: string | undefined | null): boolean {
+  return true; // All authenticated users can view events
+}
+
+/**
+ * Check if user can view announcements for their clubs (all roles)
+ */
+export function canViewAnnouncements(userRole: string | undefined | null): boolean {
+  return true; // All authenticated users can view announcements
+}
+
+/**
+ * Check if user has club admin privileges (can manage a specific club)
+ */
+export function hasClubAdminPrivileges(userRole: string | undefined | null): boolean {
+  return isAdmin(userRole);
+}
+
+/**
  * Get role display name
  */
 export function getRoleDisplayName(role: string | undefined | null): string {

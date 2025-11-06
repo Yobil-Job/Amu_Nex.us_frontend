@@ -342,10 +342,32 @@ const MainLayout = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      variant={isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') || isActive('/club-authorities') || isActive('/club-members') || isActive('/club-join-requests') ? 'default' : 'ghost'}
+                      variant={
+                        isActive('/settings') || 
+                        isActive('/system-logs') || 
+                        isActive('/students') || 
+                        isActive('/join-requests') || 
+                        isActive('/authorities') || 
+                        isActive('/club-authorities') || 
+                        isActive('/club-members') || 
+                        isActive('/club-join-requests') ||
+                        isActive('/club-settings') ||
+                        isActive('/notifications')
+                          ? 'default' 
+                          : 'ghost'
+                      }
                       size="sm"
                       className={`gap-2 transition-all ${
-                        isActive('/settings') || isActive('/system-logs') || isActive('/students') || isActive('/join-requests') || isActive('/authorities') || isActive('/club-authorities') || isActive('/club-members') || isActive('/club-join-requests')
+                        isActive('/settings') || 
+                        isActive('/system-logs') || 
+                        isActive('/students') || 
+                        isActive('/join-requests') || 
+                        isActive('/authorities') || 
+                        isActive('/club-authorities') || 
+                        isActive('/club-members') || 
+                        isActive('/club-join-requests') ||
+                        isActive('/club-settings') ||
+                        isActive('/notifications')
                           ? 'purple-gold-gradient text-white shadow-colored-primary hover:scale-105' 
                           : 'glass-card border-primary/20 hover:bg-primary/10 text-white'
                       }`}
