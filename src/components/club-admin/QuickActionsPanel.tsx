@@ -38,7 +38,7 @@ const QuickActionsPanel = ({ clubId, pendingRequestsCount = 0 }: QuickActionsPan
       color: 'text-accent',
       bgColor: 'bg-accent/10',
       borderColor: 'border-accent/30',
-      action: () => navigate('/join-requests'),
+      action: () => navigate('/club-join-requests'),
       badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
     },
   ];

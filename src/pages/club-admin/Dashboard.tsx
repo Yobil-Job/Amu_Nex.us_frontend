@@ -34,6 +34,7 @@ const ClubAdminDashboard = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [fees, setFees] = useState<any[]>([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
@@ -54,9 +55,6 @@ const ClubAdminDashboard = () => {
       const authoritiesRes = await authorityApi.getAll().catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
       const allAuthorities = extractCollection<any>(authoritiesRes) || [];
 
-      console.log('All authorities:', allAuthorities);
-      console.log('Current user ID:', user?.id);
-
       // Filter authorities where user is the club admin (ADMIN role)
       // Authority has studentId (the club admin) and clubId (the club they manage)
       // In backend, authority name 'ADMIN' means club admin role
@@ -64,19 +62,11 @@ const ClubAdminDashboard = () => {
         const studentId = auth.student?.id || auth.studentId;
         const authName = (auth.name || '').toUpperCase();
         // Check if user is assigned as club admin (ADMIN role) for this club
-        const matches = studentId === user?.id && authName === 'ADMIN';
-        if (matches) {
-          console.log('Found matching authority:', auth);
-        }
-        return matches;
+        return studentId === user?.id && authName === 'ADMIN';
       });
-
-      console.log('User authorities:', userAuthorities);
 
       // Get unique club IDs
       const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
-
-      console.log('Club IDs found:', clubIds);
 
       if (clubIds.length === 0) {
         // If no authorities found, try alternative approach: check if user is a member of any clubs
@@ -99,13 +89,10 @@ const ClubAdminDashboard = () => {
           
           const memberClubs = (await Promise.all(memberPromises)).filter(Boolean);
           
-          if (memberClubs.length > 0) {
-            // User is a member of clubs, but not assigned as admin via authorities
-            // This might mean they need to be assigned by system admin
-            console.log('User is member of clubs but not assigned as admin:', memberClubs);
-          }
+          // User is a member of clubs, but not assigned as admin via authorities
+          // This might mean they need to be assigned by system admin
         } catch (err) {
-          console.error('Error checking club membership:', err);
+          // Silently fail - this is just a fallback check
         }
         
         toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator to assign you as a club admin.');
@@ -149,31 +136,35 @@ const ClubAdminDashboard = () => {
       const clubId = selectedClub.id;
 
       // Load all data in parallel
-      const [
-        membersRes,
-        authoritiesRes,
-        eventsRes,
-        announcementsRes,
-        feesRes,
-      ] = await Promise.all([
-        clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
-        authorityApi.getByClub(clubId).catch(() => ({ _embedded: { authorityResponseDtoList: [] } })),
-        eventApi.getByClub(clubId).catch(() => ({ _embedded: { eventList: [] } })),
-        announcementApi.getByClub(clubId).catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
-        feeApi.getByClub(clubId).catch(() => ({ _embedded: { feeResponseDtoList: [] } })),
-      ]);
+          const [
+            membersRes,
+            authoritiesRes,
+            eventsRes,
+            announcementsRes,
+            feesRes,
+            requestsRes,
+          ] = await Promise.all([
+            clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
+            authorityApi.getByClub(clubId).catch(() => ({ _embedded: { authorityResponseDtoList: [] } })),
+            eventApi.getByClub(clubId).catch(() => ({ _embedded: { eventList: [] } })),
+            announcementApi.getByClub(clubId).catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
+            feeApi.getByClub(clubId).catch(() => ({ _embedded: { feeResponseDtoList: [] } })),
+            clubApi.getPendingRequests(clubId).catch(() => ({ _embedded: { requestResponseDtoList: [] } })),
+          ]);
 
-      const membersList = extractCollection<any>(membersRes) || [];
-      const authoritiesList = extractCollection<any>(authoritiesRes) || [];
-      const eventsList = extractCollection<any>(eventsRes) || [];
-      const announcementsList = extractCollection<any>(announcementsRes) || [];
-      const feesList = extractCollection<any>(feesRes) || [];
+          const membersList = extractCollection<any>(membersRes) || [];
+          const authoritiesList = extractCollection<any>(authoritiesRes) || [];
+          const eventsList = extractCollection<any>(eventsRes) || [];
+          const announcementsList = extractCollection<any>(announcementsRes) || [];
+          const feesList = extractCollection<any>(feesRes) || [];
+          const requestsList = extractCollection<any>(requestsRes) || [];
 
-      setMembers(membersList);
-      setAuthorities(authoritiesList);
-      setEvents(eventsList);
-      setAnnouncements(announcementsList);
-      setFees(feesList);
+          setMembers(membersList);
+          setAuthorities(authoritiesList);
+          setEvents(eventsList);
+          setAnnouncements(announcementsList);
+          setFees(feesList);
+          setPendingRequestsCount(requestsList.length);
 
       // Calculate upcoming events (events after today)
       const now = new Date();
@@ -279,12 +270,12 @@ const ClubAdminDashboard = () => {
           <FeesChart fees={fees} isLoading={stats.isLoading} />
 
           {/* Quick Actions & Recent Activity */}
-          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-            <QuickActionsPanel
-              clubId={selectedClub.id}
-              pendingRequestsCount={0} // Will be calculated when we implement join requests
-            />
-          </div>
+              <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+                <QuickActionsPanel
+                  clubId={selectedClub.id}
+                  pendingRequestsCount={pendingRequestsCount}
+                />
+              </div>
         </>
       )}
     </div>

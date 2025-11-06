@@ -113,7 +113,6 @@ const Clubs = () => {
       } else {
         // For SUPER_ADMIN and others, load all clubs
         const response = await clubApi.getAll();
-        console.log('📊 Clubs API Response (full):', JSON.stringify(response, null, 2));
         
         // Handle string response (if API returns JSON string)
         let parsedResponse = response;
@@ -121,32 +120,18 @@ const Clubs = () => {
           try {
             parsedResponse = JSON.parse(response);
           } catch (e) {
-            console.error('Failed to parse response as JSON:', e);
+            // Silently fail - will be handled by extractCollection
           }
         }
         
         // Use extractCollection which handles multiple formats
         clubsList = extractCollection<any>(parsedResponse);
-        
-        console.log('✅ Extracted clubs:', clubsList.length, clubsList);
-        
-        if (clubsList.length === 0 && parsedResponse) {
-          console.warn('⚠️ No clubs extracted. Response structure:', {
-            hasEmbedded: !!parsedResponse._embedded,
-            embeddedKeys: parsedResponse._embedded ? Object.keys(parsedResponse._embedded) : [],
-            isArray: Array.isArray(parsedResponse),
-            responseKeys: Object.keys(parsedResponse),
-          });
-        }
       }
       
       setClubs(clubsList);
     } catch (error: any) {
-      console.error('❌ Error loading all clubs:', error);
-      
       // For students, if all-clubs fails, we'll use joined clubs (handled in loadUserClubs)
       if (user?.role === 'STUDENT' || user?.role === 'SUPER_USER') {
-        console.log('⚠️ All-clubs fetch failed for student, will use joined clubs instead');
         // Don't show error toast for students, as they have joined clubs as fallback
       } else {
         // For admins, show error
@@ -168,12 +153,8 @@ const Clubs = () => {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      console.log('📊 Loading clubs for user:', user.id);
       const response = await studentApi.getClubs(user.id);
-      console.log('📊 User clubs API Response:', JSON.stringify(response, null, 2));
-      
       const clubsList = extractCollection<any>(response);
-      console.log('✅ Extracted user clubs:', clubsList.length, clubsList);
       
       setUserClubs(clubsList);
       
@@ -185,7 +166,6 @@ const Clubs = () => {
           setClubs(currentClubs => {
             // Only update if clubs list is empty (all-clubs failed)
             if (currentClubs.length === 0 && clubsList.length > 0) {
-              console.log('✅ Set clubs list to user clubs for STUDENT/SUPER_USER (fallback):', clubsList.length, 'clubs');
               return clubsList;
             }
             return currentClubs;
@@ -193,7 +173,6 @@ const Clubs = () => {
         }, 100);
       }
     } catch (error: any) {
-      console.error('❌ Failed to load user clubs:', error);
       toast.error('Failed to load your clubs. Please try again.');
       setUserClubs([]);
     } finally {

@@ -1,11 +1,6 @@
 // API Service Layer - Easy to modify base URL and endpoints
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-// Log API URL in development to verify environment variable is loaded
-if (import.meta.env.DEV) {
-  console.log('🔧 API Base URL:', API_BASE_URL);
-  console.log('🌍 Environment:', import.meta.env.MODE);
-}
 
 // Token refresh callback (set by AuthContext)
 let tokenRefreshCallback: (() => Promise<void>) | null = null;
@@ -45,9 +40,6 @@ const retryRequest = async (
 
     // Retry on network errors or 5xx errors
     if (retries > 0) {
-      if (import.meta.env.DEV) {
-        console.log(`🔄 Retrying request (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})...`);
-      }
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
       return retryRequest(fn, retries - 1);
     }
@@ -108,29 +100,17 @@ const handleResponse = async (response: Response): Promise<any> => {
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     const jsonData = await response.json();
-    if (import.meta.env.DEV) {
-      console.log(`✅ API Success:`, { url: response.url, data: jsonData });
-    }
     return jsonData;
   }
   const textData = await response.text();
-  if (import.meta.env.DEV) {
-    console.log(`✅ API Success (text):`, { url: response.url, data: textData });
-  }
   
   // Try to parse as JSON if it looks like JSON
   if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
     try {
       const parsed = JSON.parse(textData);
-      if (import.meta.env.DEV) {
-        console.log(`✅ Parsed text response as JSON:`, { url: response.url });
-      }
       return parsed;
     } catch (e) {
       // If parsing fails, return as text
-      if (import.meta.env.DEV) {
-        console.warn(`⚠️ Failed to parse text as JSON, returning as text:`, e);
-      }
     }
   }
   
