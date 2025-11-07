@@ -14,13 +14,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Bell, Plus, Trash2, Pencil, AlertCircle, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { canManageAnnouncements, isSuperAdmin, isStudent } from '@/lib/roles';
+import { canManageAnnouncements, isSuperAdmin, isStudent, isSuperUser } from '@/lib/roles';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StudentAnnouncements from './student/Announcements';
 import AdminAnnouncements from './admin/Announcements';
 import ClubAdminAnnouncements from './club-admin/Announcements';
+import SuperUserAnnouncements from './super-user/Announcements';
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -33,6 +34,11 @@ const Announcements = () => {
   // Route ADMIN (club admin) to club admin version
   if (user?.role === 'ADMIN') {
     return <ClubAdminAnnouncements />;
+  }
+
+  // Route SUPER_USER to super user version
+  if (isSuperUser(user?.role)) {
+    return <SuperUserAnnouncements />;
   }
 
   // Render student-specific announcements page for students
