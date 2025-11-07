@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Users, Building2, Calendar, 
   DollarSign, Bell, Shield, Home, LogOut, UserCircle,
-  Settings, Activity, UserCheck, ChevronDown, Package
+  Settings, Activity, UserCheck, ChevronDown, Package, TrendingUp
 } from 'lucide-react';
 import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
 import ClubAdminNotificationsPanel from '@/components/club-admin/NotificationsPanel';
@@ -269,6 +269,7 @@ const MainLayout = () => {
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Members', href: '/members', icon: Users, roles: ['SUPER_USER'] },
     { name: 'Resources', href: '/resources', icon: Package, roles: ['SUPER_USER'] },
+    { name: 'Reports', href: '/reports', icon: TrendingUp, roles: ['SUPER_USER'] },
   ];
 
   // Define admin navigation items (grouped in dropdown)
@@ -299,11 +300,16 @@ const MainLayout = () => {
   const allNavigation = [...mainNavigation, ...adminNavigation];
 
   const isActive = (path: string) => location.pathname === path;
+  const isSuperUserRole = isSuperUser(user?.role);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 glass-card border-b border-primary/20 shadow-lg">
+      <header className={`sticky top-0 z-40 glass-card border-b shadow-lg ${
+        isSuperUserRole 
+          ? 'border-blue-500/20' 
+          : 'border-primary/20'
+      }`}>
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity group">
@@ -462,7 +468,14 @@ const MainLayout = () => {
                 )}
                 
                 {user?.role && (
-                  <Badge className={getRoleBadgeColor(user.role)} variant="secondary">
+                  <Badge 
+                    className={
+                      isSuperUserRole
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                        : getRoleBadgeColor(user.role)
+                    } 
+                    variant="secondary"
+                  >
                     {getRoleDisplayName(user.role)}
                   </Badge>
                 )}
@@ -523,6 +536,7 @@ const MainLayout = () => {
             <nav className="mt-4 flex flex-col gap-1 pb-4 md:hidden">
               {mainNavigation.map((item) => {
                 const Icon = item.icon;
+                const isSuperUserRole = isSuperUser(user?.role);
                 return (
                   <Link
                     key={item.name}
@@ -532,7 +546,11 @@ const MainLayout = () => {
                     <Button
                       variant={isActive(item.href) ? 'default' : 'ghost'}
                       size="sm"
-                      className="w-full justify-start gap-2"
+                      className={`w-full justify-start gap-2 ${
+                        isActive(item.href) && isSuperUserRole
+                          ? 'super-user-gradient text-white'
+                          : ''
+                      }`}
                     >
                       <Icon className="h-4 w-4" />
                       {item.name}

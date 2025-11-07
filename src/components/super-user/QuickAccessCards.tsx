@@ -11,6 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface QuickAccessCardsProps {
   pendingRequestsCount?: number;
@@ -81,50 +82,58 @@ const QuickAccessCards = ({
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-      {cards.map((card, index) => {
-        const Icon = card.icon;
-        return (
-          <Card
-            key={card.title}
-            className={cn(
-              'glass-card border-2 cursor-pointer transition-all hover:scale-105 glow-effect group',
-              card.borderColor,
-              card.hoverColor
-            )}
-            style={{ animationDelay: `${index * 100}ms` }}
-            onClick={card.action}
-          >
-            <CardContent className="p-6 flex flex-col items-start gap-3 relative">
-              <div className={cn('p-3 rounded-xl shadow-sm', card.bgColor)}>
-                <Icon className={cn('h-6 w-6', card.color)} />
-              </div>
-              <div className="flex-1 w-full">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <h3 className="font-semibold text-white text-sm leading-tight">
-                    {card.title}
-                  </h3>
-                  {card.badge !== undefined && card.badge > 0 && (
-                    <Badge className="bg-destructive text-destructive-foreground text-xs">
-                      {card.badge}
-                    </Badge>
+    <TooltipProvider>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        {cards.map((card, index) => {
+          const Icon = card.icon;
+          return (
+            <Tooltip key={card.title}>
+              <TooltipTrigger asChild>
+                <Card
+                  className={cn(
+                    'glass-card border-2 cursor-pointer transition-all hover:scale-105 glow-effect group',
+                    card.borderColor,
+                    card.hoverColor
                   )}
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {card.description}
-                </p>
-              </div>
-              <ArrowRight 
-                className={cn(
-                  'h-4 w-4 absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity',
-                  card.color
-                )} 
-              />
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  onClick={card.action}
+                >
+                  <CardContent className="p-6 flex flex-col items-start gap-3 relative">
+                    <div className={cn('p-3 rounded-xl shadow-sm', card.bgColor)}>
+                      <Icon className={cn('h-6 w-6', card.color)} />
+                    </div>
+                    <div className="flex-1 w-full">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="font-semibold text-white text-sm leading-tight">
+                          {card.title}
+                        </h3>
+                        {card.badge !== undefined && card.badge > 0 && (
+                          <Badge className="bg-destructive text-destructive-foreground text-xs">
+                            {card.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {card.description}
+                      </p>
+                    </div>
+                    <ArrowRight 
+                      className={cn(
+                        'h-4 w-4 absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity',
+                        card.color
+                      )} 
+                    />
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                <p className="text-white">{card.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 };
 

@@ -13,6 +13,7 @@ import QuickAccessCards from '@/components/super-user/QuickAccessCards';
 import NotificationsPanel from '@/components/super-user/NotificationsPanel';
 import { format, parseISO } from 'date-fns';
 import { Users, Calendar, Bell, Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const SuperUserDashboard = () => {
   const { user } = useAuth();
@@ -204,14 +205,14 @@ const SuperUserDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-primary shadow-colored-primary">
-            <Shield className="h-7 w-7 text-primary-foreground" />
+          <div className="p-3 rounded-xl super-user-gradient super-user-glow">
+            <Shield className="h-7 w-7 text-white" />
           </div>
           <div>
             <h1 className="text-4xl font-bold tracking-tight neon-text text-white flex items-center gap-3">
               Dashboard
               {userPosition && (
-                <Badge className="bg-primary/20 text-primary border-primary/30">
+                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 super-user-text">
                   {userPosition}
                 </Badge>
               )}
@@ -234,13 +235,13 @@ const SuperUserDashboard = () => {
         <Card className="glass-card border-primary/20 glow-effect">
           <CardHeader>
             <CardTitle className="text-lg neon-text text-white flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
+              <User className="h-5 w-5 text-blue-400" />
               Your Profile
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="h-16 w-16 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
+              <div className="h-16 w-16 rounded-full super-user-gradient flex items-center justify-center text-2xl font-bold text-white super-user-glow">
                 {user?.firstname?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1">
@@ -249,7 +250,7 @@ const SuperUserDashboard = () => {
                 </h3>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
                 {userPosition && (
-                  <Badge className="mt-2 bg-primary/20 text-primary border-primary/30">
+                  <Badge className="mt-2 bg-blue-500/20 text-blue-300 border-blue-500/30 super-user-text">
                     {userPosition}
                   </Badge>
                 )}
@@ -258,7 +259,7 @@ const SuperUserDashboard = () => {
             {selectedClub && (
               <div className="pt-4 border-t border-primary/20">
                 <div className="flex items-center gap-2 text-sm">
-                  <Building2 className="h-4 w-4 text-primary" />
+                  <Building2 className="h-4 w-4 text-blue-400" />
                   <span className="text-muted-foreground">Club:</span>
                   <span className="text-white font-medium">{selectedClub.title || selectedClub.name}</span>
                 </div>
@@ -280,93 +281,132 @@ const SuperUserDashboard = () => {
       </div>
 
       {/* Quick Access Cards */}
-      <QuickAccessCards
-        pendingRequestsCount={pendingRequestsCount}
-        pendingEventRequestsCount={0} // TODO: Implement when event proposals are added
-        pendingFinanceRequestsCount={0} // TODO: Implement when finance requests are added
-      />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Quick Access</h2>
+          <p className="text-sm text-muted-foreground">Click on any card to navigate</p>
+        </div>
+        <QuickAccessCards
+          pendingRequestsCount={pendingRequestsCount}
+          pendingEventRequestsCount={0} // TODO: Implement when event proposals are added
+          pendingFinanceRequestsCount={0} // TODO: Implement when finance requests are added
+        />
+      </div>
 
       {/* Stats Summary */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card border-primary/20 glow-effect">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Total Members
-            </CardTitle>
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-3xl font-bold neon-text text-white">
-                {stats.totalMembers}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-white">Statistics Overview</h2>
+        <TooltipProvider>
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="glass-card border-blue-500/20 glow-effect super-user-border cursor-pointer hover:border-blue-500/40 transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      Total Members
+                    </CardTitle>
+                    <div className="p-3 rounded-xl bg-blue-500/10">
+                      <Users className="h-5 w-5 text-blue-400" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.isLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <div className="text-3xl font-bold neon-text text-white">
+                        {stats.totalMembers}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                <p className="text-white">Total number of club members</p>
+              </TooltipContent>
+            </Tooltip>
 
-        <Card className="glass-card border-primary/20 glow-effect">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Upcoming Events
-            </CardTitle>
-            <div className="p-3 rounded-xl bg-success/10">
-              <Calendar className="h-5 w-5 text-success" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-3xl font-bold neon-text text-white">
-                {stats.upcomingEvents}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="glass-card border-primary/20 glow-effect cursor-pointer hover:border-success/40 transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      Upcoming Events
+                    </CardTitle>
+                    <div className="p-3 rounded-xl bg-success/10">
+                      <Calendar className="h-5 w-5 text-success" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.isLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <div className="text-3xl font-bold neon-text text-white">
+                        {stats.upcomingEvents}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                <p className="text-white">Number of upcoming club events</p>
+              </TooltipContent>
+            </Tooltip>
 
-        <Card className="glass-card border-primary/20 glow-effect">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Announcements
-            </CardTitle>
-            <div className="p-3 rounded-xl bg-info/10">
-              <Bell className="h-5 w-5 text-info" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-3xl font-bold neon-text text-white">
-                {stats.totalAnnouncements}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="glass-card border-primary/20 glow-effect cursor-pointer hover:border-primary/40 transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      Announcements
+                    </CardTitle>
+                    <div className="p-3 rounded-xl bg-info/10">
+                      <Bell className="h-5 w-5 text-info" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.isLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <div className="text-3xl font-bold neon-text text-white">
+                        {stats.totalAnnouncements}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                <p className="text-white">Total number of club announcements</p>
+              </TooltipContent>
+            </Tooltip>
 
-        <Card className="glass-card border-primary/20 glow-effect">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Pending Requests
-            </CardTitle>
-            <div className="p-3 rounded-xl bg-accent/10">
-              <Clock className="h-5 w-5 text-accent" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-3xl font-bold neon-text text-white">
-                {stats.pendingRequests}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="glass-card border-primary/20 glow-effect cursor-pointer hover:border-accent/40 transition-all">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                      Pending Requests
+                    </CardTitle>
+                    <div className="p-3 rounded-xl bg-accent/10">
+                      <Clock className="h-5 w-5 text-accent" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.isLoading ? (
+                      <Skeleton className="h-8 w-20" />
+                    ) : (
+                      <div className="text-3xl font-bold neon-text text-white">
+                        {stats.pendingRequests}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+                <p className="text-white">Number of pending join requests requiring approval</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
     </div>
   );
