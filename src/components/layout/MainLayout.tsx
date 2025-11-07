@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Menu, X, Users, Building2, Calendar, 
   DollarSign, Bell, Shield, Home, LogOut, UserCircle,
-  Settings, Activity, UserCheck, ChevronDown
+  Settings, Activity, UserCheck, ChevronDown, Package
 } from 'lucide-react';
 import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
 import ClubAdminNotificationsPanel from '@/components/club-admin/NotificationsPanel';
@@ -267,6 +267,8 @@ const MainLayout = () => {
     { name: 'Events', href: '/events', icon: Calendar, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'Members', href: '/members', icon: Users, roles: ['SUPER_USER'] },
+    { name: 'Resources', href: '/resources', icon: Package, roles: ['SUPER_USER'] },
   ];
 
   // Define admin navigation items (grouped in dropdown)
