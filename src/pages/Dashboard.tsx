@@ -9,10 +9,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
 import { useMemo } from 'react';
-import { isStudent, isSuperAdmin, isAdmin } from '@/lib/roles';
+import { isStudent, isSuperAdmin, isAdmin, isSuperUser } from '@/lib/roles';
 import StudentDashboard from './student/Dashboard';
 import AdminDashboard from './admin/Dashboard';
 import ClubAdminDashboard from './club-admin/Dashboard';
+import SuperUserDashboard from './super-user/Dashboard';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -32,6 +33,12 @@ const Dashboard = () => {
   // Note: In backend, ADMIN role = Club Admin, SUPER_ADMIN = System Admin
   if (isAdmin(user?.role)) {
     return <ClubAdminDashboard />;
+  }
+
+  // Route SUPER_USER (club authority) to super user dashboard
+  // SUPER_USER = Club authorities assigned by club admin (President, Secretary, etc.)
+  if (isSuperUser(user?.role)) {
+    return <SuperUserDashboard />;
   }
   
   const [stats, setStats] = useState({

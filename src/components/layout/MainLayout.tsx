@@ -7,8 +7,10 @@ import {
 } from 'lucide-react';
 import NotificationCenter, { type Notification } from '@/components/admin/NotificationCenter';
 import ClubAdminNotificationsPanel from '@/components/club-admin/NotificationsPanel';
+import SuperUserNotificationsPanel from '@/components/super-user/NotificationsPanel';
 import { clubApi, eventApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
+import { isSuperUser } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -40,11 +42,21 @@ const MainLayout = () => {
   
   // Club admin managed clubs (for notifications)
   const [managedClubIds, setManagedClubIds] = useState<number[]>([]);
+  
+  // Super user club (for notifications)
+  const [superUserClubId, setSuperUserClubId] = useState<number | null>(null);
 
   // Load managed clubs for club admin
   useEffect(() => {
     if (user?.role === 'ADMIN' && user?.id) {
       loadManagedClubs();
+    }
+  }, [user?.role, user?.id]);
+
+  // Load club for super user
+  useEffect(() => {
+    if (isSuperUser(user?.role) && user?.id) {
+      loadSuperUserClub();
     }
   }, [user?.role, user?.id]);
 
@@ -63,6 +75,29 @@ const MainLayout = () => {
       setManagedClubIds(clubIds);
     } catch (error) {
       console.error('Failed to load managed clubs:', error);
+    }
+  };
+
+  const loadSuperUserClub = async () => {
+    try {
+      const authoritiesRes = await authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+
+      // Filter authorities for the current user (SUPER_USER)
+      const userAuthorities = allAuthorities.filter((auth: any) => {
+        const studentId = auth.student?.id || auth.studentId;
+        return studentId === user?.id;
+      });
+
+      if (userAuthorities.length > 0) {
+        // Get the first club ID (if multiple, use the first one)
+        const clubId = userAuthorities[0]?.club?.id || userAuthorities[0]?.clubId;
+        if (clubId) {
+          setSuperUserClubId(clubId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load super user club:', error);
     }
   };
 
@@ -417,6 +452,11 @@ const MainLayout = () => {
                 {/* Club Admin Notification Center */}
                 {user?.role === 'ADMIN' && managedClubIds.length > 0 && (
                   <ClubAdminNotificationsPanel managedClubIds={managedClubIds} />
+                )}
+                
+                {/* Super User Notification Center */}
+                {isSuperUser(user?.role) && superUserClubId && (
+                  <SuperUserNotificationsPanel clubId={superUserClubId} />
                 )}
                 
                 {user?.role && (
