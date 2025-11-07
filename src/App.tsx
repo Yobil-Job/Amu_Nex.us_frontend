@@ -26,6 +26,7 @@ import ClubAdminMembers from "./pages/club-admin/Members";
 import ClubAdminJoinRequests from "./pages/club-admin/JoinRequests";
 import ClubAdminAuthorities from "./pages/club-admin/Authorities";
 import ClubAdminSettings from "./pages/club-admin/Settings";
+import SuperUserMembers from "./pages/super-user/Members";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/club-join-requests" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminJoinRequests /></ProtectedRoute>} />
                 <Route path="/club-authorities" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminAuthorities /></ProtectedRoute>} />
                 <Route path="/club-settings" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminSettings /></ProtectedRoute>} />
+                <Route path="/members" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserMembers /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               
