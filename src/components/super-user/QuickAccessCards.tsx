@@ -55,7 +55,7 @@ const QuickAccessCards = ({
       bgColor: 'bg-warning/10',
       borderColor: 'border-warning/30',
       hoverColor: 'hover:bg-warning/20',
-      action: () => navigate('/finance'),
+      action: () => navigate('/fees'),
       badge: pendingFinanceRequestsCount > 0 ? pendingFinanceRequestsCount : undefined,
     },
     {

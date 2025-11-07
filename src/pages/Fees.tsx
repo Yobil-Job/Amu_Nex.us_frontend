@@ -17,11 +17,12 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { isStudent, isSuperAdmin } from '@/lib/roles';
+import { isStudent, isSuperAdmin, isSuperUser } from '@/lib/roles';
 import { useAuth } from '@/contexts/AuthContext';
 import StudentFees from './student/Fees';
 import AdminFees from './admin/Fees';
 import ClubAdminFees from './club-admin/Fees';
+import SuperUserFinance from './super-user/Finance';
 
 const Fees = () => {
   const { user } = useAuth();
@@ -34,6 +35,11 @@ const Fees = () => {
   // Route ADMIN (club admin) to club admin version
   if (user?.role === 'ADMIN') {
     return <ClubAdminFees />;
+  }
+
+  // Route SUPER_USER to super user finance version
+  if (isSuperUser(user?.role)) {
+    return <SuperUserFinance />;
   }
 
   // Render student-specific fees page for students
