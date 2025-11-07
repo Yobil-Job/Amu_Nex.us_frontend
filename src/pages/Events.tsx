@@ -15,13 +15,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Calendar, Plus, Pencil, Trash2, MapPin, Clock, Map, HelpCircle } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import { canCreateEvent, canUpdateEvent, isStudent, isSuperAdmin } from '@/lib/roles';
+import { canCreateEvent, canUpdateEvent, isStudent, isSuperAdmin, isSuperUser } from '@/lib/roles';
 import { useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import StudentEventsView from './student/StudentEventsView';
 import AdminEvents from './admin/Events';
 import ClubAdminEvents from './club-admin/Events';
+import SuperUserEvents from './super-user/Events';
 
 const Events = () => {
   const { user } = useAuth();
@@ -34,6 +35,11 @@ const Events = () => {
   // Route ADMIN (club admin) to club admin version
   if (user?.role === 'ADMIN') {
     return <ClubAdminEvents />;
+  }
+
+  // Route SUPER_USER to super user version
+  if (isSuperUser(user?.role)) {
+    return <SuperUserEvents />;
   }
 
   // Render student-specific events page for students
