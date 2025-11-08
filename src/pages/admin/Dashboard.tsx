@@ -5,7 +5,7 @@ import { studentApi, clubApi, eventApi, announcementApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Activity, TrendingUp, Sparkles, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Shield, Activity, TrendingUp, Sparkles, AlertCircle, CheckCircle2, Clock, Building2 } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import StatsCards from '@/components/admin/StatsCards';
@@ -46,26 +46,64 @@ const AdminDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
+      setStats((prev) => ({ ...prev, isLoading: true }));
+      
       // Load all data in parallel
       const [studentsRes, clubsRes, eventsRes, announcementsRes] = await Promise.all([
-        studentApi.getAll().catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
-        clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-        eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
-        announcementApi.getAll().catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
+        studentApi.getAll().catch((error) => {
+          console.error('Failed to load students:', error);
+          return { _embedded: { studentResponseDtoList: [] } };
+        }),
+        clubApi.getAll().catch((error) => {
+          console.error('Failed to load clubs:', error);
+          return { _embedded: { responseClubDtoList: [] } };
+        }),
+        eventApi.getAll().catch((error) => {
+          console.error('Failed to load events:', error);
+          return { _embedded: { eventList: [] } };
+        }),
+        announcementApi.getAll().catch((error) => {
+          console.error('Failed to load announcements:', error);
+          // Announcement endpoint might return different structure
+          return { _embedded: { announcementResponseDtoList: [] } };
+        }),
       ]);
 
       const studentsList = extractCollection<any>(studentsRes) || [];
       const clubsList = extractCollection<any>(clubsRes) || [];
       const eventsList = extractCollection<any>(eventsRes) || [];
-      const announcementsList = extractCollection<any>(announcementsRes) || [];
+      
+      // Handle announcements - Spring HATEOAS wraps in CollectionModel
+      // The collection might be in _embedded with key 'announcementList' or similar
+      let announcementsList = extractCollection<any>(announcementsRes) || [];
+      
+      // If announcements response is a CollectionModel but extractCollection didn't find it,
+      // try to extract from _embedded manually
+      if (announcementsList.length === 0 && announcementsRes && announcementsRes._embedded) {
+        // Try all possible keys in _embedded
+        const embedded = announcementsRes._embedded;
+        for (const key in embedded) {
+          if (Array.isArray(embedded[key])) {
+            announcementsList = embedded[key];
+            break;
+          }
+        }
+      }
 
       setStudents(studentsList);
       setClubs(clubsList);
       setEvents(eventsList);
       setAnnouncements(announcementsList);
 
-      // Count club admins (students with role SUPER_USER)
-      const clubAdminsCount = studentsList.filter((s: any) => s.role === 'SUPER_USER').length;
+      // Count club admins - get unique clubAdminIds from clubs
+      // Club admins are students who are assigned as admins of clubs (stored in clubAdminId field)
+      const uniqueClubAdminIds = new Set<number>();
+      clubsList.forEach((club: any) => {
+        if (club.clubAdminId != null && club.clubAdminId !== undefined) {
+          uniqueClubAdminIds.add(club.clubAdminId);
+        }
+      });
+      const clubAdminsCount = uniqueClubAdminIds.size;
 
       // Load pending requests from all clubs
       let totalPendingRequests = 0;
@@ -88,51 +126,84 @@ const AdminDashboard = () => {
       }
 
       // Prepare recent activities
+      // Combine events, announcements, and new clubs for activity feed
       const activities = [
         ...eventsList
-          .filter((e: any) => e.startAt)
+          .filter((e: any) => e.startAt || e.createdAt)
           .sort((a: any, b: any) => {
             try {
-              return parseISO(b.startAt).getTime() - parseISO(a.startAt).getTime();
+              const dateA = parseISO(a.startAt || a.createdAt || '1970-01-01');
+              const dateB = parseISO(b.startAt || b.createdAt || '1970-01-01');
+              return dateB.getTime() - dateA.getTime();
             } catch {
               return 0;
             }
           })
-          .slice(0, 3)
+          .slice(0, 5)
           .map((e: any) => ({
             type: 'event',
             title: e.title || 'New Event',
             description: e.club?.title || e.club?.name || 'Event created',
-            timestamp: e.startAt,
+            timestamp: e.startAt || e.createdAt,
             icon: 'Calendar',
           })),
         ...announcementsList
+          .filter((a: any) => a.createdAt || a.id)
           .sort((a: any, b: any) => {
             try {
-              return parseISO(b.createdAt || b.id).getTime() - parseISO(a.createdAt || a.id).getTime();
+              const dateA = parseISO(a.createdAt || a.createdDate || String(a.id));
+              const dateB = parseISO(b.createdAt || b.createdDate || String(b.id));
+              return dateB.getTime() - dateA.getTime();
             } catch {
-              return 0;
+              // Try numeric comparison for IDs if date parsing fails
+              return (b.id || 0) - (a.id || 0);
             }
           })
-          .slice(0, 3)
+          .slice(0, 5)
           .map((a: any) => ({
             type: 'announcement',
             title: a.title || 'New Announcement',
             description: a.club?.title || a.club?.name || 'Announcement created',
-            timestamp: a.createdAt,
+            timestamp: a.createdAt || a.createdDate,
             icon: 'Bell',
+          })),
+        ...clubsList
+          .filter((c: any) => c.createdAt || c.id)
+          .sort((a: any, b: any) => {
+            try {
+              const dateA = parseISO(a.createdAt || a.createdDate || String(a.id));
+              const dateB = parseISO(b.createdAt || b.createdDate || String(b.id));
+              return dateB.getTime() - dateA.getTime();
+            } catch {
+              return (b.id || 0) - (a.id || 0);
+            }
+          })
+          .slice(0, 3)
+          .map((c: any) => ({
+            type: 'club',
+            title: c.title || c.name || 'New Club',
+            description: 'Club created',
+            timestamp: c.createdAt || c.createdDate,
+            icon: 'Building',
           })),
       ]
         .sort((a, b) => {
           try {
-            const dateA = a.timestamp ? parseISO(a.timestamp) : new Date(0);
-            const dateB = b.timestamp ? parseISO(b.timestamp) : new Date(0);
+            if (!a.timestamp || !b.timestamp) {
+              // If no timestamp, use id or put at end
+              return (b.timestamp ? 1 : 0) - (a.timestamp ? 1 : 0);
+            }
+            const dateA = parseISO(a.timestamp);
+            const dateB = parseISO(b.timestamp);
+            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+              return 0;
+            }
             return dateB.getTime() - dateA.getTime();
           } catch {
             return 0;
           }
         })
-        .slice(0, 5);
+        .slice(0, 10); // Show more activities
 
       setRecentActivities(activities);
 
@@ -148,8 +219,9 @@ const AdminDashboard = () => {
 
       // Load notifications
       loadNotifications();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load dashboard data:', error);
+      toast.error(error.message || 'Failed to load dashboard data. Please refresh the page.');
       setStats((prev) => ({ ...prev, isLoading: false }));
     }
   };
@@ -159,7 +231,16 @@ const AdminDashboard = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const savedNotifications: Notification[] = JSON.parse(saved);
-        setNotifications(savedNotifications);
+        // Filter out mock "suspicious activity" notifications that may have been randomly generated
+        // Only keep real notifications (club requests, join requests, new events)
+        const realNotifications = savedNotifications.filter(
+          (n) => n.type !== 'suspicious_activity'
+        );
+        setNotifications(realNotifications);
+        // Update localStorage with filtered notifications to prevent re-adding them
+        if (realNotifications.length !== savedNotifications.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(realNotifications));
+        }
       }
     } catch {
       // Ignore parse errors
@@ -216,16 +297,21 @@ const AdminDashboard = () => {
   const upcomingEvents = useMemo(() => {
     return events
       .filter((e: any) => {
-        if (!e.startAt) return false;
+        // Try both startAt and startTime fields
+        const eventDate = e.startAt || e.startTime;
+        if (!eventDate) return false;
         try {
-          return isAfter(parseISO(e.startAt), new Date());
+          const parsedDate = parseISO(eventDate);
+          return !isNaN(parsedDate.getTime()) && isAfter(parsedDate, new Date());
         } catch {
           return false;
         }
       })
       .sort((a: any, b: any) => {
         try {
-          return parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime();
+          const dateA = parseISO(a.startAt || a.startTime || '');
+          const dateB = parseISO(b.startAt || b.startTime || '');
+          return dateA.getTime() - dateB.getTime();
         } catch {
           return 0;
         }
@@ -322,6 +408,8 @@ const AdminDashboard = () => {
                       }`}>
                         {activity.type === 'event' ? (
                           <Clock className="h-4 w-4 text-success" />
+                        ) : activity.type === 'club' ? (
+                          <Building2 className="h-4 w-4 text-primary" />
                         ) : (
                           <Activity className="h-4 w-4 text-accent" />
                         )}

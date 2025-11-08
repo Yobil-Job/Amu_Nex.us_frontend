@@ -448,6 +448,34 @@ export const authorityApi = {
     return handleResponse(response);
   },
 
+  getAll: async () => {
+    // Note: Backend doesn't have /authorities/allAuthorities endpoint
+    // So we'll aggregate authorities from all clubs
+    // This is a client-side implementation that loads authorities for all clubs
+    try {
+      // First, get all clubs
+      const clubsRes = await clubApi.getAll();
+      const clubs = extractCollection<any>(clubsRes) || [];
+      
+      // Then, get authorities for each club
+      const authoritiesPromises = clubs.map((club: any) =>
+        authorityApi.getByClub(club.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }))
+      );
+      
+      const authoritiesArrays = await Promise.all(authoritiesPromises);
+      const allAuthorities: any[] = [];
+      
+      authoritiesArrays.forEach((res: any) => {
+        const authorities = extractCollection<any>(res) || [];
+        allAuthorities.push(...authorities);
+      });
+      
+      return { _embedded: { authorityResponseDtoList: allAuthorities } };
+    } catch {
+      return { _embedded: { authorityResponseDtoList: [] } };
+    }
+  },
+
   getByStudent: async (studentId: number) => {
     const response = await authFetch(`${API_BASE_URL}/authorities/students/${studentId}`);
     const data = await handleResponse(response);

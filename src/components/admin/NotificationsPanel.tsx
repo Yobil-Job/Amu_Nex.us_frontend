@@ -115,8 +115,8 @@ const NotificationsPanel = ({
   }
 
   return (
-    <Card className="glass-card border-primary/20">
-      <CardHeader>
+    <Card className="glass-card border-primary/20 flex flex-col h-full max-h-[600px]">
+      <CardHeader className="flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -158,10 +158,10 @@ const NotificationsPanel = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-shrink-0">
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by type" />
@@ -203,7 +203,7 @@ const NotificationsPanel = ({
               <p className="text-sm mt-1">Try adjusting your filters</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+            <div className="space-y-2 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent min-h-0">
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}

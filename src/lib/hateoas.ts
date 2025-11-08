@@ -51,9 +51,12 @@ export function extractCollection<T>(response: any): T[] {
       'responseClubDtoList',
       'eventList',
       'announcementList',
+      'announcementResponseDtoList', // Alternative name for announcements
       'authorityList',
+      'authorityResponseDtoList', // Alternative name for authorities
       'feeList',
       'pendingRequestGetterDtoList',
+      'requestResponseDtoList', // For join requests
       // Also try camelCase variations
       'students',
       'clubs',

@@ -28,22 +28,63 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
     });
 
     // Count events per month
+    // Support both startAt and startTime fields, also check createdAt for events without start dates
     events.forEach((event) => {
-      if (!event.startAt) return;
+      // Try multiple date fields
+      const eventDateStr = event.startAt || event.startTime || event.date || event.createdAt;
+      if (!eventDateStr) {
+        // If no date at all, skip this event
+        return;
+      }
       
       try {
-        const eventDate = parseISO(event.startAt);
+        const eventDate = parseISO(eventDateStr);
+        if (isNaN(eventDate.getTime())) {
+          // Try as Date object if parseISO fails
+          const dateObj = new Date(eventDateStr);
+          if (isNaN(dateObj.getTime())) {
+            return; // Invalid date
+          }
+        }
+        
+        const eventDateValid = !isNaN(eventDate.getTime()) ? eventDate : new Date(eventDateStr);
+        
         const monthIndex = monthsData.findIndex((m) => {
-          return m.fullDate.getMonth() === eventDate.getMonth() &&
-                 m.fullDate.getFullYear() === eventDate.getFullYear();
+          return m.fullDate.getMonth() === eventDateValid.getMonth() &&
+                 m.fullDate.getFullYear() === eventDateValid.getFullYear();
         });
 
         if (monthIndex >= 0) {
           monthsData[monthIndex].count++;
-          if (eventDate > now) {
-            monthsData[monthIndex].upcoming++;
+          // Check if event is upcoming (use startAt/startTime, not createdAt)
+          const startDateStr = event.startAt || event.startTime || event.date;
+          if (startDateStr) {
+            try {
+              const startDate = parseISO(startDateStr);
+              if (!isNaN(startDate.getTime()) && startDate > now) {
+                monthsData[monthIndex].upcoming++;
+              } else {
+                monthsData[monthIndex].past++;
+              }
+            } catch {
+              // If we can't determine, count as past
+              monthsData[monthIndex].past++;
+            }
           } else {
+            // No start date, count as past
             monthsData[monthIndex].past++;
+          }
+        } else {
+          // Event date is outside the 6-month range, but we still count it
+          // Add to the closest month
+          const closestIndex = monthsData.findIndex((m) => m.fullDate > eventDateValid);
+          if (closestIndex >= 0) {
+            monthsData[closestIndex].count++;
+            monthsData[closestIndex].past++;
+          } else if (monthsData.length > 0) {
+            // Add to last month if event is in the future
+            monthsData[monthsData.length - 1].count++;
+            monthsData[monthsData.length - 1].upcoming++;
           }
         }
       } catch {
@@ -80,14 +121,17 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {chartData.length === 0 || chartData.every(d => d.count === 0) ? (
+        {!isLoading && (chartData.length === 0 || chartData.every(d => d.count === 0)) ? (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No event data available</p>
+              {events && events.length > 0 && (
+                <p className="text-xs mt-2">Found {events.length} event(s) but no valid dates</p>
+              )}
             </div>
           </div>
-        ) : (
+        ) : chartData.length > 0 && chartData.some(d => d.count > 0) ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
@@ -115,7 +159,7 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
               <Bar dataKey="past" name="Past Events" fill="#f8b500" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

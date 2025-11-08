@@ -1,9 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Building2, Award } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { clubApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
 
 interface TopClubsChartProps {
   clubs: any[];
@@ -15,40 +17,120 @@ const COLORS = ['#f8b500', '#6a4c93', '#c06c84', '#ff6b6b', '#4ecdc4', '#95e1d3'
 
 const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
+  const [clubMemberCounts, setClubMemberCounts] = useState<Record<number, number>>({});
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+
+  // Load member counts for all clubs (to calculate activity score)
+  useEffect(() => {
+    if (!clubs || clubs.length === 0) return;
+
+    const loadMemberCounts = async () => {
+      setIsLoadingMembers(true);
+      try {
+        const memberCounts: Record<number, number> = {};
+        
+        // Load member counts for all clubs in parallel
+        const memberPromises = clubs.map(async (club: any) => {
+          try {
+            const membersRes = await clubApi.getMembers(club.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
+            const members = extractCollection<any>(membersRes) || [];
+            return { clubId: club.id, count: members.length };
+          } catch {
+            return { clubId: club.id, count: 0 };
+          }
+        });
+
+        const results = await Promise.all(memberPromises);
+        results.forEach((result) => {
+          memberCounts[result.clubId] = result.count;
+        });
+
+        setClubMemberCounts(memberCounts);
+      } catch (error) {
+        console.error('Failed to load member counts:', error);
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    };
+
+    loadMemberCounts();
+  }, [clubs]);
 
   const topClubsData = useMemo(() => {
-    if (!clubs || clubs.length === 0 || !events || events.length === 0) return [];
+    if (!clubs || clubs.length === 0) {
+      // If no clubs, return empty but don't show "no data" if we're still loading
+      return [];
+    }
 
-    // Count events per club
-    const clubEventCounts: Record<number, { name: string; count: number; clubId: number }> = {};
+    // Calculate activity score for each club
+    // Score = (event count * 2) + (member count * 0.5)
+    // This gives more weight to events but also considers club size
+    const clubScores: Record<number, { 
+      name: string; 
+      eventCount: number; 
+      memberCount: number; 
+      activityScore: number; 
+      clubId: number 
+    }> = {};
     
-    events.forEach((event) => {
-      const clubId = event.club?.id;
-      if (clubId) {
-        if (!clubEventCounts[clubId]) {
-          const club = clubs.find(c => c.id === clubId);
-          clubEventCounts[clubId] = {
-            name: club?.title || club?.name || `Club ${clubId}`,
-            count: 0,
-            clubId,
-          };
-        }
-        clubEventCounts[clubId].count++;
-      }
+    // Initialize all clubs
+    clubs.forEach((club) => {
+      clubScores[club.id] = {
+        name: club.title || club.name || `Club ${club.id}`,
+        eventCount: 0,
+        memberCount: clubMemberCounts[club.id] || 0,
+        activityScore: 0,
+        clubId: club.id,
+      };
     });
 
-    // Sort by event count and take top 8
-    return Object.values(clubEventCounts)
-      .sort((a, b) => b.count - a.count)
+    // Count events per club
+    // Check multiple possible event-club association fields
+    if (events && events.length > 0) {
+      events.forEach((event) => {
+        // Try multiple ways to get club ID from event
+        const clubId = event.club?.id || event.clubId || event.club?.clubId || event.club_id;
+        
+        if (clubId && clubScores[clubId]) {
+          clubScores[clubId].eventCount++;
+        }
+      });
+    }
+
+    // Calculate activity scores
+    Object.values(clubScores).forEach((club) => {
+      club.activityScore = (club.eventCount * 2) + (club.memberCount * 0.5);
+    });
+
+    // Sort by activity score and take top 8
+    // Show clubs even if they have no events (they still have members)
+    const sortedClubs = Object.values(clubScores)
+      .filter((club) => club.memberCount > 0 || club.eventCount > 0) // At least members or events
+      .sort((a, b) => {
+        // First sort by activity score
+        if (b.activityScore !== a.activityScore) {
+          return b.activityScore - a.activityScore;
+        }
+        // Then by event count
+        if (b.eventCount !== a.eventCount) {
+          return b.eventCount - a.eventCount;
+        }
+        // Then by member count
+        return b.memberCount - a.memberCount;
+      })
       .slice(0, 8)
       .map((club, index) => ({
         ...club,
-        value: club.count,
+        value: club.eventCount > 0 ? club.eventCount : 1, // Show events or 1 for visibility
+        memberCount: club.memberCount,
         color: COLORS[index % COLORS.length],
       }));
-  }, [clubs, events]);
 
-  if (isLoading) {
+    // Return clubs even if some have 0 events (they still appear in chart)
+    return sortedClubs;
+  }, [clubs, events, clubMemberCounts]);
+
+  if (isLoading || isLoadingMembers) {
     return (
       <Card className="glass-card border-primary/20 glow-effect">
         <CardHeader>
@@ -70,18 +152,21 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
           Top Active Clubs
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Clubs ranked by event activity
+          Top clubs ranked by activity (events & members)
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {topClubsData.length === 0 ? (
+        {!isLoading && !isLoadingMembers && topClubsData.length === 0 ? (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No club activity data available</p>
+              {clubs && clubs.length > 0 && (
+                <p className="text-xs mt-2">Found {clubs.length} club(s), {events?.length || 0} event(s)</p>
+              )}
             </div>
           </div>
-        ) : (
+        ) : topClubsData.length > 0 ? (
           <Tabs value={chartType} onValueChange={(v) => setChartType(v as 'pie' | 'bar')} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="pie">Pie Chart</TabsTrigger>
@@ -111,6 +196,10 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
                       border: '1px solid rgba(248, 181, 0, 0.3)',
                       borderRadius: '8px',
                       color: '#fff',
+                    }}
+                    formatter={(value: number, name: string, props: any) => {
+                      const entry = props.payload;
+                      return [`${entry.name}: ${value} events, ${entry.memberCount || 0} members`, 'Events'];
                     }}
                   />
                   <Legend 
@@ -144,8 +233,12 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
                       borderRadius: '8px',
                       color: '#fff',
                     }}
+                    formatter={(value: number, name: string, props: any) => {
+                      return [`${value} events, ${props.payload.memberCount || 0} members`, 'Events'];
+                    }}
+                    labelFormatter={(label) => `Club: ${label}`}
                   />
-                  <Bar dataKey="value" fill="#f8b500" radius={[8, 8, 0, 0]}>
+                  <Bar dataKey="value" fill="#f8b500" radius={[8, 8, 0, 0]} name="Events">
                     {topClubsData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
@@ -154,7 +247,7 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
               </ResponsiveContainer>
             </TabsContent>
           </Tabs>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

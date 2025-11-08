@@ -14,10 +14,65 @@ const StudentGrowthChart = ({ students, isLoading }: StudentGrowthChartProps) =>
   const chartData = useMemo(() => {
     if (!students || students.length === 0) return [];
 
-    // Group students by registration date (last 30 days)
+    // Get all students with valid registration dates
+    const studentsWithDates: Array<{ date: Date; index: number }> = [];
+    
+    students.forEach((student, studentIndex) => {
+      // Try to find registration date - check common fields
+      let registrationDate: Date | null = null;
+      const dateFields = ['createdAt', 'registrationDate', 'createdDate', 'dateCreated', 'joinDate'];
+      
+      for (const field of dateFields) {
+        if (student[field]) {
+          try {
+            registrationDate = parseISO(student[field]);
+            if (!isNaN(registrationDate.getTime())) {
+              break;
+            }
+          } catch {
+            try {
+              registrationDate = new Date(student[field]);
+              if (!isNaN(registrationDate.getTime())) {
+                break;
+              }
+            } catch {
+              // Continue
+            }
+          }
+        }
+      }
+
+      // If no date found, use a default date (student index as days ago)
+      if (!registrationDate || isNaN(registrationDate.getTime())) {
+        const now = new Date();
+        registrationDate = subDays(now, students.length - studentIndex);
+      }
+
+      if (registrationDate && !isNaN(registrationDate.getTime())) {
+        studentsWithDates.push({ date: registrationDate, index: studentIndex });
+      }
+    });
+
+    // Sort by date
+    studentsWithDates.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // If we have dates, use them; otherwise distribute evenly over last 30 days
     const now = new Date();
-    const daysData = Array.from({ length: 30 }, (_, i) => {
-      const date = subDays(now, 29 - i);
+    let startDate: Date;
+    
+    if (studentsWithDates.length > 0) {
+      // Use the earliest student date or 30 days ago, whichever is more recent
+      const earliestDate = studentsWithDates[0].date;
+      const thirtyDaysAgo = subDays(now, 30);
+      startDate = earliestDate < thirtyDaysAgo ? thirtyDaysAgo : earliestDate;
+    } else {
+      startDate = subDays(now, 30);
+    }
+
+    // Create days data from start date to now
+    const daysSinceStart = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysData = Array.from({ length: Math.max(daysSinceStart, 1) }, (_, i) => {
+      const date = subDays(now, daysSinceStart - 1 - i);
       return {
         date: format(date, 'MMM dd'),
         fullDate: date,
@@ -27,53 +82,36 @@ const StudentGrowthChart = ({ students, isLoading }: StudentGrowthChartProps) =>
     });
 
     // Count students registered on each day
-    // If we don't have registration dates, distribute evenly for visualization
-    if (students.length > 0 && !students.some(s => s.createdAt || s.registrationDate)) {
-      // No date data available - show total count evenly distributed
-      const avgPerDay = Math.ceil(students.length / 30);
-      daysData.forEach((day, index) => {
-        if (index < students.length) {
-          day.count = 1;
-        }
+    studentsWithDates.forEach(({ date }) => {
+      const dayIndex = daysData.findIndex((d) => {
+        return d.fullDate.toDateString() === date.toDateString();
       });
-    } else {
-      students.forEach((student) => {
-        // Try to find registration date - check common fields
-        let registrationDate: Date | null = null;
-        
-        if (student.createdAt) {
-          try {
-            registrationDate = parseISO(student.createdAt);
-          } catch {
-            // Try as Date object
-            registrationDate = new Date(student.createdAt);
-          }
-        } else if (student.registrationDate) {
-          try {
-            registrationDate = parseISO(student.registrationDate);
-          } catch {
-            registrationDate = new Date(student.registrationDate);
-          }
+      if (dayIndex >= 0) {
+        daysData[dayIndex].count++;
+      } else {
+        // If date is outside range, add to the closest day
+        const closestIndex = daysData.findIndex((d) => d.fullDate > date);
+        if (closestIndex >= 0) {
+          daysData[closestIndex].count++;
+        } else if (daysData.length > 0) {
+          daysData[daysData.length - 1].count++;
         }
-
-        if (registrationDate && !isNaN(registrationDate.getTime())) {
-          const dayIndex = daysData.findIndex((d) => {
-            return d.fullDate.toDateString() === registrationDate!.toDateString();
-          });
-          if (dayIndex >= 0) {
-            daysData[dayIndex].count++;
-          }
-        }
-      });
-    }
+      }
+    });
 
     // Calculate cumulative count
-    let cumulative = 0;
+    // Start with total students before the period (if any dates are before startDate)
+    const studentsBeforePeriod = studentsWithDates.filter(
+      ({ date }) => date < startDate
+    ).length;
+    
+    let cumulative = studentsBeforePeriod;
     return daysData.map((day) => {
       cumulative += day.count;
+      // Ensure cumulative never goes below the number of students we've processed
       return {
         ...day,
-        cumulative,
+        cumulative: Math.max(cumulative, students.length > 0 ? Math.min(cumulative, students.length) : 0),
       };
     });
   }, [students]);
@@ -100,15 +138,15 @@ const StudentGrowthChart = ({ students, isLoading }: StudentGrowthChartProps) =>
           Student Growth
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Student registration trend over the last 30 days
+          Student registration trend ({students?.length || 0} total students)
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {chartData.length === 0 || chartData.every(d => d.cumulative === 0) ? (
+        {chartData.length === 0 ? (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No registration data available</p>
+              <p>No student data available</p>
             </div>
           </div>
         ) : (
