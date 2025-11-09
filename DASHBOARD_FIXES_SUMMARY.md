@@ -1,6 +1,6 @@
 # Dashboard Issues Fixed - Summary
 
-## Issues Fixed:
+## Issues Fixed::
 
 ### 1. ✅ Club Admins Count (Shows 0 instead of 1)
 **Problem**: Dashboard was only checking `clubAdminId` from clubs, but:
