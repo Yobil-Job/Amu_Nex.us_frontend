@@ -12,28 +12,32 @@ interface FeesOverviewProps {
 const FeesOverview = ({ fees, isLoading }: FeesOverviewProps) => {
   const stats = useMemo(() => {
     const total = fees.reduce((sum, fee) => {
-      const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+      // Extract amount from multiple possible locations
+      const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
       return sum + amount;
     }, 0);
 
     const paid = fees
       .filter((fee) => (fee.status || '').toUpperCase() === 'PAID')
       .reduce((sum, fee) => {
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        // Extract amount from multiple possible locations
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
         return sum + amount;
       }, 0);
 
     const pending = fees
       .filter((fee) => (fee.status || '').toUpperCase() === 'PENDING')
       .reduce((sum, fee) => {
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        // Extract amount from multiple possible locations
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
         return sum + amount;
       }, 0);
 
     const failed = fees
       .filter((fee) => (fee.status || '').toUpperCase() === 'FAILED')
       .reduce((sum, fee) => {
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        // Extract amount from multiple possible locations
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
         return sum + amount;
       }, 0);
 

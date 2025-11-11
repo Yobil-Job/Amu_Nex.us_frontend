@@ -27,17 +27,19 @@ const ClubFinanceChart = ({ fees, clubs, isLoading }: ClubFinanceChartProps) => 
     });
 
     fees.forEach((fee) => {
-      const clubId = fee.club?.id || fee.clubId;
-      if (!clubId || !clubTotals[clubId]) return;
+      // Check multiple possible locations for club ID
+      const feeClubId = fee.club?.id || fee.clubId || fee.club_id;
+      if (!feeClubId || !clubTotals[feeClubId]) return;
 
-      const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
-      clubTotals[clubId].total += amount;
+      // Extract amount from multiple possible locations
+      const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
+      clubTotals[feeClubId].total += amount;
 
       const status = (fee.status || '').toUpperCase();
       if (status === 'PAID') {
-        clubTotals[clubId].paid += amount;
+        clubTotals[feeClubId].paid += amount;
       } else if (status === 'PENDING') {
-        clubTotals[clubId].pending += amount;
+        clubTotals[feeClubId].pending += amount;
       }
     });
 

@@ -49,29 +49,72 @@ const AdminFees = () => {
       setStudents(studentsList);
 
       // Load fees from all clubs
-      const feesPromises = clubsList.map((club: any) =>
-        feeApi.getByClub(club.id).catch(() => [])
-      );
+      const feesPromises = clubsList.map(async (club: any) => {
+        try {
+          const feesRes = await feeApi.getByClub(club.id);
+          // Handle both array and HATEOAS responses
+          const feesList = Array.isArray(feesRes) ? feesRes : extractCollection<any>(feesRes) || [];
+          return feesList;
+        } catch (error) {
+          console.warn(`Failed to load fees for club ${club.id}:`, error);
+          return [];
+        }
+      });
       
       const allFeesArrays = await Promise.all(feesPromises);
       const allFeesFlat: any[] = [];
 
       // Flatten and enrich fees with club and student info
-      allFeesArrays.forEach((feesArray, index) => {
+      allFeesArrays.forEach((feesList, index) => {
         const club = clubsList[index];
-        const feesList = Array.isArray(feesArray) ? feesArray : extractCollection<any>(feesArray) || [];
         
         feesList.forEach((fee: any) => {
-          // Find student info
-          const student = studentsList.find((s: any) => s.id === (fee.student?.id || fee.studentId));
+          // Extract student ID from various possible locations
+          const feeStudentId = fee.student?.id || fee.studentId || fee.student_id;
           
+          // Find student info
+          let student = fee.student;
+          if (!student || !student.firstname) {
+            student = studentsList.find((s: any) => {
+              const studentId = s.id;
+              return feeStudentId != null && studentId != null && 
+                     (String(feeStudentId) === String(studentId) || 
+                      Number(feeStudentId) === Number(studentId));
+            });
+          }
+
+          // Extract club ID from various possible locations
+          const feeClubId = fee.club?.id || fee.clubId || fee.club_id;
+          
+          // Ensure club is set
+          let clubData = fee.club;
+          if (!clubData || !clubData.title) {
+            clubData = clubsList.find((c: any) => {
+              const clubId = c.id;
+              return (feeClubId != null && clubId != null && 
+                      (String(feeClubId) === String(clubId) || 
+                       Number(feeClubId) === Number(clubId))) ||
+                     (club.id === clubId); // Fallback to index-based matching
+            }) || club; // Use club from index if not found
+          }
+
           allFeesFlat.push({
             ...fee,
-            club: club,
+            club: clubData || club,
+            clubId: feeClubId || club.id,
             student: student || fee.student || {},
+            studentId: feeStudentId || fee.studentId || fee.student_id,
           });
         });
       });
+
+      // Debug: Log first fee structure
+      if (import.meta.env.DEV && allFeesFlat.length > 0) {
+        console.log('💰 First fee structure:', allFeesFlat[0]);
+        console.log('💰 Fee keys:', Object.keys(allFeesFlat[0]));
+        console.log('💰 Fee club:', allFeesFlat[0].club);
+        console.log('💰 Fee student:', allFeesFlat[0].student);
+      }
 
       setAllFees(allFeesFlat);
       setFees(allFeesFlat);
@@ -111,16 +154,20 @@ const AdminFees = () => {
     // Club filter
     if (clubFilter !== 'all') {
       filtered = filtered.filter((fee) => {
-        const clubId = fee.club?.id?.toString() || fee.clubId?.toString() || '';
-        return clubId === clubFilter;
+        // Check multiple possible locations for club ID
+        const feeClubId = fee.club?.id || fee.clubId || fee.club_id;
+        const clubIdStr = feeClubId?.toString() || '';
+        return clubIdStr === clubFilter;
       });
     }
 
     // Student filter
     if (studentFilter !== 'all') {
       filtered = filtered.filter((fee) => {
-        const studentId = fee.student?.id?.toString() || fee.studentId?.toString() || '';
-        return studentId === studentFilter;
+        // Check multiple possible locations for student ID
+        const feeStudentId = fee.student?.id || fee.studentId || fee.student_id;
+        const studentIdStr = feeStudentId?.toString() || '';
+        return studentIdStr === studentFilter;
       });
     }
 
@@ -135,28 +182,48 @@ const AdminFees = () => {
     // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((fee) => {
-        const dateString = fee.paymentDate || fee.createdAt || fee.date;
+        // Check multiple possible date fields
+        const dateString = fee.paymentDate || fee.payment_date || 
+                          fee.createdAt || fee.created_at ||
+                          fee.date || fee.paidDate || fee.paid_date;
         if (!dateString) return false;
         try {
           const feeDate = parseISO(dateString);
           const fromDate = startOfDay(new Date(dateFrom));
           return feeDate >= fromDate;
         } catch {
-          return false;
+          try {
+            const feeDate = new Date(dateString);
+            if (isNaN(feeDate.getTime())) return false;
+            const fromDate = startOfDay(new Date(dateFrom));
+            return feeDate >= fromDate;
+          } catch {
+            return false;
+          }
         }
       });
     }
 
     if (dateTo) {
       filtered = filtered.filter((fee) => {
-        const dateString = fee.paymentDate || fee.createdAt || fee.date;
+        // Check multiple possible date fields
+        const dateString = fee.paymentDate || fee.payment_date || 
+                          fee.createdAt || fee.created_at ||
+                          fee.date || fee.paidDate || fee.paid_date;
         if (!dateString) return false;
         try {
           const feeDate = parseISO(dateString);
           const toDate = endOfDay(new Date(dateTo));
           return feeDate <= toDate;
         } catch {
-          return false;
+          try {
+            const feeDate = new Date(dateString);
+            if (isNaN(feeDate.getTime())) return false;
+            const toDate = endOfDay(new Date(dateTo));
+            return feeDate <= toDate;
+          } catch {
+            return false;
+          }
         }
       });
     }
@@ -193,12 +260,17 @@ const AdminFees = () => {
     });
 
     allFees.forEach((fee) => {
-      const clubId = fee.club?.id || fee.clubId;
-      if (!clubId || !totals[clubId]) return;
+      // Check multiple possible locations for club ID
+      const feeClubId = fee.club?.id || fee.clubId || fee.club_id;
+      if (!feeClubId || !totals[feeClubId]) return;
       
-      const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
-      if ((fee.status || '').toUpperCase() === 'PAID') {
-        totals[clubId].total += amount;
+      // Extract amount from multiple possible locations
+      const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
+      const status = (fee.status || '').toUpperCase();
+      
+      // Only count PAID fees
+      if (status === 'PAID') {
+        totals[feeClubId].total += amount;
       }
     });
 

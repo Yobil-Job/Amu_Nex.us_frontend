@@ -109,23 +109,34 @@ const FeesTable = ({ fees, isLoading }: FeesTableProps) => {
             </TableHeader>
             <TableBody>
               {fees.map((fee) => {
+                // Extract student data - check multiple possible locations
                 const student = fee.student || {};
+                const studentName = student.firstname || student.firstName || '';
+                const studentLastName = student.lastname || student.lastName || '';
+                const studentEmail = student.email || '';
+                const displayName = `${studentName} ${studentLastName}`.trim() || 'Unknown Student';
+                const initials = (studentName?.[0] || '') + (studentLastName?.[0] || '') || '?';
+
+                // Extract club data - check multiple possible locations
                 const club = fee.club || {};
-                const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+                const clubName = club.title || club.name || `Club ${club.id || fee.clubId || 'N/A'}`;
+
+                // Extract amount from multiple possible locations
+                const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || '0') || 0;
 
                 return (
                   <TableRow key={fee.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
-                          {(student.firstname?.[0] || '') + (student.lastname?.[0] || '')}
+                          {initials}
                         </div>
                         <div>
                           <div className="font-medium text-white">
-                            {student.firstname} {student.lastname}
+                            {displayName}
                           </div>
-                          {student.email && (
-                            <div className="text-xs text-muted-foreground">{student.email}</div>
+                          {studentEmail && (
+                            <div className="text-xs text-muted-foreground">{studentEmail}</div>
                           )}
                         </div>
                       </div>
@@ -134,7 +145,7 @@ const FeesTable = ({ fees, isLoading }: FeesTableProps) => {
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-accent" />
                         <span className="text-white">
-                          {club.title || club.name || `Club ${club.id || fee.clubId || 'N/A'}`}
+                          {clubName}
                         </span>
                       </div>
                     </TableCell>
@@ -146,14 +157,18 @@ const FeesTable = ({ fees, isLoading }: FeesTableProps) => {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {fee.purpose || 'N/A'}
+                        {fee.purpose || fee.description || 'N/A'}
                       </span>
                     </TableCell>
                     <TableCell>{getStatusBadge(fee.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {formatDate(fee.paymentDate || fee.createdAt || fee.date)}
+                        {formatDate(
+                          fee.paymentDate || fee.payment_date ||
+                          fee.createdAt || fee.created_at ||
+                          fee.date || fee.paidDate || fee.paid_date
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
