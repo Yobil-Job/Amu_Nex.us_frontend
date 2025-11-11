@@ -228,11 +228,15 @@ const JoinRequestsList = ({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log('🚫 Reject button clicked:', { clubId: club.id, studentId, student, request });
                                   if (studentId) {
                                     onReject(club.id, Number(studentId));
                                   } else {
-                                    console.error('Cannot reject: Student ID not found');
+                                    console.error('Cannot reject: Student ID not found', { request, student, club });
+                                    alert('Cannot reject: Student ID not found. Check console for details.');
                                   }
                                 }}
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"

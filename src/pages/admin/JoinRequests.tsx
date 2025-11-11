@@ -265,12 +265,20 @@ const AdminJoinRequests = () => {
         toast.error('Invalid student ID');
         return;
       }
+      
+      // Debug logging
+      if (import.meta.env.DEV) {
+        console.log('🚫 Rejecting request:', { clubId, studentId: studentIdNum });
+      }
+      
       await clubApi.rejectRequest(clubId, studentIdNum);
       toast.success('Request rejected successfully');
       loadData();
       setSelectedRequests([]);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to reject request');
+      console.error('❌ Reject request error:', error);
+      const errorMessage = error.message || error.response?.data?.message || 'Failed to reject request';
+      toast.error(errorMessage);
     }
   };
 

@@ -337,10 +337,20 @@ export const clubApi = {
   },
 
   rejectRequest: async (clubId: number, studentId: number) => {
-    const response = await authFetch(`${API_BASE_URL}/clubs/${clubId}/requests/${studentId}/reject`, {
-      method: 'PATCH',
-    });
-    return handleResponse(response);
+    try {
+      const response = await authFetch(`${API_BASE_URL}/clubs/${clubId}/requests/${studentId}/reject`, {
+        method: 'PATCH',
+      });
+      return handleResponse(response);
+    } catch (error: any) {
+      console.error('❌ rejectRequest API error:', {
+        clubId,
+        studentId,
+        url: `${API_BASE_URL}/clubs/${clubId}/requests/${studentId}/reject`,
+        error: error.message || error,
+      });
+      throw error;
+    }
   },
 
   assignClubAdmin: async (clubId: number, memberId: number) => {
