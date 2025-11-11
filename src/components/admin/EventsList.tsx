@@ -178,14 +178,21 @@ const EventsList = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {event.latitude && event.longitude ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          <span>Location set</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No location</span>
-                      )}
+                      {(() => {
+                        // Extract location from various possible locations
+                        const latitude = event.latitude || event.lat;
+                        const longitude = event.longitude || event.lng || event.lon;
+                        
+                        if (latitude && longitude) {
+                          return (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <MapPin className="h-3 w-3" />
+                              <span>Location set</span>
+                            </div>
+                          );
+                        }
+                        return <span className="text-xs text-muted-foreground">No location</span>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>

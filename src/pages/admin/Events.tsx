@@ -48,33 +48,130 @@ const AdminEvents = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [eventsRes, clubsRes] = await Promise.all([
-        eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
-        clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-      ]);
-
-      const eventsList = extractCollection<any>(eventsRes);
+      // Load clubs first
+      const clubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
       const clubsList = extractCollection<any>(clubsRes);
+
+      // Try to load all events first
+      let eventsList: any[] = [];
+      try {
+        const eventsRes = await eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } }));
+        eventsList = extractCollection<any>(eventsRes);
+      } catch (error) {
+        console.warn('Failed to load all events, will fetch per club:', error);
+      }
+
+      // If events don't have club relationship or location, try fetching per club first
+      if (eventsList.length > 0) {
+        const sampleEvent = eventsList[0];
+        const hasClubRelationship = sampleEvent.club || sampleEvent.clubId || sampleEvent.club_id || 
+                                    sampleEvent.club?.id || sampleEvent.club?.clubId;
+        const hasLocation = sampleEvent.latitude || sampleEvent.longitude;
+        
+        // If missing club or location data, try fetching per club (more efficient)
+        if (!hasClubRelationship || !hasLocation) {
+          console.log('⚠️ Events missing club/location data, trying to fetch per club...');
+          
+          try {
+            // Try fetching events per club to get complete data
+            const clubEventsPromises = clubsList.map(async (club: any) => {
+              try {
+                const clubEventsRes = await eventApi.getByClub(club.id);
+                const clubEvents = extractCollection<any>(clubEventsRes);
+                // Add club data to each event
+                return clubEvents.map((event: any) => ({
+                  ...event,
+                  club: club,
+                  clubId: club.id,
+                }));
+              } catch (error) {
+                console.warn(`Failed to load events for club ${club.id}:`, error);
+                return [];
+              }
+            });
+            
+            const allClubEvents = await Promise.all(clubEventsPromises);
+            const clubEventsFlat = allClubEvents.flat();
+            
+            // If we got events from per-club fetch, use those instead
+            if (clubEventsFlat.length > 0) {
+              eventsList = clubEventsFlat;
+              console.log('✅ Using events fetched per club');
+            } else {
+              // Fallback: fetch full details for events missing data
+              console.log('⚠️ Fetching full details for events missing data...');
+              const enrichedEventsPromises = eventsList.map(async (event: any) => {
+                // Only fetch if missing club or location
+                const eventHasClub = event.club || event.clubId || event.club_id;
+                const eventHasLocation = event.latitude || event.longitude;
+                
+                if (!eventHasClub || !eventHasLocation) {
+                  try {
+                    const fullEventDetails = await eventApi.getById(event.id);
+                    return fullEventDetails;
+                  } catch (error) {
+                    console.warn(`Failed to fetch full details for event ${event.id}:`, error);
+                    return event;
+                  }
+                }
+                return event; // Already has data, no need to fetch
+              });
+              
+              eventsList = await Promise.all(enrichedEventsPromises);
+            }
+          } catch (error) {
+            console.warn('Failed to fetch events per club, using existing events:', error);
+          }
+        }
+      } else {
+        // No events from getAll, try fetching per club
+        console.log('⚠️ No events from getAll, fetching events per club...');
+        const clubEventsPromises = clubsList.map(async (club: any) => {
+          try {
+            const clubEventsRes = await eventApi.getByClub(club.id);
+            const clubEvents = extractCollection<any>(clubEventsRes);
+            // Add club data to each event
+            return clubEvents.map((event: any) => ({
+              ...event,
+              club: club,
+              clubId: club.id,
+            }));
+          } catch (error) {
+            console.warn(`Failed to load events for club ${club.id}:`, error);
+            return [];
+          }
+        });
+        
+        const allClubEvents = await Promise.all(clubEventsPromises);
+        eventsList = allClubEvents.flat();
+      }
 
       // Enrich events with club data
       const enrichedEvents = eventsList.map((event: any) => {
         // Extract club ID from various possible locations
         const eventClubId = event.club?.id || event.clubId || event.club_id;
         
-        // Find matching club
-        const club = clubsList.find((c: any) => {
-          const clubId = c.id;
-          return eventClubId != null && clubId != null && 
-                 (String(eventClubId) === String(clubId) || 
-                  Number(eventClubId) === Number(clubId));
-        });
+        // Find matching club if not already set
+        let club = event.club;
+        if (!club || !club.title) {
+          club = clubsList.find((c: any) => {
+            const clubId = c.id;
+            return eventClubId != null && clubId != null && 
+                   (String(eventClubId) === String(clubId) || 
+                    Number(eventClubId) === Number(clubId));
+          });
+        }
 
-        // If club not found but we have clubId, try to fetch it
-        // Otherwise, enrich with found club or empty object
+        // Extract location data from various possible locations
+        const latitude = event.latitude || event.lat;
+        const longitude = event.longitude || event.lng || event.lon;
+
         return {
           ...event,
           club: club || event.club || {},
           clubId: eventClubId || event.clubId || event.club_id,
+          latitude: latitude,
+          longitude: longitude,
         };
       });
 
@@ -82,6 +179,11 @@ const AdminEvents = () => {
       if (import.meta.env.DEV && enrichedEvents.length > 0) {
         console.log('📅 First event structure:', enrichedEvents[0]);
         console.log('📅 Event keys:', Object.keys(enrichedEvents[0]));
+        console.log('📅 Event club:', enrichedEvents[0].club);
+        console.log('📅 Event location:', { 
+          latitude: enrichedEvents[0].latitude, 
+          longitude: enrichedEvents[0].longitude 
+        });
       }
 
       setAllEvents(enrichedEvents);
@@ -494,17 +596,34 @@ const AdminEvents = () => {
                 </p>
               </div>
 
-              {(selectedEvent.latitude || selectedEvent.longitude) && (
-                <div className="glass-card p-4 rounded-lg border border-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin className="h-4 w-4 text-warning" />
-                    <h3 className="font-semibold text-white">Location</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Latitude: {selectedEvent.latitude}, Longitude: {selectedEvent.longitude}
-                  </p>
-                </div>
-              )}
+              {(() => {
+                // Extract location from various possible locations
+                const latitude = selectedEvent.latitude || selectedEvent.lat;
+                const longitude = selectedEvent.longitude || selectedEvent.lng || selectedEvent.lon;
+                
+                if (latitude && longitude) {
+                  return (
+                    <div className="glass-card p-4 rounded-lg border border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="h-4 w-4 text-warning" />
+                        <h3 className="font-semibold text-white">Location</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Latitude: {latitude}, Longitude: {longitude}
+                      </p>
+                      <a
+                        href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline mt-2 inline-block"
+                      >
+                        View on Google Maps
+                      </a>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="glass-card p-4 rounded-lg border border-primary/20">
                 <div className="flex items-center gap-2 mb-2">

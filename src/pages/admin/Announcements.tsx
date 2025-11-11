@@ -45,16 +45,136 @@ const AdminAnnouncements = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [announcementsRes, clubsRes] = await Promise.all([
-        announcementApi.getAll().catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
-        clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-      ]);
-
-      const announcementsList = extractCollection<any>(announcementsRes);
+      // Load clubs first
+      const clubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
       const clubsList = extractCollection<any>(clubsRes);
 
-      setAllAnnouncements(announcementsList);
-      setAnnouncements(announcementsList);
+      // Try to load all announcements
+      let announcementsList: any[] = [];
+      try {
+        const announcementsRes = await announcementApi.getAll().catch(() => ({ _embedded: { announcementResponseDtoList: [] } }));
+        announcementsList = extractCollection<any>(announcementsRes);
+      } catch (error) {
+        console.warn('Failed to load all announcements, will fetch per club:', error);
+      }
+
+      // If announcements don't have club relationship, try fetching per club
+      if (announcementsList.length > 0) {
+        const sampleAnnouncement = announcementsList[0];
+        const hasClubRelationship = sampleAnnouncement.club || sampleAnnouncement.clubId || sampleAnnouncement.club_id || 
+                                    sampleAnnouncement.club?.id || sampleAnnouncement.club?.clubId;
+        
+        // If missing club data, try fetching per club
+        if (!hasClubRelationship) {
+          console.log('⚠️ Announcements missing club data, trying to fetch per club...');
+          
+          try {
+            // Try fetching announcements per club to get complete data
+            const clubAnnouncementsPromises = clubsList.map(async (club: any) => {
+              try {
+                const clubAnnouncementsRes = await announcementApi.getByClub(club.id);
+                const clubAnnouncements = extractCollection<any>(clubAnnouncementsRes);
+                // Add club data to each announcement
+                return clubAnnouncements.map((announcement: any) => ({
+                  ...announcement,
+                  club: club,
+                  clubId: club.id,
+                }));
+              } catch (error) {
+                console.warn(`Failed to load announcements for club ${club.id}:`, error);
+                return [];
+              }
+            });
+            
+            const allClubAnnouncements = await Promise.all(clubAnnouncementsPromises);
+            const clubAnnouncementsFlat = allClubAnnouncements.flat();
+            
+            // If we got announcements from per-club fetch, merge with system-wide ones
+            if (clubAnnouncementsFlat.length > 0) {
+              // Combine system-wide (no club) and club-specific announcements
+              const systemWide = announcementsList.filter((ann: any) => !ann.club?.id && !ann.clubId);
+              announcementsList = [...systemWide, ...clubAnnouncementsFlat];
+              console.log('✅ Using announcements fetched per club');
+            } else {
+              // Fallback: fetch full details for announcements missing data
+              console.log('⚠️ Fetching full details for announcements missing data...');
+              const enrichedAnnouncementsPromises = announcementsList.map(async (announcement: any) => {
+                // Only fetch if missing club
+                const announcementHasClub = announcement.club || announcement.clubId || announcement.club_id;
+                
+                if (!announcementHasClub && announcement.id) {
+                  try {
+                    const fullAnnouncementDetails = await announcementApi.getById(announcement.id);
+                    return fullAnnouncementDetails;
+                  } catch (error) {
+                    console.warn(`Failed to fetch full details for announcement ${announcement.id}:`, error);
+                    return announcement;
+                  }
+                }
+                return announcement; // Already has data, no need to fetch
+              });
+              
+              announcementsList = await Promise.all(enrichedAnnouncementsPromises);
+            }
+          } catch (error) {
+            console.warn('Failed to fetch announcements per club, using existing announcements:', error);
+          }
+        }
+      } else {
+        // No announcements from getAll, try fetching per club
+        console.log('⚠️ No announcements from getAll, fetching announcements per club...');
+        const clubAnnouncementsPromises = clubsList.map(async (club: any) => {
+          try {
+            const clubAnnouncementsRes = await announcementApi.getByClub(club.id);
+            const clubAnnouncements = extractCollection<any>(clubAnnouncementsRes);
+            // Add club data to each announcement
+            return clubAnnouncements.map((announcement: any) => ({
+              ...announcement,
+              club: club,
+              clubId: club.id,
+            }));
+          } catch (error) {
+            console.warn(`Failed to load announcements for club ${club.id}:`, error);
+            return [];
+          }
+        });
+        
+        const allClubAnnouncements = await Promise.all(clubAnnouncementsPromises);
+        announcementsList = allClubAnnouncements.flat();
+      }
+
+      // Enrich announcements with club data
+      const enrichedAnnouncements = announcementsList.map((announcement: any) => {
+        // Extract club ID from various possible locations
+        const announcementClubId = announcement.club?.id || announcement.clubId || announcement.club_id;
+        
+        // Find matching club if not already set
+        let club = announcement.club;
+        if (!club || !club.title) {
+          club = clubsList.find((c: any) => {
+            const clubId = c.id;
+            return announcementClubId != null && clubId != null && 
+                   (String(announcementClubId) === String(clubId) || 
+                    Number(announcementClubId) === Number(clubId));
+          });
+        }
+
+        return {
+          ...announcement,
+          club: club || announcement.club || null,
+          clubId: announcementClubId || announcement.clubId || announcement.club_id,
+        };
+      });
+
+      // Debug: Log first announcement structure
+      if (import.meta.env.DEV && enrichedAnnouncements.length > 0) {
+        console.log('📢 First announcement structure:', enrichedAnnouncements[0]);
+        console.log('📢 Announcement keys:', Object.keys(enrichedAnnouncements[0]));
+        console.log('📢 Announcement club:', enrichedAnnouncements[0].club);
+      }
+
+      setAllAnnouncements(enrichedAnnouncements);
+      setAnnouncements(enrichedAnnouncements);
       setClubs(clubsList);
     } catch (error: any) {
       console.error('Failed to load announcements:', error);
@@ -84,12 +204,17 @@ const AdminAnnouncements = () => {
     if (clubFilter !== 'all') {
       if (clubFilter === 'system') {
         // System-wide announcements (no club)
-        filtered = filtered.filter((announcement) => !announcement.club?.id);
+        filtered = filtered.filter((announcement) => {
+          const hasClub = announcement.club?.id || announcement.clubId || announcement.club_id;
+          return !hasClub;
+        });
       } else {
         // Specific club
         filtered = filtered.filter((announcement) => {
-          const clubId = announcement.club?.id?.toString() || '';
-          return clubId === clubFilter;
+          // Check multiple possible locations for club ID
+          const announcementClubId = announcement.club?.id || announcement.clubId || announcement.club_id;
+          const clubIdStr = announcementClubId?.toString() || '';
+          return clubIdStr === clubFilter;
         });
       }
     }
@@ -97,7 +222,10 @@ const AdminAnnouncements = () => {
     // Date filter
     if (dateFilter !== 'all') {
       filtered = filtered.filter((announcement) => {
-        const dateString = announcement.createdAt || announcement.scheduledAt;
+        // Check multiple possible date fields
+        const dateString = announcement.createdAt || announcement.created_at || 
+                          announcement.scheduledAt || announcement.scheduled_at ||
+                          announcement.date || announcement.postedAt;
         if (!dateString) return false;
 
         try {
@@ -117,7 +245,27 @@ const AdminAnnouncements = () => {
               return true;
           }
         } catch {
-          return false;
+          // Try alternative date parsing
+          try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return false;
+            const now = new Date();
+
+            switch (dateFilter) {
+              case 'today':
+                return isToday(date);
+              case 'week':
+                return isThisWeek(date);
+              case 'month':
+                return isThisMonth(date);
+              case 'older':
+                return date < startOfDay(subDays(now, 30));
+              default:
+                return true;
+            }
+          } catch {
+            return false;
+          }
         }
       });
     }
@@ -185,12 +333,24 @@ const AdminAnnouncements = () => {
       const date = parseISO(dateString);
       return format(date, 'MMM dd, yyyy HH:mm');
     } catch {
-      return dateString;
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'N/A';
+        return format(date, 'MMM dd, yyyy HH:mm');
+      } catch {
+        return dateString;
+      }
     }
   };
 
-  const systemWideCount = allAnnouncements.filter((ann) => !ann.club?.id).length;
-  const clubSpecificCount = allAnnouncements.filter((ann) => ann.club?.id).length;
+  const systemWideCount = allAnnouncements.filter((ann) => {
+    const hasClub = ann.club?.id || ann.clubId || ann.club_id;
+    return !hasClub;
+  }).length;
+  const clubSpecificCount = allAnnouncements.filter((ann) => {
+    const hasClub = ann.club?.id || ann.clubId || ann.club_id;
+    return !!hasClub;
+  }).length;
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
@@ -336,18 +496,21 @@ const AdminAnnouncements = () => {
                     <h3 className="font-semibold text-white">Created Date</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(selectedAnnouncement.createdAt)}
+                    {formatDate(
+                      selectedAnnouncement.createdAt || selectedAnnouncement.created_at ||
+                      selectedAnnouncement.date || selectedAnnouncement.postedAt
+                    )}
                   </p>
                 </div>
 
-                {selectedAnnouncement.scheduledAt && (
+                {(selectedAnnouncement.scheduledAt || selectedAnnouncement.scheduled_at) && (
                   <div className="glass-card p-4 rounded-lg border border-primary/20">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock className="h-4 w-4 text-accent" />
                       <h3 className="font-semibold text-white">Scheduled For</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(selectedAnnouncement.scheduledAt)}
+                      {formatDate(selectedAnnouncement.scheduledAt || selectedAnnouncement.scheduled_at)}
                     </p>
                     <Badge variant="outline" className="mt-2">Scheduled</Badge>
                   </div>
@@ -356,35 +519,49 @@ const AdminAnnouncements = () => {
 
               <div className="glass-card p-4 rounded-lg border border-primary/20">
                 <div className="flex items-center gap-2 mb-2">
-                  {selectedAnnouncement.club ? (
-                    <>
-                      <Building2 className="h-4 w-4 text-primary" />
-                      <h3 className="font-semibold text-white">Club</h3>
-                    </>
-                  ) : (
-                    <>
-                      <Globe className="h-4 w-4 text-accent" />
-                      <h3 className="font-semibold text-white">Target</h3>
-                    </>
-                  )}
+                  {(() => {
+                    // Check multiple possible locations for club
+                    const hasClub = selectedAnnouncement.club?.id || selectedAnnouncement.clubId || selectedAnnouncement.club_id;
+                    return hasClub ? (
+                      <>
+                        <Building2 className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold text-white">Club</h3>
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="h-4 w-4 text-accent" />
+                        <h3 className="font-semibold text-white">Target</h3>
+                      </>
+                    );
+                  })()}
                 </div>
-                {selectedAnnouncement.club ? (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedAnnouncement.club.title || selectedAnnouncement.club.name || 'Unknown Club'}
-                    </p>
-                    {selectedAnnouncement.club.club_Type && (
-                      <Badge variant="outline" className="mt-2">
-                        {selectedAnnouncement.club.club_Type}
-                      </Badge>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-muted-foreground">System-Wide (All Clubs)</p>
-                    <Badge variant="default" className="mt-2">All Clubs</Badge>
-                  </div>
-                )}
+                {(() => {
+                  // Check multiple possible locations for club
+                  const hasClub = selectedAnnouncement.club?.id || selectedAnnouncement.clubId || selectedAnnouncement.club_id;
+                  const club = selectedAnnouncement.club || {};
+                  
+                  if (hasClub) {
+                    return (
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {club.title || club.name || `Club ${club.id || selectedAnnouncement.clubId || 'N/A'}`}
+                        </p>
+                        {club.club_Type && (
+                          <Badge variant="outline" className="mt-2">
+                            {club.club_Type}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div>
+                        <p className="text-sm text-muted-foreground">System-Wide (All Clubs)</p>
+                        <Badge variant="default" className="mt-2">All Clubs</Badge>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
 
               <div className="flex gap-2 pt-2">

@@ -91,8 +91,11 @@ const AnnouncementsList = ({
             </TableHeader>
             <TableBody>
               {announcements.map((announcement) => {
+                // Extract club data - check multiple possible locations
                 const club = announcement.club || {};
-                const isSystemWide = !club.id;
+                const hasClub = announcement.club?.id || announcement.clubId || announcement.club_id;
+                const isSystemWide = !hasClub;
+                const clubName = club.title || club.name || `Club ${club.id || announcement.clubId || 'N/A'}`;
 
                 return (
                   <TableRow key={announcement.id}>
@@ -122,7 +125,7 @@ const AnnouncementsList = ({
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-accent" />
                           <span className="text-white">
-                            {club.title || club.name || `Club ${club.id}`}
+                            {clubName}
                           </span>
                         </div>
                       )}
@@ -135,7 +138,11 @@ const AnnouncementsList = ({
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {formatDate(announcement.createdAt || announcement.scheduledAt)}
+                        {formatDate(
+                          announcement.createdAt || announcement.created_at || 
+                          announcement.scheduledAt || announcement.scheduled_at ||
+                          announcement.date || announcement.postedAt
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
