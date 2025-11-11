@@ -338,7 +338,15 @@ const AdminStudents = () => {
         <Card className="glass-card border-primary/20">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-white">
-              {allStudents.filter((s) => s.role === 'SUPER_USER' || s.role === 'ADMIN').length}
+              {allStudents.filter((s) => {
+                let role = s.role;
+                // Handle both "ADMIN" and "ROLE_ADMIN" formats
+                if (role && role.startsWith('ROLE_')) {
+                  role = role.replace('ROLE_', '');
+                }
+                // Only count ADMIN role (Club Admin), not SUPER_USER (Authority)
+                return role === 'ADMIN';
+              }).length}
             </div>
             <div className="text-sm text-muted-foreground">Club Admins</div>
           </CardContent>

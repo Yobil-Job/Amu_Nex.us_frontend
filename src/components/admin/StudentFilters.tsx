@@ -98,7 +98,7 @@ const StudentFilters = ({
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="STUDENT">Student</SelectItem>
                 <SelectItem value="ADMIN">Club Admin</SelectItem>
-                <SelectItem value="SUPER_USER">Club Authority</SelectItem>
+                <SelectItem value="SUPER_USER">Authority</SelectItem>
                 <SelectItem value="SUPER_ADMIN">System Admin</SelectItem>
               </SelectContent>
             </Select>
