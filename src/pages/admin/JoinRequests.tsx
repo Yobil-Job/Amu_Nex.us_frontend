@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
-import { clubApi } from '@/lib/api';
+import { clubApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,21 +55,74 @@ const AdminJoinRequests = () => {
       const allRequestsFlat: any[] = [];
 
       // Flatten and enrich requests with club info
-      allRequestsArrays.forEach((requestsRes, index) => {
+      for (let index = 0; index < allRequestsArrays.length; index++) {
+        const requestsRes = allRequestsArrays[index];
         const requestsList = extractCollection<any>(requestsRes) || [];
         const club = clubsList[index];
         
-        requestsList.forEach((request: any) => {
+        for (const request of requestsList) {
+          // Extract student data from various possible locations
+          // Student might be nested in request.student, or at top level, or in different fields
+          const studentData = request.student || 
+                             (request.firstname || request.email ? request : null) || 
+                             request.studentResponseDto ||
+                             {};
+          
+          // Extract student ID from various possible locations
+          const studentId = studentData?.id || 
+                           request.studentId || 
+                           request.student_id || 
+                           request.id;
+          
+          // Extract student fields - check both nested and top-level
+          let student = {
+            id: studentId,
+            firstname: studentData.firstname || request.firstname || '',
+            lastname: studentData.lastname || request.lastname || '',
+            email: studentData.email || request.email || '',
+            department: studentData.department || request.department,
+            yearOfStay: studentData.yearOfStay || request.yearOfStay,
+            gender: studentData.gender || request.gender,
+            ...studentData, // Include any other student fields
+          };
+          
+          // If student data is missing, try to fetch it using studentId
+          if ((!student.firstname && !student.email) && studentId) {
+            try {
+              const studentDetails = await studentApi.getById(Number(studentId));
+              student = {
+                ...student,
+                firstname: studentDetails.firstname || student.firstname || '',
+                lastname: studentDetails.lastname || student.lastname || '',
+                email: studentDetails.email || student.email || '',
+                department: studentDetails.department || student.department,
+                yearOfStay: studentDetails.yearOfStay || student.yearOfStay,
+                gender: studentDetails.gender || student.gender,
+              };
+            } catch (error) {
+              console.warn(`Failed to fetch student details for ID ${studentId}:`, error);
+            }
+          }
+          
+          // Debug: Log first request structure
+          if (import.meta.env.DEV && allRequestsFlat.length === 0) {
+            console.log('📋 First request structure:', request);
+            console.log('📋 Extracted student:', student);
+          }
+          
           // Ensure status is set to PENDING for pending requests
           const enrichedRequest = {
             ...request,
             club: club,
             status: request.status || 'PENDING',
-            requestId: `${club.id}-${request.student?.id || request.studentId || request.id}`,
+            requestId: `${club.id}-${studentId}`,
+            // Ensure student ID is accessible
+            studentId: studentId,
+            student: student,
           };
           allRequestsFlat.push(enrichedRequest);
-        });
-      });
+        }
+      }
 
       setAllRequests(allRequestsFlat);
     } catch (error: any) {
@@ -189,7 +242,13 @@ const AdminJoinRequests = () => {
 
   const handleApprove = async (clubId: number, studentId: number) => {
     try {
-      await clubApi.approveRequest(clubId, studentId);
+      // Ensure studentId is a number
+      const studentIdNum = Number(studentId);
+      if (!studentIdNum || isNaN(studentIdNum)) {
+        toast.error('Invalid student ID');
+        return;
+      }
+      await clubApi.approveRequest(clubId, studentIdNum);
       toast.success('Request approved successfully');
       loadData();
       setSelectedRequests([]);
@@ -200,7 +259,13 @@ const AdminJoinRequests = () => {
 
   const handleReject = async (clubId: number, studentId: number) => {
     try {
-      await clubApi.rejectRequest(clubId, studentId);
+      // Ensure studentId is a number
+      const studentIdNum = Number(studentId);
+      if (!studentIdNum || isNaN(studentIdNum)) {
+        toast.error('Invalid student ID');
+        return;
+      }
+      await clubApi.rejectRequest(clubId, studentIdNum);
       toast.success('Request rejected successfully');
       loadData();
       setSelectedRequests([]);
@@ -223,14 +288,21 @@ const AdminJoinRequests = () => {
           const reqIdNum = typeof reqId === 'string' ? parseInt(reqId) : reqId;
           return reqIdNum === requestId || reqId === requestId;
         });
-        if (!request) return Promise.resolve();
+        if (!request) {
+          console.warn(`Request ${requestId} not found`);
+          return Promise.resolve();
+        }
         
         const clubId = request.club?.id;
-        const studentId = request.student?.id || request.studentId;
+        // Extract student ID from various possible locations
+        const studentId = request.student?.id || request.studentId || request.student_id || request.id;
         
-        if (!clubId || !studentId) return Promise.resolve();
+        if (!clubId || !studentId) {
+          console.warn(`Missing clubId (${clubId}) or studentId (${studentId}) for request ${requestId}`);
+          return Promise.resolve();
+        }
         
-        return clubApi.approveRequest(clubId, studentId).catch((error) => {
+        return clubApi.approveRequest(clubId, Number(studentId)).catch((error) => {
           console.error(`Failed to approve request ${requestId}:`, error);
           return null;
         });
@@ -265,14 +337,21 @@ const AdminJoinRequests = () => {
           const reqIdNum = typeof reqId === 'string' ? parseInt(reqId) : reqId;
           return reqIdNum === requestId || reqId === requestId;
         });
-        if (!request) return Promise.resolve();
+        if (!request) {
+          console.warn(`Request ${requestId} not found`);
+          return Promise.resolve();
+        }
         
         const clubId = request.club?.id;
-        const studentId = request.student?.id || request.studentId;
+        // Extract student ID from various possible locations
+        const studentId = request.student?.id || request.studentId || request.student_id || request.id;
         
-        if (!clubId || !studentId) return Promise.resolve();
+        if (!clubId || !studentId) {
+          console.warn(`Missing clubId (${clubId}) or studentId (${studentId}) for request ${requestId}`);
+          return Promise.resolve();
+        }
         
-        return clubApi.rejectRequest(clubId, studentId).catch((error) => {
+        return clubApi.rejectRequest(clubId, Number(studentId)).catch((error) => {
           console.error(`Failed to reject request ${requestId}:`, error);
           return null;
         });

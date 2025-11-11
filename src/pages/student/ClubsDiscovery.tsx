@@ -339,16 +339,37 @@ const ClubsDiscovery = () => {
                     onClick={() => openClubDetails(club)}
                   >
                     <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-xl mb-2">
-                            {club.title || club.name}
-                          </CardTitle>
-                          {club.club_Type && (
-                            <Badge variant="outline" className="mb-2">
-                              {club.club_Type}
-                            </Badge>
-                          )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {club.logo ? (
+                            <img
+                              src={club.logo}
+                              alt={`${club.title || club.name} logo`}
+                              className="w-14 h-14 rounded-full object-cover border-2 border-primary/30 shadow-md flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                if (target.nextElementSibling) {
+                                  (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-14 h-14 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+                          >
+                            <Building2 className="h-7 w-7 text-primary-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-xl mb-2 truncate">
+                              {club.title || club.name}
+                            </CardTitle>
+                            {club.club_Type && (
+                              <Badge variant="outline" className="mb-2">
+                                {club.club_Type}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         {joined && (
                           <Badge className="bg-success/20 text-success border-success/30">
@@ -442,16 +463,37 @@ const ClubsDiscovery = () => {
                   onClick={() => openClubDetails(club)}
                 >
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-xl mb-2">
-                          {club.title || club.name}
-                        </CardTitle>
-                        {club.club_Type && (
-                          <Badge variant="outline" className="mb-2">
-                            {club.club_Type}
-                          </Badge>
-                        )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {club.logo ? (
+                          <img
+                            src={club.logo}
+                            alt={`${club.title || club.name} logo`}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-primary/30 shadow-md flex-shrink-0"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              if (target.nextElementSibling) {
+                                (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-14 h-14 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+                        >
+                          <Building2 className="h-7 w-7 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-xl mb-2 truncate">
+                            {club.title || club.name}
+                          </CardTitle>
+                          {club.club_Type && (
+                            <Badge variant="outline" className="mb-2">
+                              {club.club_Type}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <Badge className="bg-success/20 text-success border-success/30">
                         <CheckCircle2 className="h-3 w-3 mr-1" />

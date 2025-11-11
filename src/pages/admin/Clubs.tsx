@@ -58,13 +58,88 @@ const AdminClubs = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [clubsRes, eventsRes] = await Promise.all([
-        clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-        eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } })),
-      ]);
-
+      const clubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
       const clubsList = extractCollection<any>(clubsRes);
-      const eventsList = extractCollection<any>(eventsRes);
+
+      // Try to load all events first
+      let eventsList: any[] = [];
+      try {
+        const eventsRes = await eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } }));
+        eventsList = extractCollection<any>(eventsRes);
+      } catch (error) {
+        console.warn('Failed to load all events, will fetch per club:', error);
+      }
+
+      // If events don't have club relationship, fetch events per club
+      if (eventsList.length > 0) {
+        const sampleEvent = eventsList[0];
+        const hasClubRelationship = sampleEvent.club || sampleEvent.clubId || sampleEvent.club_id || 
+                                    sampleEvent.club?.id || sampleEvent.club?.clubId;
+        
+        if (!hasClubRelationship) {
+          console.log('⚠️ Events don\'t have club relationship, fetching events per club...');
+          // Fetch events for each club
+          const clubEventsPromises = clubsList.map(async (club: any) => {
+            try {
+              const clubEventsRes = await eventApi.getByClub(club.id);
+              const clubEvents = extractCollection<any>(clubEventsRes);
+              // Add club ID to each event for easier matching
+              return clubEvents.map((event: any) => ({
+                ...event,
+                clubId: club.id,
+                club: { id: club.id }
+              }));
+            } catch (error) {
+              console.warn(`Failed to load events for club ${club.id}:`, error);
+              return [];
+            }
+          });
+          
+          const allClubEvents = await Promise.all(clubEventsPromises);
+          eventsList = allClubEvents.flat();
+        }
+      } else {
+        // No events from getAll, try fetching per club
+        console.log('⚠️ No events from getAll, fetching events per club...');
+        const clubEventsPromises = clubsList.map(async (club: any) => {
+          try {
+            const clubEventsRes = await eventApi.getByClub(club.id);
+            const clubEvents = extractCollection<any>(clubEventsRes);
+            // Add club ID to each event for easier matching
+            return clubEvents.map((event: any) => ({
+              ...event,
+              clubId: club.id,
+              club: { id: club.id }
+            }));
+          } catch (error) {
+            console.warn(`Failed to load events for club ${club.id}:`, error);
+            return [];
+          }
+        });
+        
+        const allClubEvents = await Promise.all(clubEventsPromises);
+        eventsList = allClubEvents.flat();
+      }
+
+      // Debug: Log structure to understand data format
+      if (import.meta.env.DEV) {
+        console.log('📊 Total events loaded:', eventsList.length);
+        console.log('📊 Total clubs loaded:', clubsList.length);
+        if (eventsList.length > 0) {
+          console.log('📊 Events structure sample:', eventsList[0]);
+          console.log('📊 Event keys:', Object.keys(eventsList[0]));
+          // Check if any events have club relationship
+          const eventsWithClub = eventsList.filter(e => e.club || e.clubId || e.club_id);
+          console.log('📊 Events with club relationship:', eventsWithClub.length);
+          if (eventsWithClub.length > 0) {
+            console.log('📊 Sample event with club:', eventsWithClub[0]);
+          }
+        }
+        if (clubsList.length > 0) {
+          console.log('📊 Clubs structure sample:', clubsList[0]);
+          console.log('📊 Club keys:', Object.keys(clubsList[0]));
+        }
+      }
 
       setAllClubs(clubsList);
       setClubs(clubsList);
@@ -162,6 +237,10 @@ const AdminClubs = () => {
     try {
       const response = await clubApi.getPendingRequests(clubId);
       const requestsList = extractCollection<any>(response) || [];
+      // Debug: Log request structure to understand the data format
+      if (import.meta.env.DEV && requestsList.length > 0) {
+        console.log('📋 Pending requests structure:', requestsList[0]);
+      }
       setClubPendingRequests(requestsList);
     } catch (error) {
       console.error('Failed to load pending requests:', error);
@@ -221,31 +300,6 @@ const AdminClubs = () => {
 
       <div className="luxury-divider"></div>
 
-      {/* Search Bar */}
-      <Card className="glass-card border-primary/20">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search clubs by name, type, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                onClick={() => setSearchQuery('')}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Stats Summary */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
         <Card className="glass-card border-primary/20">
@@ -270,9 +324,13 @@ const AdminClubs = () => {
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-white">
               {allClubs.reduce((sum, club) => {
-                const clubEvents = events.filter(
-                  (e) => e.club?.id === club.id || e.clubId === club.id
-                );
+                const clubEvents = events.filter((e) => {
+                  const eventClubId = e.club?.id || e.clubId || e.club_id;
+                  const clubId = club.id;
+                  return eventClubId != null && clubId != null && 
+                         (String(eventClubId) === String(clubId) || 
+                          Number(eventClubId) === Number(clubId));
+                });
                 return sum + clubEvents.length;
               }, 0)}
             </div>
@@ -286,6 +344,31 @@ const AdminClubs = () => {
         <ClubRankingCard clubs={allClubs} events={events} isLoading={isLoading} />
         <ClubActivityDashboard clubs={allClubs} events={events} isLoading={isLoading} />
       </div>
+
+      {/* Search Bar */}
+      <Card className="glass-card border-primary/20">
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search clubs by name, type, or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Clubs List */}
       <ClubsList
@@ -354,6 +437,12 @@ const AdminClubs = () => {
             members={clubMembers}
             isLoading={false}
             clubId={selectedClub?.id || 0}
+            onDemoteSuccess={async () => {
+              if (selectedClub?.id) {
+                await loadClubMembers(selectedClub.id);
+                loadData();
+              }
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -391,14 +480,21 @@ const AdminClubs = () => {
                   <TableBody>
                     {clubPendingRequests.map((request) => {
                       const student = request.student || request;
+                      // Extract student ID from various possible locations
+                      const studentId = student?.id || request?.studentId || request?.student?.id || request?.id;
+                      
+                      if (!studentId) {
+                        console.warn('Student ID not found in request:', request);
+                      }
+                      
                       return (
-                        <TableRow key={request.id || student.id}>
+                        <TableRow key={request.id || studentId || Math.random()}>
                           <TableCell className="font-medium">
-                            {student.firstname} {student.lastname}
+                            {student?.firstname || ''} {student?.lastname || ''}
                           </TableCell>
-                          <TableCell>{student.email}</TableCell>
+                          <TableCell>{student?.email || 'N/A'}</TableCell>
                           <TableCell>
-                            {student.department ? (
+                            {student?.department ? (
                               <Badge variant="outline">{student.department}</Badge>
                             ) : (
                               'N/A'
@@ -415,8 +511,15 @@ const AdminClubs = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleApproveRequest(selectedClub.id, student.id)}
+                                onClick={() => {
+                                  if (studentId) {
+                                    handleApproveRequest(selectedClub.id, Number(studentId));
+                                  } else {
+                                    toast.error('Student ID not found in request');
+                                  }
+                                }}
                                 className="text-success hover:text-success"
+                                disabled={!studentId}
                               >
                                 <CheckCircle className="h-4 w-4 mr-1" />
                                 Approve
@@ -424,8 +527,15 @@ const AdminClubs = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleRejectRequest(selectedClub.id, student.id)}
+                                onClick={() => {
+                                  if (studentId) {
+                                    handleRejectRequest(selectedClub.id, Number(studentId));
+                                  } else {
+                                    toast.error('Student ID not found in request');
+                                  }
+                                }}
                                 className="text-destructive hover:text-destructive"
+                                disabled={!studentId}
                               >
                                 <XCircle className="h-4 w-4 mr-1" />
                                 Reject

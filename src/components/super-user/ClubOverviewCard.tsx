@@ -58,13 +58,19 @@ const ClubOverviewCard = ({
                 <img 
                   src={club.logo} 
                   alt={club.title || club.name} 
-                  className="h-16 w-16 rounded-xl object-cover border-2 border-primary/30"
+                  className="h-16 w-16 rounded-full object-cover border-2 border-primary/30 shadow-lg"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    if (target.nextElementSibling) {
+                      (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                    }
+                  }}
                 />
-              ) : (
-                <div className="h-16 w-16 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/30">
-                  <Building2 className="h-8 w-8 text-primary" />
-                </div>
-              )}
+              ) : null}
+              <div className={`h-16 w-16 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-lg ${club.logo ? 'hidden' : ''}`}>
+                <Building2 className="h-8 w-8 text-primary-foreground" />
+              </div>
               <div className="flex-1">
                 <CardTitle className="text-2xl neon-text text-white mb-1">
                   {club.title || club.name || 'Club'}

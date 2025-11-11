@@ -126,7 +126,10 @@ const JoinRequestsList = ({
             </TableHeader>
             <TableBody>
               {requests.map((request) => {
-                const student = request.student || request;
+                // Extract student data - check multiple possible locations
+                const student = request.student || 
+                               (request.firstname || request.email ? request : {}) ||
+                               {};
                 const club = request.club || {};
                 const requestId = request.requestId || request.id || `${club.id}-${student.id}`;
                 // Handle both string and number IDs for comparison
@@ -135,6 +138,13 @@ const JoinRequestsList = ({
                   return selectedId === requestIdNum || selectedId === requestId;
                 });
                 const isPending = (request.status || 'PENDING').toUpperCase() === 'PENDING';
+
+                // Get student name and email with fallbacks
+                const studentName = student.firstname || student.firstName || '';
+                const studentLastName = student.lastname || student.lastName || '';
+                const studentEmail = student.email || '';
+                const displayName = `${studentName} ${studentLastName}`.trim() || 'Unknown Student';
+                const initials = (studentName?.[0] || '') + (studentLastName?.[0] || '') || '?';
 
                 return (
                   <TableRow key={requestId} className={isSelected ? 'bg-primary/10' : ''}>
@@ -147,13 +157,15 @@ const JoinRequestsList = ({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
-                          {(student.firstname?.[0] || '') + (student.lastname?.[0] || '')}
+                          {initials}
                         </div>
                         <div>
                           <div className="font-medium text-white">
-                            {student.firstname} {student.lastname}
+                            {displayName}
                           </div>
-                          <div className="text-xs text-muted-foreground">{student.email}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {studentEmail || 'No email'}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -187,28 +199,51 @@ const JoinRequestsList = ({
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {isPending && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onApprove(club.id, student.id)}
-                              className="text-success hover:text-success hover:bg-success/10"
-                              title="Approve request"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onReject(club.id, student.id)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Reject request"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
+                        {isPending && (() => {
+                          // Extract student ID from various possible locations
+                          const studentId = student?.id || request?.studentId || request?.student?.id || request?.id;
+                          
+                          if (!studentId) {
+                            console.warn('Student ID not found in request:', request);
+                          }
+                          
+                          return (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (studentId) {
+                                    onApprove(club.id, Number(studentId));
+                                  } else {
+                                    console.error('Cannot approve: Student ID not found');
+                                  }
+                                }}
+                                className="text-success hover:text-success hover:bg-success/10"
+                                title="Approve request"
+                                disabled={!studentId}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (studentId) {
+                                    onReject(club.id, Number(studentId));
+                                  } else {
+                                    console.error('Cannot reject: Student ID not found');
+                                  }
+                                }}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Reject request"
+                                disabled={!studentId}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          );
+                        })()}
                         {!isPending && (
                           <span className="text-xs text-muted-foreground">
                             {request.status === 'APPROVED' ? 'Approved' : 'Rejected'}

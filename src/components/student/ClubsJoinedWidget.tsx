@@ -12,6 +12,7 @@ interface Club {
   name?: string;
   club_Type?: string;
   description?: string;
+  logo?: string;
 }
 
 interface ClubsJoinedWidgetProps {
@@ -129,7 +130,26 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
                   className="glass-card p-2 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.01]"
                   onClick={handleViewAll}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    {club.logo ? (
+                      <img
+                        src={club.logo}
+                        alt={`${club.title || club.name} logo`}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-primary/30 shadow-md flex-shrink-0"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          if (target.nextElementSibling) {
+                            (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+                    >
+                      <Building2 className="h-5 w-5 text-primary-foreground" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm text-white truncate">
                         {club.title || club.name || `Club ${club.id}`}

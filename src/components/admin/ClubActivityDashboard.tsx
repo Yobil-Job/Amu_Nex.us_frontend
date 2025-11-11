@@ -15,15 +15,37 @@ const ClubActivityDashboard = ({ clubs, events, isLoading }: ClubActivityDashboa
   const activityData = useMemo(() => {
     if (!clubs || clubs.length === 0) return [];
 
+    // Debug: Log first event structure if available
+    if (import.meta.env.DEV && events.length > 0) {
+      console.log('📊 ClubActivityDashboard - First event structure:', events[0]);
+      console.log('📊 ClubActivityDashboard - Event keys:', Object.keys(events[0]));
+    }
+
     return clubs.slice(0, 10).map((club) => {
-      const clubEvents = events.filter(
-        (event) => event.club?.id === club.id || event.clubId === club.id
-      );
+      // More robust event matching - check multiple possible fields
+      const clubEvents = events.filter((event) => {
+        // Check all possible ways the club ID might be stored
+        const eventClubId = 
+          event.club?.id || 
+          event.clubId || 
+          event.club_id ||
+          event.club?.clubId ||
+          event.club?.club_id ||
+          (event.club && typeof event.club === 'object' ? Object.values(event.club).find(v => typeof v === 'number') : null);
+        
+        const clubId = club.id;
+        
+        // Handle both string and number comparisons
+        return eventClubId != null && clubId != null && 
+               (String(eventClubId) === String(clubId) || 
+                Number(eventClubId) === Number(clubId));
+      });
       
       const upcomingEvents = clubEvents.filter((event) => {
-        if (!event.startAt) return false;
+        if (!event.startAt && !event.startDate && !event.date) return false;
         try {
-          return new Date(event.startAt) > new Date();
+          const eventDate = new Date(event.startAt || event.startDate || event.date);
+          return eventDate > new Date();
         } catch {
           return false;
         }

@@ -22,8 +22,24 @@ const ClubInfoCard = ({ club }: ClubInfoCardProps) => {
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary/10 border-2 border-primary/20">
-              <Building2 className="h-6 w-6 text-primary" />
+            {club.logo ? (
+              <img
+                src={club.logo}
+                alt={`${club.title || club.name} logo`}
+                className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-lg flex-shrink-0"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  if (target.nextElementSibling) {
+                    (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+            ) : null}
+            <div
+              className={`w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-lg flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+            >
+              <Building2 className="h-8 w-8 text-primary-foreground" />
             </div>
             <div>
               <CardTitle className="text-2xl mb-1">

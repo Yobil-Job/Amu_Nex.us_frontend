@@ -15,7 +15,8 @@ interface ClubDetailsModalProps {
   isLoading?: boolean;
 }
 
-const ClubDetailsModal = ({ club, isOpen, onClose, isLoading }: ClubDetailsModalProps) => {
+const ClubDetailsModal = ({ club, isOpen, onClose, isLoading: externalLoading }: ClubDetailsModalProps) => {
+  const [fullClub, setFullClub] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -24,20 +25,32 @@ const ClubDetailsModal = ({ club, isOpen, onClose, isLoading }: ClubDetailsModal
 
   useEffect(() => {
     if (club?.id && isOpen) {
-      loadClubData();
+      loadFullClubData();
+    } else if (!isOpen) {
+      // Reset state when modal closes
+      setFullClub(null);
     }
   }, [club?.id, isOpen]);
 
-  const loadClubData = async () => {
+  const loadFullClubData = async () => {
     if (!club?.id) return;
     setIsLoadingData(true);
     try {
-      const [membersRes, eventsRes, announcementsRes, requestsRes] = await Promise.all([
+      // Fetch full club details from API
+      const [clubRes, membersRes, eventsRes, announcementsRes, requestsRes] = await Promise.all([
+        clubApi.getById(club.id).catch(() => null),
         clubApi.getMembers(club.id).catch(() => []),
         eventApi.getByClub(club.id).catch(() => ({ _embedded: { eventList: [] } })),
         announcementApi.getByClub(club.id).catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
         clubApi.getPendingRequests(club.id).catch(() => ({ _embedded: { requestResponseDtoList: [] } })),
       ]);
+
+      if (clubRes) {
+        setFullClub(clubRes);
+      } else {
+        // Fallback to passed club object if API fails
+        setFullClub(club);
+      }
 
       // Handle different response formats for members
       let membersList: any[] = [];
@@ -57,14 +70,20 @@ const ClubDetailsModal = ({ club, isOpen, onClose, isLoading }: ClubDetailsModal
       setPendingRequests(requestsList);
     } catch (error) {
       console.error('Failed to load club data:', error);
+      // Fallback to passed club object
+      setFullClub(club);
     } finally {
       setIsLoadingData(false);
     }
   };
 
-  if (!club && !isLoading) return null;
 
-  if (isLoading) {
+  const displayClub = fullClub || club;
+  const isActuallyLoading = externalLoading || isLoadingData;
+
+  if (!displayClub && !isActuallyLoading) return null;
+
+  if (isActuallyLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -95,12 +114,30 @@ const ClubDetailsModal = ({ club, isOpen, onClose, isLoading }: ClubDetailsModal
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-3">
-            <Building2 className="h-6 w-6 text-primary" />
+            {displayClub?.logo ? (
+              <img
+                src={displayClub.logo}
+                alt={`${displayClub.title || displayClub.name} logo`}
+                className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-lg flex-shrink-0"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  if (target.nextElementSibling) {
+                    (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+            ) : null}
+            <div
+              className={`w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-lg flex-shrink-0 ${displayClub?.logo ? 'hidden' : ''}`}
+            >
+              <Building2 className="h-8 w-8 text-primary-foreground" />
+            </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span>{club?.title || club?.name || 'Club Details'}</span>
-                {club?.club_Type && (
-                  <Badge variant="outline">{club.club_Type}</Badge>
+                <span>{displayClub?.title || displayClub?.name || 'Club Details'}</span>
+                {displayClub?.club_Type && (
+                  <Badge variant="outline">{displayClub.club_Type}</Badge>
                 )}
                 <Badge className="bg-success/10 text-success border-success/30">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -150,15 +187,20 @@ const ClubDetailsModal = ({ club, isOpen, onClose, isLoading }: ClubDetailsModal
           </div>
 
           {/* Description */}
-          {club?.description && (
+          {displayClub?.description && (
             <div className="glass-card p-4 rounded-lg border border-primary/20">
               <h3 className="font-semibold text-white mb-2">Description</h3>
-              <p className="text-sm text-muted-foreground">{club.description}</p>
+              <p className="text-sm text-muted-foreground">{displayClub.description}</p>
             </div>
           )}
 
           {/* Members List */}
-          <ClubMembersList members={members} isLoading={isLoadingData} clubId={club?.id || 0} />
+          <ClubMembersList 
+            members={members} 
+            isLoading={isLoadingData} 
+            clubId={displayClub?.id || 0}
+            onDemoteSuccess={loadFullClubData}
+          />
 
           {/* Recent Activity */}
           <div className="glass-card p-4 rounded-lg border border-primary/20">

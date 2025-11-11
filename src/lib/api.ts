@@ -349,6 +349,14 @@ export const clubApi = {
     });
     return handleResponse(response);
   },
+
+  demoteClubAdmin: async (clubId: number, memberId: number) => {
+    // Try to call the demote endpoint if it exists
+    const response = await authFetch(`${API_BASE_URL}/clubs/${clubId}/demote-clubAdmin/${memberId}`, {
+      method: 'PATCH',
+    });
+    return handleResponse(response);
+  },
 };
 
 // ============= EVENT API =============

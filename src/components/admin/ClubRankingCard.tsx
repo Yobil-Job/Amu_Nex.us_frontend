@@ -13,10 +13,44 @@ const ClubRankingCard = ({ clubs, events, isLoading }: ClubRankingCardProps) => 
   const calculateRanking = () => {
     if (!clubs || clubs.length === 0) return [];
 
+    // Debug: Log first event structure if available
+    if (import.meta.env.DEV && events.length > 0) {
+      console.log('🔍 ClubRankingCard - First event structure:', events[0]);
+      console.log('🔍 ClubRankingCard - Event keys:', Object.keys(events[0]));
+    }
+
     const clubStats = clubs.map((club) => {
-      const clubEvents = events.filter(
-        (event) => event.club?.id === club.id || event.clubId === club.id
-      );
+      // More robust event matching - check multiple possible fields
+      const clubEvents = events.filter((event) => {
+        // Check all possible ways the club ID might be stored
+        const eventClubId = 
+          event.club?.id || 
+          event.clubId || 
+          event.club_id ||
+          event.club?.clubId ||
+          event.club?.club_id ||
+          (event.club && typeof event.club === 'object' ? Object.values(event.club).find(v => typeof v === 'number') : null);
+        
+        const clubId = club.id;
+        
+        // Debug for first club
+        if (import.meta.env.DEV && club.id === clubs[0]?.id && events.length > 0) {
+          console.log(`🔍 Matching club ${club.id} (${club.title || club.name}):`, {
+            eventClubId,
+            clubId,
+            event: events[0],
+            match: eventClubId != null && clubId != null && 
+                   (String(eventClubId) === String(clubId) || 
+                    Number(eventClubId) === Number(clubId))
+          });
+        }
+        
+        // Handle both string and number comparisons
+        return eventClubId != null && clubId != null && 
+               (String(eventClubId) === String(clubId) || 
+                Number(eventClubId) === Number(clubId));
+      });
+      
       const eventCount = clubEvents.length;
       
       // Calculate activity score (events * 10 as base, can be enhanced)
@@ -29,10 +63,34 @@ const ClubRankingCard = ({ clubs, events, isLoading }: ClubRankingCardProps) => 
       };
     });
 
-    return clubStats
-      .sort((a, b) => b.activityScore - a.activityScore)
+    // Sort by score, then by event count, then by club name for consistency
+    const sorted = clubStats.sort((a, b) => {
+      if (b.activityScore !== a.activityScore) {
+        return b.activityScore - a.activityScore;
+      }
+      if (b.eventCount !== a.eventCount) {
+        return b.eventCount - a.eventCount;
+      }
+      const aName = (a.club.title || a.club.name || '').toLowerCase();
+      const bName = (b.club.title || b.club.name || '').toLowerCase();
+      return aName.localeCompare(bName);
+    });
+
+    const ranked = sorted
       .slice(0, 5)
       .map((stat, index) => ({ ...stat, rank: index + 1 }));
+
+    // Debug: Log ranking results
+    if (import.meta.env.DEV) {
+      console.log('🏆 ClubRankingCard - Rankings calculated:', ranked.map(r => ({
+        club: r.club.title || r.club.name,
+        events: r.eventCount,
+        score: r.activityScore
+      })));
+      console.log('🏆 Total events available:', events.length);
+    }
+
+    return ranked;
   };
 
   const rankings = calculateRanking();

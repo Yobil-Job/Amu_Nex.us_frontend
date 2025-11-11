@@ -96,11 +96,36 @@ const ClubsList = ({
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Building2 className="h-5 w-5 text-primary" />
-                        <h3 className="font-semibold text-white text-lg truncate">
-                          {club.title || club.name || `Club ${club.id}`}
-                        </h3>
+                      <div className="flex items-center gap-3 mb-2">
+                        {club.logo ? (
+                          <div className="flex-shrink-0">
+                            <img
+                              src={club.logo}
+                              alt={`${club.title || club.name} logo`}
+                              className="w-12 h-12 rounded-full object-cover border-2 border-primary/30 shadow-lg"
+                              onError={(e) => {
+                                // Fallback to icon if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                if (target.nextElementSibling) {
+                                  (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                            <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-lg hidden">
+                              <Building2 className="h-6 w-6 text-primary-foreground" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-lg flex-shrink-0">
+                            <Building2 className="h-6 w-6 text-primary-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-white text-lg truncate">
+                            {club.title || club.name || `Club ${club.id}`}
+                          </h3>
+                        </div>
                       </div>
                       {club.club_Type && (
                         <Badge variant="outline" className="mb-2">
@@ -222,8 +247,26 @@ const ClubsList = ({
                   return (
                     <TableRow key={club.id}>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-primary" />
+                        <div className="flex items-center gap-3">
+                          {club.logo ? (
+                            <img
+                              src={club.logo}
+                              alt={`${club.title || club.name} logo`}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-primary/30 shadow-md flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                if (target.nextElementSibling) {
+                                  (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+                          >
+                            <Building2 className="h-5 w-5 text-primary-foreground" />
+                          </div>
                           <span className="text-white">
                             {club.title || club.name || `Club ${club.id}`}
                           </span>
