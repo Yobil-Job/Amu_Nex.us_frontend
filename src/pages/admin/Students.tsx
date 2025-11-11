@@ -143,7 +143,14 @@ const AdminStudents = () => {
 
     // Role filter
     if (roleFilter !== 'all') {
-      filtered = filtered.filter((student) => student.role === roleFilter);
+      filtered = filtered.filter((student) => {
+        let studentRole = student.role;
+        // Handle both "ADMIN" and "ROLE_ADMIN" formats
+        if (studentRole && studentRole.startsWith('ROLE_')) {
+          studentRole = studentRole.replace('ROLE_', '');
+        }
+        return studentRole === roleFilter;
+      });
     }
 
     return filtered;
@@ -226,8 +233,28 @@ const AdminStudents = () => {
     }
 
     try {
-      await Promise.all(selectedStudents.map((id) => studentApi.delete(id)));
-      toast.success(`${selectedStudents.length} student(s) deleted successfully`);
+      // Delete students one by one to handle individual failures
+      const results = await Promise.allSettled(
+        selectedStudents.map((id) => studentApi.delete(id))
+      );
+
+      const successful = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.filter((r) => r.status === 'rejected').length;
+
+      if (successful > 0) {
+        toast.success(`${successful} student(s) deleted successfully`);
+      }
+
+      if (failed > 0) {
+        const failedIds = results
+          .map((r, i) => r.status === 'rejected' ? selectedStudents[i] : null)
+          .filter((id) => id !== null);
+        toast.error(`Failed to delete ${failed} student(s)`, {
+          description: failedIds.length > 0 ? `IDs: ${failedIds.join(', ')}` : undefined,
+        });
+      }
+
+      // Clear selection and reload data
       setSelectedStudents([]);
       loadData();
     } catch (error: any) {

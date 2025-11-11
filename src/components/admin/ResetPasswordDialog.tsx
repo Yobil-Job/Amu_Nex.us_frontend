@@ -57,18 +57,42 @@ const ResetPasswordDialog = ({ student, isOpen, onClose, onSuccess }: ResetPassw
 
     setIsLoading(true);
     try {
-      // Note: This is frontend-only UI. The actual password reset would need a backend endpoint.
-      // For now, we'll show a success message but note that backend implementation is needed.
-      toast.success(`Password reset initiated for ${student?.firstname} ${student?.lastname}`);
-      toast.info('Note: Backend password reset endpoint needs to be implemented');
-      
-      // Reset form
-      setNewPassword('');
-      setConfirmPassword('');
-      onSuccess?.();
-      onClose();
+      // Try to call the reset password endpoint if it exists
+      // The endpoint might be: POST /student/{id}/reset-password
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/student/${student?.id}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      if (response.ok) {
+        toast.success(`Password reset successfully for ${student?.firstname} ${student?.lastname}`);
+        // Reset form
+        setNewPassword('');
+        setConfirmPassword('');
+        onSuccess?.();
+        onClose();
+      } else {
+        // If endpoint doesn't exist (404) or other error, show appropriate message
+        if (response.status === 404) {
+          toast.error('Password reset endpoint not found. Please contact administrator.');
+          console.warn('Password reset endpoint not implemented in backend');
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to reset password' }));
+          toast.error(errorData.message || 'Failed to reset password');
+        }
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to reset password');
+      // Network error or endpoint doesn't exist
+      if (error.message?.includes('fetch') || error.message?.includes('Network')) {
+        toast.error('Network error. Please check your connection.');
+      } else {
+        toast.error(error.message || 'Failed to reset password. Endpoint may not be implemented.');
+      }
+      console.error('Password reset error:', error);
     } finally {
       setIsLoading(false);
     }
