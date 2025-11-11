@@ -56,8 +56,36 @@ const AdminEvents = () => {
       const eventsList = extractCollection<any>(eventsRes);
       const clubsList = extractCollection<any>(clubsRes);
 
-      setAllEvents(eventsList);
-      setEvents(eventsList);
+      // Enrich events with club data
+      const enrichedEvents = eventsList.map((event: any) => {
+        // Extract club ID from various possible locations
+        const eventClubId = event.club?.id || event.clubId || event.club_id;
+        
+        // Find matching club
+        const club = clubsList.find((c: any) => {
+          const clubId = c.id;
+          return eventClubId != null && clubId != null && 
+                 (String(eventClubId) === String(clubId) || 
+                  Number(eventClubId) === Number(clubId));
+        });
+
+        // If club not found but we have clubId, try to fetch it
+        // Otherwise, enrich with found club or empty object
+        return {
+          ...event,
+          club: club || event.club || {},
+          clubId: eventClubId || event.clubId || event.club_id,
+        };
+      });
+
+      // Debug: Log first event structure
+      if (import.meta.env.DEV && enrichedEvents.length > 0) {
+        console.log('📅 First event structure:', enrichedEvents[0]);
+        console.log('📅 Event keys:', Object.keys(enrichedEvents[0]));
+      }
+
+      setAllEvents(enrichedEvents);
+      setEvents(enrichedEvents);
       setClubs(clubsList);
     } catch (error: any) {
       console.error('Failed to load events:', error);
@@ -87,9 +115,11 @@ const AdminEvents = () => {
     if (timeFilter !== 'all') {
       const now = new Date();
       filtered = filtered.filter((event) => {
-        if (!event.startAt) return false;
+        // Check multiple possible date fields
+        const startDateStr = event.startAt || event.startDate || event.date;
+        if (!startDateStr) return false;
         try {
-          const startDate = parseISO(event.startAt);
+          const startDate = parseISO(startDateStr);
           switch (timeFilter) {
             case 'today':
               return isToday(startDate);
@@ -101,7 +131,22 @@ const AdminEvents = () => {
               return true;
           }
         } catch {
-          return false;
+          // Try alternative date parsing
+          try {
+            const startDate = new Date(startDateStr);
+            switch (timeFilter) {
+              case 'today':
+                return isToday(startDate);
+              case 'upcoming':
+                return isAfter(startDate, now);
+              case 'past':
+                return isBefore(startDate, now);
+              default:
+                return true;
+            }
+          } catch {
+            return false;
+          }
         }
       });
     }
@@ -109,34 +154,50 @@ const AdminEvents = () => {
     // Club filter
     if (clubFilter !== 'all') {
       filtered = filtered.filter((event) => {
-        const clubId = event.club?.id?.toString() || event.clubId?.toString() || '';
-        return clubId === clubFilter;
+        // Check multiple possible locations for club ID
+        const eventClubId = event.club?.id || event.clubId || event.club_id;
+        const clubIdStr = eventClubId?.toString() || '';
+        return clubIdStr === clubFilter;
       });
     }
 
     // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((event) => {
-        if (!event.startAt) return false;
+        const startDateStr = event.startAt || event.startDate || event.date;
+        if (!startDateStr) return false;
         try {
-          const eventDate = parseISO(event.startAt);
+          const eventDate = parseISO(startDateStr);
           const fromDate = startOfDay(new Date(dateFrom));
           return eventDate >= fromDate;
         } catch {
-          return false;
+          try {
+            const eventDate = new Date(startDateStr);
+            const fromDate = startOfDay(new Date(dateFrom));
+            return eventDate >= fromDate;
+          } catch {
+            return false;
+          }
         }
       });
     }
 
     if (dateTo) {
       filtered = filtered.filter((event) => {
-        if (!event.startAt) return false;
+        const startDateStr = event.startAt || event.startDate || event.date;
+        if (!startDateStr) return false;
         try {
-          const eventDate = parseISO(event.startAt);
+          const eventDate = parseISO(startDateStr);
           const toDate = endOfDay(new Date(dateTo));
           return eventDate <= toDate;
         } catch {
-          return false;
+          try {
+            const eventDate = new Date(startDateStr);
+            const toDate = endOfDay(new Date(dateTo));
+            return eventDate <= toDate;
+          } catch {
+            return false;
+          }
         }
       });
     }
@@ -149,20 +210,32 @@ const AdminEvents = () => {
     const now = new Date();
     return filteredEvents
       .filter((event) => {
-        if (!event.startAt) return false;
+        const startDateStr = event.startAt || event.startDate || event.date;
+        if (!startDateStr) return false;
         try {
-          const startDate = parseISO(event.startAt);
+          const startDate = parseISO(startDateStr);
           return isAfter(startDate, now);
         } catch {
-          return false;
+          try {
+            const startDate = new Date(startDateStr);
+            return isAfter(startDate, now);
+          } catch {
+            return false;
+          }
         }
       })
       .sort((a, b) => {
-        if (!a.startAt || !b.startAt) return 0;
+        const aDateStr = a.startAt || a.startDate || a.date;
+        const bDateStr = b.startAt || b.startDate || b.date;
+        if (!aDateStr || !bDateStr) return 0;
         try {
-          return parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime();
+          return parseISO(aDateStr).getTime() - parseISO(bDateStr).getTime();
         } catch {
-          return 0;
+          try {
+            return new Date(aDateStr).getTime() - new Date(bDateStr).getTime();
+          } catch {
+            return 0;
+          }
         }
       })
       .slice(0, 5);

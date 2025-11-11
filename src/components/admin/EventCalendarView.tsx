@@ -27,16 +27,28 @@ const EventCalendarView = ({ events, isLoading, onDateClick, onEventClick }: Eve
   const eventsByDate = useMemo(() => {
     const eventsMap: Record<string, any[]> = {};
     events.forEach((event) => {
-      if (!event.startAt) return;
+      // Check multiple possible date fields
+      const startDateStr = event.startAt || event.startDate || event.date;
+      if (!startDateStr) return;
       try {
-        const eventDate = parseISO(event.startAt);
+        const eventDate = parseISO(startDateStr);
         const dateKey = format(eventDate, 'yyyy-MM-dd');
         if (!eventsMap[dateKey]) {
           eventsMap[dateKey] = [];
         }
         eventsMap[dateKey].push(event);
       } catch {
-        // Ignore invalid dates
+        // Try alternative date parsing
+        try {
+          const eventDate = new Date(startDateStr);
+          const dateKey = format(eventDate, 'yyyy-MM-dd');
+          if (!eventsMap[dateKey]) {
+            eventsMap[dateKey] = [];
+          }
+          eventsMap[dateKey].push(event);
+        } catch {
+          // Ignore invalid dates
+        }
       }
     });
     return eventsMap;

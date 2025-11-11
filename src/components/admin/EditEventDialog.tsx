@@ -55,6 +55,9 @@ const EditEventDialog = ({ event, clubs, isOpen, onClose, onSuccess }: EditEvent
         }
       }
 
+      // Extract club ID from various possible locations
+      const clubId = event.club?.id || event.clubId || event.club_id;
+      
       setFormData({
         title: event.title || '',
         description: event.description || '',
@@ -62,7 +65,7 @@ const EditEventDialog = ({ event, clubs, isOpen, onClose, onSuccess }: EditEvent
         endAt: endAt,
         latitude: event.latitude?.toString() || '',
         longitude: event.longitude?.toString() || '',
-        clubId: event.club?.id?.toString() || event.clubId?.toString() || '',
+        clubId: clubId?.toString() || '',
       });
     }
   }, [event, isOpen]);

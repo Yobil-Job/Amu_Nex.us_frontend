@@ -12,18 +12,20 @@ const EventParticipationStats = ({ events, isLoading }: EventParticipationStatsP
   const stats = useMemo(() => {
     const now = new Date();
     const upcomingEvents = events.filter((event) => {
-      if (!event.startAt) return false;
+      const startDateStr = event.startAt || event.startDate || event.date;
+      if (!startDateStr) return false;
       try {
-        return new Date(event.startAt) > now;
+        return new Date(startDateStr) > now;
       } catch {
         return false;
       }
     });
 
     const pastEvents = events.filter((event) => {
-      if (!event.startAt) return false;
+      const startDateStr = event.startAt || event.startDate || event.date;
+      if (!startDateStr) return false;
       try {
-        return new Date(event.startAt) <= now;
+        return new Date(startDateStr) <= now;
       } catch {
         return false;
       }

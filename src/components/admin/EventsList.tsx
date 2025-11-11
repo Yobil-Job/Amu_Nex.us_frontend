@@ -36,6 +36,7 @@ const EventsList = ({
     } catch {
       try {
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'N/A';
         return format(date, 'MMM dd, yyyy HH:mm');
       } catch {
         return dateString;
@@ -44,10 +45,12 @@ const EventsList = ({
   };
 
   const getEventStatus = (event: any) => {
-    if (!event.startAt) return { label: 'Unknown', variant: 'secondary' as const };
+    // Check multiple possible date fields
+    const startDateStr = event.startAt || event.startDate || event.date;
+    if (!startDateStr) return { label: 'Unknown', variant: 'secondary' as const };
     
     try {
-      const startDate = parseISO(event.startAt);
+      const startDate = parseISO(startDateStr);
       const now = new Date();
       
       if (isBefore(startDate, now)) {
@@ -58,7 +61,21 @@ const EventsList = ({
         return { label: 'Today', variant: 'default' as const };
       }
     } catch {
-      return { label: 'Unknown', variant: 'secondary' as const };
+      try {
+        const startDate = new Date(startDateStr);
+        if (isNaN(startDate.getTime())) return { label: 'Unknown', variant: 'secondary' as const };
+        const now = new Date();
+        
+        if (isBefore(startDate, now)) {
+          return { label: 'Past', variant: 'secondary' as const };
+        } else if (isAfter(startDate, now)) {
+          return { label: 'Upcoming', variant: 'default' as const };
+        } else {
+          return { label: 'Today', variant: 'default' as const };
+        }
+      } catch {
+        return { label: 'Unknown', variant: 'secondary' as const };
+      }
     }
   };
 
@@ -111,7 +128,9 @@ const EventsList = ({
             <TableBody>
               {events.map((event) => {
                 const status = getEventStatus(event);
+                // Extract club data - check multiple possible locations
                 const club = event.club || {};
+                const clubName = club.title || club.name || `Club ${club.id || event.clubId || 'N/A'}`;
                 
                 return (
                   <TableRow key={event.id}>
@@ -134,7 +153,7 @@ const EventsList = ({
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-accent" />
                         <span className="text-white">
-                          {club.title || club.name || `Club ${club.id || 'N/A'}`}
+                          {clubName}
                         </span>
                       </div>
                       {club.club_Type && (
@@ -147,10 +166,12 @@ const EventsList = ({
                       <div className="flex items-center gap-2 text-sm">
                         <Clock className="h-3 w-3 text-muted-foreground" />
                         <div>
-                          <div className="text-white">{formatDate(event.startAt)}</div>
-                          {event.endAt && (
+                          <div className="text-white">
+                            {formatDate(event.startAt || event.startDate || event.date)}
+                          </div>
+                          {(event.endAt || event.endDate) && (
                             <div className="text-xs text-muted-foreground">
-                              Until {formatDate(event.endAt)}
+                              Until {formatDate(event.endAt || event.endDate)}
                             </div>
                           )}
                         </div>
