@@ -1,9 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Building2, Award } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { clubApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 
@@ -16,7 +15,6 @@ interface TopClubsChartProps {
 const COLORS = ['#f8b500', '#6a4c93', '#c06c84', '#ff6b6b', '#4ecdc4', '#95e1d3', '#f38181', '#aa96da'];
 
 const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
-  const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
   const [clubMemberCounts, setClubMemberCounts] = useState<Record<number, number>>({});
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
@@ -167,86 +165,40 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
             </div>
           </div>
         ) : topClubsData.length > 0 ? (
-          <Tabs value={chartType} onValueChange={(v) => setChartType(v as 'pie' | 'bar')} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="pie">Pie Chart</TabsTrigger>
-              <TabsTrigger value="bar">Bar Chart</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="pie" className="mt-0">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={topClubsData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#f8b500"
-                    dataKey="value"
-                  >
-                    {topClubsData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'rgba(26, 11, 46, 0.95)',
-                      border: '1px solid rgba(248, 181, 0, 0.3)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                    }}
-                    formatter={(value: number, name: string, props: any) => {
-                      const entry = props.payload;
-                      return [`${entry.name}: ${value} events, ${entry.memberCount || 0} members`, 'Events'];
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ color: 'rgba(255, 255, 255, 0.7)' }}
-                    iconType="circle"
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </TabsContent>
-
-            <TabsContent value="bar" className="mt-0">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topClubsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="rgba(255, 255, 255, 0.7)"
-                    tick={{ fill: 'rgba(255, 255, 255, 0.7)', fontSize: 10 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                  />
-                  <YAxis 
-                    stroke="rgba(255, 255, 255, 0.7)"
-                    tick={{ fill: 'rgba(255, 255, 255, 0.7)', fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'rgba(26, 11, 46, 0.95)',
-                      border: '1px solid rgba(248, 181, 0, 0.3)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                    }}
-                    formatter={(value: number, name: string, props: any) => {
-                      return [`${value} events, ${props.payload.memberCount || 0} members`, 'Events'];
-                    }}
-                    labelFormatter={(label) => `Club: ${label}`}
-                  />
-                  <Bar dataKey="value" fill="#f8b500" radius={[8, 8, 0, 0]} name="Events">
-                    {topClubsData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </TabsContent>
-          </Tabs>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={topClubsData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                outerRadius={100}
+                fill="#f8b500"
+                dataKey="value"
+              >
+                {topClubsData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  background: 'rgba(26, 11, 46, 0.95)',
+                  border: '1px solid rgba(248, 181, 0, 0.3)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                }}
+                formatter={(value: number, name: string, props: any) => {
+                  const entry = props.payload;
+                  return [`${entry.name}: ${value} events, ${entry.memberCount || 0} members`, 'Events'];
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                iconType="circle"
+              />
+            </PieChart>
+          </ResponsiveContainer>
         ) : null}
       </CardContent>
     </Card>

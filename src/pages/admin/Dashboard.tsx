@@ -105,11 +105,11 @@ const AdminDashboard = () => {
       setEvents(eventsList);
       setAnnouncements(announcementsList);
 
-      // Count club admins - students with role ADMIN
-      // Note: ResponseClubDto doesn't include clubAdminId, so we count students with ADMIN role instead
+      // Count club admins - students with role ADMIN from students table
+      // Role is now included in StudentResponseDto after backend fix
       const clubAdminsCount = studentsList.filter((student: any) => {
-        const role = student.role || student.authorities?.[0]?.authority;
-        // Handle both "ADMIN" and "ROLE_ADMIN" formats
+        const role = student.role;
+        // Handle both "ADMIN" and "ROLE_ADMIN" formats (backend returns Role_enum.ADMIN)
         return role === 'ADMIN' || role === 'ROLE_ADMIN' || role?.toUpperCase() === 'ADMIN';
       }).length;
 
@@ -133,85 +133,64 @@ const AdminDashboard = () => {
         console.error('Failed to load pending requests:', error);
       }
 
-      // Prepare recent activities
-      // Combine events, announcements, and new clubs for activity feed
-      const activities = [
+      // Prepare recent activities - combine all types and sort chronologically
+      // Don't pre-sort by type, combine all first then sort by timestamp
+      const allActivities = [
         ...eventsList
           .filter((e: any) => e.startAt || e.createdAt)
-          .sort((a: any, b: any) => {
-            try {
-              const dateA = parseISO(a.startAt || a.createdAt || '1970-01-01');
-              const dateB = parseISO(b.startAt || b.createdAt || '1970-01-01');
-              return dateB.getTime() - dateA.getTime();
-            } catch {
-              return 0;
-            }
-          })
-          .slice(0, 5)
           .map((e: any) => ({
             type: 'event',
             title: e.title || 'New Event',
             description: e.club?.title || e.club?.name || 'Event created',
             timestamp: e.startAt || e.createdAt,
             icon: 'Calendar',
+            id: e.id,
           })),
         ...announcementsList
           .filter((a: any) => a.createdAt || a.id)
-          .sort((a: any, b: any) => {
-            try {
-              const dateA = parseISO(a.createdAt || a.createdDate || String(a.id));
-              const dateB = parseISO(b.createdAt || b.createdDate || String(b.id));
-              return dateB.getTime() - dateA.getTime();
-            } catch {
-              // Try numeric comparison for IDs if date parsing fails
-              return (b.id || 0) - (a.id || 0);
-            }
-          })
-          .slice(0, 5)
           .map((a: any) => ({
             type: 'announcement',
             title: a.title || 'New Announcement',
             description: a.club?.title || a.club?.name || 'Announcement created',
             timestamp: a.createdAt || a.createdDate,
             icon: 'Bell',
+            id: a.id,
           })),
         ...clubsList
           .filter((c: any) => c.createdAt || c.id)
-          .sort((a: any, b: any) => {
-            try {
-              const dateA = parseISO(a.createdAt || a.createdDate || String(a.id));
-              const dateB = parseISO(b.createdAt || b.createdDate || String(b.id));
-              return dateB.getTime() - dateA.getTime();
-            } catch {
-              return (b.id || 0) - (a.id || 0);
-            }
-          })
-          .slice(0, 3)
           .map((c: any) => ({
             type: 'club',
             title: c.title || c.name || 'New Club',
             description: 'Club created',
             timestamp: c.createdAt || c.createdDate,
             icon: 'Building',
+            id: c.id,
           })),
-      ]
+      ];
+      
+      // Sort all activities by timestamp (most recent first) - proper chronological order
+      const activities = allActivities
         .sort((a, b) => {
           try {
-            if (!a.timestamp || !b.timestamp) {
-              // If no timestamp, use id or put at end
-              return (b.timestamp ? 1 : 0) - (a.timestamp ? 1 : 0);
+            // If both have timestamps, compare them
+            if (a.timestamp && b.timestamp) {
+              const dateA = parseISO(a.timestamp);
+              const dateB = parseISO(b.timestamp);
+              if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+                return dateB.getTime() - dateA.getTime(); // Most recent first
+              }
             }
-            const dateA = parseISO(a.timestamp);
-            const dateB = parseISO(b.timestamp);
-            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
-              return 0;
-            }
-            return dateB.getTime() - dateA.getTime();
+            // If one has timestamp and other doesn't, timestamp comes first
+            if (a.timestamp && !b.timestamp) return -1;
+            if (!a.timestamp && b.timestamp) return 1;
+            // If neither has timestamp, use ID as fallback
+            return (b.id || 0) - (a.id || 0);
           } catch {
-            return 0;
+            // Fallback to ID comparison
+            return (b.id || 0) - (a.id || 0);
           }
         })
-        .slice(0, 10); // Show more activities
+        .slice(0, 10); // Show top 10 most recent activities
 
       setRecentActivities(activities);
 
@@ -457,37 +436,37 @@ const AdminDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="glass-card p-4 rounded-lg border border-primary/20">
+            <div className="glass-card p-4 rounded-lg border border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Data Status</span>
-                <CheckCircle2 className="h-4 w-4 text-success" />
+                <CheckCircle2 className="h-4 w-4 text-success animate-pulse" />
               </div>
               <div className="text-2xl font-bold text-white">
                 {stats.isLoading ? '...' : 'Active'}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-lg border border-primary/20">
+            <div className="glass-card p-4 rounded-lg border border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Pending Actions</span>
-                <AlertCircle className="h-4 w-4 text-warning" />
+                <AlertCircle className="h-4 w-4 text-warning animate-pulse" />
               </div>
               <div className="text-2xl font-bold text-white">
                 {stats.totalPendingRequests}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-lg border border-primary/20">
+            <div className="glass-card p-4 rounded-lg border border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Upcoming Events</span>
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-4 w-4 text-success animate-pulse" />
               </div>
               <div className="text-2xl font-bold text-white">
                 {upcomingEvents.length}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-lg border border-primary/20">
+            <div className="glass-card p-4 rounded-lg border border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">System Health</span>
-                <div className={`h-2 w-2 rounded-full ${
+                <div className={`h-2 w-2 rounded-full animate-pulse ${
                   systemHealth.status === 'excellent' ? 'bg-success' :
                   systemHealth.status === 'good' ? 'bg-primary' :
                   systemHealth.status === 'moderate' ? 'bg-warning' : 'bg-destructive'

@@ -70,17 +70,18 @@ const AdminStudents = () => {
       const studentsList = extractCollection<any>(studentsRes);
       const authoritiesList = extractCollection<any>(authoritiesRes);
 
-      // Map roles to students
+      // Use role directly from student.role field (from students table)
+      // Do NOT map from authorities - role is stored in the Student entity
       const studentsWithRoles = studentsList.map((student: any) => {
-        const studentAuthorities = authoritiesList.filter(
-          (auth: any) => auth.student?.id === student.id || auth.studentId === student.id
-        );
-        const roles = studentAuthorities.map((auth: any) => auth.name);
+        // Role comes directly from student.role field in the database
+        // Handle both "ADMIN" and "ROLE_ADMIN" formats if needed
+        let role = student.role;
+        if (role && role.startsWith('ROLE_')) {
+          role = role.replace('ROLE_', '');
+        }
         return {
           ...student,
-          role: roles.includes('SUPER_ADMIN') ? 'SUPER_ADMIN' :
-                roles.includes('ADMIN') ? 'ADMIN' :
-                roles.includes('SUPER_USER') ? 'SUPER_USER' : 'STUDENT',
+          role: role || 'STUDENT', // Default to STUDENT if no role
         };
       });
 

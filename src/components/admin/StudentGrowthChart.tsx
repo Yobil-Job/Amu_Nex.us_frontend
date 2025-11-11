@@ -164,12 +164,46 @@ const StudentGrowthChart = ({ students, isLoading }: StudentGrowthChartProps) =>
               />
               <Tooltip
                 contentStyle={{
-                  background: 'rgba(26, 11, 46, 0.95)',
-                  border: '1px solid rgba(248, 181, 0, 0.3)',
-                  borderRadius: '8px',
+                  background: 'rgba(26, 11, 46, 0.98)',
+                  border: '2px solid rgba(248, 181, 0, 0.5)',
+                  borderRadius: '12px',
                   color: '#fff',
+                  padding: '16px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                  fontSize: '14px',
                 }}
-                labelStyle={{ color: '#f8b500' }}
+                labelStyle={{ 
+                  color: '#f8b500', 
+                  fontWeight: 'bold', 
+                  fontSize: '16px',
+                  marginBottom: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+                formatter={(value: number, name: string) => {
+                  const exactValue = typeof value === 'number' ? value : parseInt(String(value)) || 0;
+                  if (name === 'Total Students' || name === 'cumulative') {
+                    return [`${exactValue} students`, 'Total Students'];
+                  } else {
+                    return [`${exactValue} new registrations`, 'New Registrations'];
+                  }
+                }}
+                labelFormatter={(label) => `📅 Date: ${label}`}
+                separator=": "
+                itemStyle={{ 
+                  padding: '4px 0',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+                cursor={{ 
+                  stroke: '#f8b500', 
+                  strokeWidth: 3, 
+                  strokeDasharray: '0',
+                  strokeOpacity: 0.8
+                }}
+                allowEscapeViewBox={{ x: false, y: true }}
+                animationDuration={150}
+                isAnimationActive={true}
               />
               <Legend 
                 wrapperStyle={{ color: 'rgba(255, 255, 255, 0.7)' }}
@@ -179,18 +213,34 @@ const StudentGrowthChart = ({ students, isLoading }: StudentGrowthChartProps) =>
                 dataKey="cumulative"
                 name="Total Students"
                 stroke="#f8b500"
-                strokeWidth={2}
-                dot={{ fill: '#f8b500', r: 4 }}
-                activeDot={{ r: 6 }}
+                strokeWidth={3}
+                dot={{ fill: '#f8b500', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ 
+                  r: 8, 
+                  fill: '#f8b500',
+                  stroke: '#fff',
+                  strokeWidth: 3,
+                  style: { filter: 'drop-shadow(0 0 8px rgba(248, 181, 0, 0.8))' }
+                }}
+                animationDuration={300}
+                isAnimationActive={true}
               />
               <Line
                 type="monotone"
                 dataKey="count"
                 name="New Registrations"
                 stroke="#6a4c93"
-                strokeWidth={2}
-                dot={{ fill: '#6a4c93', r: 4 }}
-                activeDot={{ r: 6 }}
+                strokeWidth={3}
+                dot={{ fill: '#6a4c93', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ 
+                  r: 8, 
+                  fill: '#6a4c93',
+                  stroke: '#fff',
+                  strokeWidth: 3,
+                  style: { filter: 'drop-shadow(0 0 8px rgba(106, 76, 147, 0.8))' }
+                }}
+                animationDuration={300}
+                isAnimationActive={true}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -148,25 +148,42 @@ const MainLayout = () => {
         const events = extractCollection<any>(eventsRes) || [];
 
         // Check for pending join requests (from all clubs)
+        // Aggregate all pending requests to avoid duplicate notifications
+        let totalPendingRequests = 0;
+        const pendingRequestClubs: string[] = [];
+        
         for (const club of clubs) {
           try {
             const requestsRes = await clubApi.getPendingRequests(club.id).catch(() => ({ _embedded: { requestResponseDtoList: [] } }));
             const requests = extractCollection<any>(requestsRes) || [];
             
             if (requests.length > 0) {
-              generatedNotifications.push({
-                id: `join_request_${club.id}_${Date.now()}`,
-                type: 'join_request',
-                title: `${requests.length} Pending Join Request${requests.length > 1 ? 's' : ''}`,
-                message: `${requests.length} student${requests.length > 1 ? 's' : ''} want${requests.length === 1 ? 's' : ''} to join ${club.title || club.name}`,
-                timestamp: new Date().toISOString(),
-                read: false,
-                link: '/join-requests',
-                metadata: { clubId: club.id, count: requests.length },
-              });
+              totalPendingRequests += requests.length;
+              pendingRequestClubs.push(club.title || club.name || `Club ${club.id}`);
             }
           } catch {
             // Ignore errors for individual clubs
+          }
+        }
+        
+        // Only create ONE notification for all pending requests (not one per club)
+        if (totalPendingRequests > 0) {
+          // Check if we already have a pending requests notification
+          const hasPendingRequestNotification = savedNotifications.some(
+            (n) => n.type === 'join_request' && !n.read && n.metadata?.totalCount === totalPendingRequests
+          );
+          
+          if (!hasPendingRequestNotification) {
+            generatedNotifications.push({
+              id: `join_request_all_${totalPendingRequests}`, // Stable ID based on count
+              type: 'join_request',
+              title: `${totalPendingRequests} Pending Join Request${totalPendingRequests > 1 ? 's' : ''}`,
+              message: `${totalPendingRequests} student${totalPendingRequests > 1 ? 's' : ''} ${totalPendingRequests > 1 ? 'have' : 'has'} pending join request${totalPendingRequests > 1 ? 's' : ''}`,
+              timestamp: new Date().toISOString(),
+              read: false,
+              link: '/join-requests',
+              metadata: { totalCount: totalPendingRequests, clubs: pendingRequestClubs },
+            });
           }
         }
 
@@ -184,16 +201,23 @@ const MainLayout = () => {
         });
 
         if (recentEvents.length > 0) {
-          generatedNotifications.push({
-            id: `new_event_${Date.now()}`,
-            type: 'new_event',
-            title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
-            message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
-            timestamp: new Date().toISOString(),
-            read: false,
-            link: '/events',
-            metadata: { count: recentEvents.length },
-          });
+          // Check if we already have a notification for these events
+          const hasEventNotification = savedNotifications.some(
+            (n) => n.type === 'new_event' && !n.read && n.metadata?.count === recentEvents.length
+          );
+          
+          if (!hasEventNotification) {
+            generatedNotifications.push({
+              id: `new_event_${recentEvents.length}_${Math.max(...recentEvents.map((e: any) => e.id || 0))}`, // Stable ID
+              type: 'new_event',
+              title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
+              message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
+              timestamp: new Date().toISOString(),
+              read: false,
+              link: '/events',
+              metadata: { count: recentEvents.length, eventIds: recentEvents.map((e: any) => e.id) },
+            });
+          }
         }
 
         // Add suspicious activity notification (placeholder - can be enhanced with real logic)
@@ -219,9 +243,24 @@ const MainLayout = () => {
       const existingIds = new Set(savedNotifications.map((n) => n.id));
       const newNotifications = generatedNotifications.filter((n) => !existingIds.has(n.id));
       
+      // Also filter out read notifications that are older than 7 days to prevent accumulation
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
       const allNotifications = [...savedNotifications, ...newNotifications]
+        .filter((n) => {
+          // Keep unread notifications
+          if (!n.read) return true;
+          // Keep read notifications that are less than 7 days old
+          try {
+            const notificationDate = new Date(n.timestamp);
+            return notificationDate > sevenDaysAgo;
+          } catch {
+            return true; // Keep if we can't parse date
+          }
+        })
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 100); // Keep last 100 notifications
+        .slice(0, 50); // Keep last 50 notifications (reduced from 100 to prevent accumulation)
 
       setNotifications(allNotifications);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allNotifications));
