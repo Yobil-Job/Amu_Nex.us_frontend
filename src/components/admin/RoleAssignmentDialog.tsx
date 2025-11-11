@@ -45,21 +45,9 @@ const RoleAssignmentDialog = ({ student, isOpen, onClose, onSuccess }: RoleAssig
       const clubsList = extractCollection<any>(clubsRes);
       const authoritiesList = extractCollection<any>(authoritiesRes) || [];
 
-      // Extract unique clubs from authorities, or use all clubs if student has no authorities
-      const clubMap = new Map();
-      if (authoritiesList.length > 0) {
-        authoritiesList.forEach((auth: any) => {
-          if (auth.club?.id) {
-            clubMap.set(auth.club.id, auth.club);
-          }
-        });
-      } else {
-        // If no authorities, show all clubs
-        clubsList.forEach((club: any) => {
-          clubMap.set(club.id, club);
-        });
-      }
-      setClubs(Array.from(clubMap.values()));
+      // For role assignment, show all clubs (not just clubs from authorities)
+      // This allows assigning roles to students for any club
+      setClubs(clubsList);
       setExistingAuthorities(authoritiesList);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -74,9 +62,9 @@ const RoleAssignmentDialog = ({ student, isOpen, onClose, onSuccess }: RoleAssig
       return;
     }
 
-    // For SUPER_USER role, club is required
+    // For SUPER_USER role, club is required (Authority role needs a club)
     if (selectedRole === 'SUPER_USER' && !selectedClubId) {
-      toast.error('Please select a club for club admin role');
+      toast.error('Please select a club for Authority role');
       return;
     }
 
@@ -201,14 +189,14 @@ const RoleAssignmentDialog = ({ student, isOpen, onClose, onSuccess }: RoleAssig
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="STUDENT">Student</SelectItem>
-                      <SelectItem value="SUPER_USER">Club Admin</SelectItem>
-                      <SelectItem value="ADMIN">Administrator</SelectItem>
+                      <SelectItem value="ADMIN">Club Admin</SelectItem>
+                      <SelectItem value="SUPER_USER">Authority</SelectItem>
                       <SelectItem value="SUPER_ADMIN">System Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {selectedRole === 'SUPER_USER' && (
+                {(selectedRole === 'SUPER_USER' || selectedRole === 'ADMIN') && (
                   <div className="space-y-2">
                     <Label htmlFor="club">Select Club *</Label>
                     <Select value={selectedClubId} onValueChange={setSelectedClubId}>
@@ -235,8 +223,8 @@ const RoleAssignmentDialog = ({ student, isOpen, onClose, onSuccess }: RoleAssig
                   <p className="text-xs text-muted-foreground">
                     <Shield className="h-3 w-3 inline mr-1" />
                     Assigning <strong>{getRoleDisplayName(selectedRole)}</strong> will grant
-                    {selectedRole === 'SUPER_USER' && ' club administration privileges'}
-                    {selectedRole === 'ADMIN' && ' administrator privileges'}
+                    {selectedRole === 'SUPER_USER' && ' authority privileges (president, vice president, secretary, etc.)'}
+                    {selectedRole === 'ADMIN' && ' club administration privileges'}
                     {selectedRole === 'SUPER_ADMIN' && ' system administrator privileges'}
                     {selectedRole === 'STUDENT' && ' standard student privileges'}
                   </p>
@@ -259,7 +247,7 @@ const RoleAssignmentDialog = ({ student, isOpen, onClose, onSuccess }: RoleAssig
               type="button"
               onClick={handleAssign}
               className="flex-1 bg-gradient-primary"
-              disabled={isLoading || isLoadingData || !selectedRole || (selectedRole === 'SUPER_USER' && !selectedClubId)}
+              disabled={isLoading || isLoadingData || !selectedRole || ((selectedRole === 'SUPER_USER' || selectedRole === 'ADMIN') && !selectedClubId)}
             >
               {isLoading ? (
                 <>

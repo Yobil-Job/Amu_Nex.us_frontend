@@ -55,11 +55,10 @@ const NotificationsPanel = ({
     });
   }, [notifications, filterType, filterRead]);
 
-  // Only count unread from the first 3 displayed notifications (not all notifications)
-  const displayedNotifications = filteredNotifications.slice(0, 3);
+  // Count unread from all filtered notifications (not just displayed ones)
   const unreadCount = useMemo(() => {
-    return displayedNotifications.filter((n) => !n.read).length;
-  }, [displayedNotifications]);
+    return filteredNotifications.filter((n) => !n.read).length;
+  }, [filteredNotifications]);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
@@ -212,7 +211,7 @@ const NotificationsPanel = ({
             </div>
           ) : (
             <div className="space-y-2 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent min-h-0">
-              {displayedNotifications.map((notification) => {
+              {filteredNotifications.map((notification) => {
                 const isExpanded = expandedNotifications.has(notification.id);
                 const toggleExpand = (e: React.MouseEvent) => {
                   e.stopPropagation();
@@ -252,68 +251,68 @@ const NotificationsPanel = ({
                   <div
                     className={cn(
                       'glass-card rounded-lg border border-primary/20 hover:bg-primary/10 transition-all',
-                      !notification.read && 'bg-primary/5 border-primary/40'
-                    )}
+                    !notification.read && 'bg-primary/5 border-primary/40'
+                  )}
                   >
                     <CollapsibleTrigger asChild>
                       <div
                         className="p-4 cursor-pointer"
                         onClick={(e) => {
                           toggleExpand(e);
-                          if (!notification.read) {
-                            onMarkAsRead(notification.id);
-                          }
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="text-2xl flex-shrink-0">
-                            {getNotificationIcon(notification.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1">
-                                <Badge className={cn('text-xs mb-1', getNotificationColor(notification.type))}>
-                                  {notification.type === 'club_request' && 'Club Request'}
-                                  {notification.type === 'join_request' && 'Join Request'}
-                                  {notification.type === 'new_event' && 'New Event'}
-                                  {notification.type === 'suspicious_activity' && 'Suspicious Activity'}
-                                </Badge>
-                                <h4 className="text-sm font-semibold text-white leading-tight mb-1">
-                                  {notification.title}
-                                </h4>
-                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                  {notification.message}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
+                    if (!notification.read) {
+                      onMarkAsRead(notification.id);
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl flex-shrink-0">
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1">
+                          <Badge className={cn('text-xs mb-1', getNotificationColor(notification.type))}>
+                            {notification.type === 'club_request' && 'Club Request'}
+                            {notification.type === 'join_request' && 'Join Request'}
+                            {notification.type === 'new_event' && 'New Event'}
+                            {notification.type === 'suspicious_activity' && 'Suspicious Activity'}
+                          </Badge>
+                          <h4 className="text-sm font-semibold text-white leading-tight mb-1">
+                            {notification.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {notification.message}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                                 {isExpanded ? (
                                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
                                 ) : (
                                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                 )}
-                                {!notification.read && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onMarkAsRead(notification.id);
-                                    }}
-                                    title="Mark as read"
-                                  >
-                                    <Circle className="h-4 w-4 text-primary" />
-                                  </Button>
-                                )}
-                                {notification.read && (
-                                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-xs text-muted-foreground">
-                                {formatTime(notification.timestamp)}
-                              </span>
+                          {!notification.read && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onMarkAsRead(notification.id);
+                              }}
+                              title="Mark as read"
+                            >
+                              <Circle className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {notification.read && (
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-muted-foreground">
+                          {formatTime(notification.timestamp)}
+                        </span>
                             </div>
                           </div>
                         </div>

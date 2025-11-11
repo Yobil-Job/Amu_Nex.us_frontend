@@ -207,16 +207,16 @@ const MainLayout = () => {
           );
           
           if (!hasEventNotification) {
-            generatedNotifications.push({
+          generatedNotifications.push({
               id: `new_event_${recentEvents.length}_${Math.max(...recentEvents.map((e: any) => e.id || 0))}`, // Stable ID
-              type: 'new_event',
-              title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
-              message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
-              timestamp: new Date().toISOString(),
-              read: false,
-              link: '/events',
+            type: 'new_event',
+            title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
+            message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            link: '/events',
               metadata: { count: recentEvents.length, eventIds: recentEvents.map((e: any) => e.id) },
-            });
+          });
           }
         }
 

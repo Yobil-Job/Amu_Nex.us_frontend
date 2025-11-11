@@ -49,26 +49,54 @@ const AdminNotifications = () => {
       // Generate notifications based on current data
       const generatedNotifications: Notification[] = [];
 
-      // Check for pending join requests (from all clubs)
+      // Check for pending join requests (aggregate from all clubs)
+      let totalPendingRequests = 0;
+      const clubRequestsMap = new Map<number, number>();
+      
       for (const club of clubs) {
         try {
           const requestsRes = await clubApi.getPendingRequests(club.id).catch(() => ({ _embedded: { requestResponseDtoList: [] } }));
           const requests = extractCollection<any>(requestsRes) || [];
           
           if (requests.length > 0) {
-            generatedNotifications.push({
-              id: `join_request_${club.id}_${Date.now()}`,
-              type: 'join_request',
-              title: `${requests.length} Pending Join Request${requests.length > 1 ? 's' : ''}`,
-              message: `${requests.length} student${requests.length > 1 ? 's' : ''} want${requests.length === 1 ? 's' : ''} to join ${club.title || club.name}`,
-              timestamp: new Date().toISOString(),
-              read: false,
-              link: '/join-requests',
-              metadata: { clubId: club.id, count: requests.length },
-            });
+            totalPendingRequests += requests.length;
+            clubRequestsMap.set(club.id, requests.length);
           }
         } catch {
           // Ignore errors for individual clubs
+        }
+      }
+
+      // Only create ONE notification for all pending requests (not one per club)
+      if (totalPendingRequests > 0) {
+        // Check if we already have a pending requests notification
+        const hasPendingRequestNotification = savedNotifications.some(
+          (n) => n.type === 'join_request' && !n.read
+        );
+        
+        if (!hasPendingRequestNotification) {
+          const clubNames = Array.from(clubRequestsMap.entries())
+            .slice(0, 3)
+            .map(([clubId]) => {
+              const club = clubs.find((c: any) => c.id === clubId);
+              return club?.title || club?.name || `Club ${clubId}`;
+            });
+          
+          const moreClubs = clubRequestsMap.size > 3;
+          const message = moreClubs
+            ? `${totalPendingRequests} students want to join ${clubNames.join(', ')}, and ${clubRequestsMap.size - 3} more club${clubRequestsMap.size - 3 > 1 ? 's' : ''}`
+            : `${totalPendingRequests} student${totalPendingRequests > 1 ? 's' : ''} want${totalPendingRequests === 1 ? 's' : ''} to join ${clubNames.join(', ')}`;
+          
+          generatedNotifications.push({
+            id: `join_request_all_${totalPendingRequests}`,
+            type: 'join_request',
+            title: `${totalPendingRequests} Pending Join Request${totalPendingRequests > 1 ? 's' : ''}`,
+            message: message,
+            timestamp: new Date().toISOString(),
+            read: false,
+            link: '/join-requests',
+            metadata: { totalCount: totalPendingRequests, clubCounts: Object.fromEntries(clubRequestsMap) },
+          });
         }
       }
 
@@ -78,7 +106,10 @@ const AdminNotifications = () => {
       
       const recentEvents = events.filter((event: any) => {
         try {
-          const eventDate = new Date(event.createdAt || event.startAt);
+          // Check multiple possible date fields
+          const eventDateStr = event.createdAt || event.created_at || event.startAt || event.startDate || event.date;
+          if (!eventDateStr) return false;
+          const eventDate = new Date(eventDateStr);
           return eventDate > oneDayAgo;
         } catch {
           return false;
@@ -86,21 +117,35 @@ const AdminNotifications = () => {
       });
 
       if (recentEvents.length > 0) {
-        generatedNotifications.push({
-          id: `new_event_${Date.now()}`,
-          type: 'new_event',
-          title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
-          message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
-          timestamp: new Date().toISOString(),
-          read: false,
-          link: '/events',
-          metadata: { count: recentEvents.length },
-        });
+        // Check if we already have a notification for these events
+        const hasEventNotification = savedNotifications.some(
+          (n) => n.type === 'new_event' && !n.read && n.metadata?.count === recentEvents.length
+        );
+        
+        if (!hasEventNotification) {
+          // Find the most recent event ID for stable notification ID
+          const maxEventId = recentEvents.reduce((max: number, event: any) => {
+            const eventId = event.id || 0;
+            return Math.max(max, eventId);
+          }, 0);
+          
+          generatedNotifications.push({
+            id: `new_event_${recentEvents.length}_${maxEventId}`,
+            type: 'new_event',
+            title: `${recentEvents.length} New Event${recentEvents.length > 1 ? 's' : ''} Created`,
+            message: `${recentEvents.length} new event${recentEvents.length > 1 ? 's' : ''} ${recentEvents.length > 1 ? 'have' : 'has'} been created in the last 24 hours`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            link: '/events',
+            metadata: { count: recentEvents.length, maxEventId },
+          });
+        }
       }
 
       // Add suspicious activity notification (placeholder - can be enhanced with real logic)
-      // This is a mock notification for demonstration
-      if (Math.random() > 0.8) { // 20% chance to show suspicious activity (for demo)
+      // This is a mock notification for demonstration (only add if there are no suspicious notifications already)
+      const hasSuspiciousActivity = savedNotifications.some((n) => n.type === 'suspicious_activity' && !n.read);
+      if (!hasSuspiciousActivity && Math.random() > 0.8) { // 20% chance to show suspicious activity (for demo)
         generatedNotifications.push({
           id: `suspicious_activity_${Date.now()}`,
           type: 'suspicious_activity',
@@ -117,8 +162,25 @@ const AdminNotifications = () => {
       const existingIds = new Set(savedNotifications.map((n) => n.id));
       const newNotifications = generatedNotifications.filter((n) => !existingIds.has(n.id));
       
+      // Also filter out read notifications that are older than 7 days to prevent accumulation
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
       const allNotifications = [...savedNotifications, ...newNotifications]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .filter((n) => {
+          // Keep unread notifications
+          if (!n.read) return true;
+          // Keep read notifications that are less than 7 days old
+          const notificationDate = new Date(n.timestamp);
+          return notificationDate > sevenDaysAgo;
+        })
+        .sort((a, b) => {
+          // Sort by unread first, then by timestamp
+          if (a.read !== b.read) {
+            return a.read ? 1 : -1;
+          }
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        })
         .slice(0, 100); // Keep last 100 notifications
 
       setNotifications(allNotifications);

@@ -165,40 +165,40 @@ const TopClubsChart = ({ clubs, events, isLoading }: TopClubsChartProps) => {
             </div>
           </div>
         ) : topClubsData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={topClubsData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100}
-                fill="#f8b500"
-                dataKey="value"
-              >
-                {topClubsData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: 'rgba(26, 11, 46, 0.95)',
-                  border: '1px solid rgba(248, 181, 0, 0.3)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                }}
-                formatter={(value: number, name: string, props: any) => {
-                  const entry = props.payload;
-                  return [`${entry.name}: ${value} events, ${entry.memberCount || 0} members`, 'Events'];
-                }}
-              />
-              <Legend 
-                wrapperStyle={{ color: 'rgba(255, 255, 255, 0.7)' }}
-                iconType="circle"
-              />
-            </PieChart>
-          </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={topClubsData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#f8b500"
+                    dataKey="value"
+                  >
+                    {topClubsData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: 'rgba(26, 11, 46, 0.95)',
+                      border: '1px solid rgba(248, 181, 0, 0.3)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                    }}
+                    formatter={(value: number, name: string, props: any) => {
+                      const entry = props.payload;
+                      return [`${entry.name}: ${value} events, ${entry.memberCount || 0} members`, 'Events'];
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
         ) : null}
       </CardContent>
     </Card>

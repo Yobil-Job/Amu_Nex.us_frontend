@@ -5,6 +5,7 @@ import { Settings as SettingsIcon, Shield, HardDrive } from 'lucide-react';
 import SettingsForm from '@/components/admin/SettingsForm';
 import BackupExportButtons from '@/components/admin/BackupExportButtons';
 import RoleAssignmentDialog from '@/components/admin/RoleAssignmentDialog';
+import ThemeToggle from '@/components/admin/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { studentApi } from '@/lib/api';
@@ -80,6 +81,21 @@ const AdminSettings = () => {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           <SettingsForm />
+          
+          {/* Theme Toggle */}
+          <Card className="glass-card border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2">
+                Appearance
+              </CardTitle>
+              <CardDescription>
+                Customize the appearance of the system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeToggle />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Role Assignment Tab */}
@@ -114,9 +130,14 @@ const AdminSettings = () => {
                           </div>
                           <div>
                             <div className="font-semibold text-white">
-                              {student.firstname} {student.lastname}
+                              {student.firstname || student.firstName} {student.lastname || student.lastName}
                             </div>
                             <div className="text-xs text-muted-foreground">{student.email}</div>
+                            {student.role && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Current Role: {student.role}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Button

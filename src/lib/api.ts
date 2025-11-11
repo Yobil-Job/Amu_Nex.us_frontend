@@ -338,10 +338,10 @@ export const clubApi = {
 
   rejectRequest: async (clubId: number, studentId: number) => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/clubs/${clubId}/requests/${studentId}/reject`, {
-        method: 'PATCH',
-      });
-      return handleResponse(response);
+    const response = await authFetch(`${API_BASE_URL}/clubs/${clubId}/requests/${studentId}/reject`, {
+      method: 'PATCH',
+    });
+    return handleResponse(response);
     } catch (error: any) {
       console.error('❌ rejectRequest API error:', {
         clubId,

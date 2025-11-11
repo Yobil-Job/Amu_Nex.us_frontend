@@ -220,6 +220,7 @@ export function getRoleDisplayName(role: string | undefined | null): string {
   const roleMap: Record<string, string> = {
     'STUDENT': 'Student',
     'ADMIN': 'Club Admin',
+    'SUPER_USER': 'Authority',
     'SUPER_ADMIN': 'System Admin',
   };
   
@@ -235,6 +236,7 @@ export function getRoleBadgeColor(role: string | undefined | null): string {
   const colorMap: Record<string, string> = {
     'STUDENT': 'bg-success/10 text-success',
     'ADMIN': 'bg-primary/10 text-primary',
+    'SUPER_USER': 'bg-accent/10 text-accent',
     'SUPER_ADMIN': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
   };
   
