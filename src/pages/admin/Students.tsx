@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { studentApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
-import { Users, Eye, Pencil, Trash2, Lock, Download, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Eye, Pencil, Trash2, Lock, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRoleBadgeColor, getRoleDisplayName } from '@/lib/roles';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,6 +72,7 @@ const AdminStudents = () => {
 
       // Use role directly from student.role field (from students table)
       // Do NOT map from authorities - role is stored in the Student entity
+      // Department is now included in StudentResponseDto after backend fix
       const studentsWithRoles = studentsList.map((student: any) => {
         // Role comes directly from student.role field in the database
         // Handle both "ADMIN" and "ROLE_ADMIN" formats if needed
@@ -82,6 +83,7 @@ const AdminStudents = () => {
         return {
           ...student,
           role: role || 'STUDENT', // Default to STUDENT if no role
+          // Department is now included in StudentResponseDto from backend
         };
       });
 
@@ -262,10 +264,6 @@ const AdminStudents = () => {
     }
   };
 
-  const handleExport = () => {
-    // Mock export functionality
-    toast.info('Export functionality will be implemented with backend support');
-  };
 
   return (
     <div className="space-y-8 animate-fade-in min-h-screen pb-8">
@@ -298,10 +296,6 @@ const AdminStudents = () => {
               Delete Selected ({selectedStudents.length})
             </Button>
           )}
-          <Button variant="outline" onClick={handleExport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
         </div>
       </div>
 
@@ -449,7 +443,7 @@ const AdminStudents = () => {
                             <div className="text-sm text-white">{student.email}</div>
                           </TableCell>
                           <TableCell>
-                            {student.department ? (
+                            {student.department && student.department.trim() !== '' ? (
                               <Badge variant="outline">{student.department}</Badge>
                             ) : (
                               <span className="text-muted-foreground text-sm">N/A</span>
