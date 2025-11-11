@@ -11,7 +11,6 @@ import FeesOverview from '@/components/admin/FeesOverview';
 import FeesTable from '@/components/admin/FeesTable';
 import FeeFilters from '@/components/admin/FeeFilters';
 import ClubFinanceChart from '@/components/admin/ClubFinanceChart';
-import ExportButtons from '@/components/admin/ExportButtons';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 const AdminFees = () => {
@@ -240,13 +239,6 @@ const AdminFees = () => {
     setDateTo('');
   };
 
-  const handleExportExcel = () => {
-    toast.info('Excel export functionality will be implemented with backend support');
-  };
-
-  const handleExportPDF = () => {
-    toast.info('PDF export functionality will be implemented with backend support');
-  };
 
   // Calculate club totals
   const clubTotals = useMemo(() => {
@@ -298,11 +290,6 @@ const AdminFees = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <ExportButtons
-            onExportExcel={handleExportExcel}
-            onExportPDF={handleExportPDF}
-            disabled={isLoading || filteredFees.length === 0}
-          />
           <Button
             onClick={loadData}
             variant="outline"
