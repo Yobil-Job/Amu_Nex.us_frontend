@@ -73,8 +73,8 @@ const AdminDashboard = () => {
       const clubsList = extractCollection<any>(clubsRes) || [];
       const eventsList = extractCollection<any>(eventsRes) || [];
       
-      // Handle announcements - Spring HATEOAS wraps in CollectionModel
-      // The collection might be in _embedded with key 'announcementList' or similar
+      // Handle announcements - Spring HATEOAS wraps in CollectionModel<EntityModel<Announcement>>
+      // The backend returns CollectionModel which has _embedded with collection
       let announcementsList = extractCollection<any>(announcementsRes) || [];
       
       // If announcements response is a CollectionModel but extractCollection didn't find it,
@@ -85,9 +85,19 @@ const AdminDashboard = () => {
         for (const key in embedded) {
           if (Array.isArray(embedded[key])) {
             announcementsList = embedded[key];
+            console.log(`Found announcements in _embedded.${key}:`, announcementsList.length);
             break;
           }
         }
+      }
+      
+      // Log for debugging if still empty
+      if (announcementsList.length === 0 && announcementsRes) {
+        console.log('Announcements response structure:', {
+          hasEmbedded: !!announcementsRes._embedded,
+          embeddedKeys: announcementsRes._embedded ? Object.keys(announcementsRes._embedded) : [],
+          fullResponse: announcementsRes
+        });
       }
 
       setStudents(studentsList);
@@ -95,15 +105,13 @@ const AdminDashboard = () => {
       setEvents(eventsList);
       setAnnouncements(announcementsList);
 
-      // Count club admins - get unique clubAdminIds from clubs
-      // Club admins are students who are assigned as admins of clubs (stored in clubAdminId field)
-      const uniqueClubAdminIds = new Set<number>();
-      clubsList.forEach((club: any) => {
-        if (club.clubAdminId != null && club.clubAdminId !== undefined) {
-          uniqueClubAdminIds.add(club.clubAdminId);
-        }
-      });
-      const clubAdminsCount = uniqueClubAdminIds.size;
+      // Count club admins - students with role ADMIN
+      // Note: ResponseClubDto doesn't include clubAdminId, so we count students with ADMIN role instead
+      const clubAdminsCount = studentsList.filter((student: any) => {
+        const role = student.role || student.authorities?.[0]?.authority;
+        // Handle both "ADMIN" and "ROLE_ADMIN" formats
+        return role === 'ADMIN' || role === 'ROLE_ADMIN' || role?.toUpperCase() === 'ADMIN';
+      }).length;
 
       // Load pending requests from all clubs
       let totalPendingRequests = 0;

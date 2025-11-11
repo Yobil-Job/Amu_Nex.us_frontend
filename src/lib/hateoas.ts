@@ -46,12 +46,15 @@ export function extractCollection<T>(response: any): T[] {
     const embedded = response._embedded as HATEOASEmbedded;
     
     // Try common collection names (Spring HATEOAS CollectionModel)
+    // Spring HATEOAS auto-generates collection names based on entity type
+    // For CollectionModel<EntityModel<Announcement>>, it might be 'announcementList' or similar
     const collectionKeys = [
       'studentResponseDtoList',
       'responseClubDtoList',
       'eventList',
-      'announcementList',
+      'announcementList', // Most likely for announcements
       'announcementResponseDtoList', // Alternative name for announcements
+      'announcements', // Simple plural form
       'authorityList',
       'authorityResponseDtoList', // Alternative name for authorities
       'feeList',
@@ -61,7 +64,6 @@ export function extractCollection<T>(response: any): T[] {
       'students',
       'clubs',
       'events',
-      'announcements',
       'authorities',
       'fees',
     ];
