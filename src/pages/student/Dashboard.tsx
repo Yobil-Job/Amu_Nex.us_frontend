@@ -64,33 +64,115 @@ const StudentDashboard = () => {
     setIsLoading(true);
     
     try {
+      if (import.meta.env.DEV) {
+        console.log('📊 Loading dashboard data for user:', user.id);
+      }
+
       // Load all data in parallel
-      const [clubsRes, eventsRes, announcementsRes, authoritiesRes] = await Promise.all([
-        studentApi.getClubs(user.id).catch(() => ({ _embedded: { responseClubDtoList: [] } })),
-        studentApi.getEvents(user.id).catch(() => []),
-        Promise.resolve([]), // Will load announcements from clubs
-        authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } })),
+      const [clubsRes, eventsRes, authoritiesRes] = await Promise.all([
+        studentApi.getClubs(user.id)
+          .then((res) => {
+            if (import.meta.env.DEV) {
+              console.log('📊 getClubs response:', res);
+            }
+            return res;
+          })
+          .catch((error) => {
+            console.error('❌ Failed to load clubs:', error);
+            return { _embedded: { responseClubDtoList: [] } };
+          }),
+        studentApi.getEvents(user.id)
+          .then((res) => {
+            if (import.meta.env.DEV) {
+              console.log('📊 getEvents response:', res);
+            }
+            return res;
+          })
+          .catch((error) => {
+            console.error('❌ Failed to load events:', error);
+            return [];
+          }),
+        authorityApi.getByStudent(user.id)
+          .then((res) => {
+            if (import.meta.env.DEV) {
+              console.log('📊 getByStudent (authorities) response:', res);
+            }
+            return res;
+          })
+          .catch((error) => {
+            console.error('❌ Failed to load authorities:', error);
+            return { _embedded: { authorityResponseDtoList: [] } };
+          }),
       ]);
 
-      const clubsList = extractCollection<any>(clubsRes) || [];
+      // Extract clubs - handle multiple response structures
+      let clubsList: any[] = [];
+      if (Array.isArray(clubsRes)) {
+        clubsList = clubsRes.filter(c => c && c.id);
+      } else if (clubsRes && typeof clubsRes === 'object') {
+        const extracted = extractCollection<any>(clubsRes);
+        if (extracted && extracted.length > 0) {
+          clubsList = extracted.filter(c => c && c.id);
+        } else if (clubsRes._embedded) {
+          const embedded = clubsRes._embedded;
+          if (embedded.responseClubDtoList) {
+            clubsList = Array.isArray(embedded.responseClubDtoList) ? embedded.responseClubDtoList : [];
+          } else if (embedded.clubs) {
+            clubsList = Array.isArray(embedded.clubs) ? embedded.clubs : [];
+          }
+        } else if (clubsRes.clubs) {
+          clubsList = Array.isArray(clubsRes.clubs) ? clubsRes.clubs : [];
+        }
+      }
       setClubs(clubsList);
 
-      // Handle events
-      const eventsList = Array.isArray(eventsRes) 
-        ? eventsRes.filter(e => e && e.id) 
-        : [];
+      if (import.meta.env.DEV) {
+        console.log('✅ Loaded clubs:', clubsList.length);
+        if (clubsList.length > 0) {
+          console.log('✅ Sample club:', clubsList[0]);
+        }
+      }
+
+      // Handle events - extract from multiple structures
+      let eventsList: any[] = [];
+      if (Array.isArray(eventsRes)) {
+        eventsList = eventsRes.filter(e => e && e.id);
+      } else if (eventsRes && typeof eventsRes === 'object') {
+        const extracted = extractCollection<any>(eventsRes);
+        if (extracted && extracted.length > 0) {
+          eventsList = extracted.filter(e => e && e.id);
+        } else if (eventsRes._embedded) {
+          const embedded = eventsRes._embedded;
+          if (embedded.eventList) {
+            eventsList = Array.isArray(embedded.eventList) ? embedded.eventList : [];
+          } else if (embedded.events) {
+            eventsList = Array.isArray(embedded.events) ? embedded.events : [];
+          }
+        } else if (eventsRes.events) {
+          eventsList = Array.isArray(eventsRes.events) ? eventsRes.events : [];
+        }
+      }
       
       // Also load events from joined clubs
       const validClubs = clubsList.filter(club => club && club.id != null);
       const clubEventsPromises = validClubs.map(async (club) => {
         try {
           const response = await eventApi.getByClub(club.id);
+          let clubEvents: any[] = [];
           if (Array.isArray(response)) {
-            return response.filter(e => e && e.id);
+            clubEvents = response.filter(e => e && e.id);
+          } else {
+            const extracted = extractCollection<any>(response);
+            clubEvents = Array.isArray(extracted) ? extracted.filter(e => e && e.id) : [];
           }
-          const eventsList = extractCollection<any>(response);
-          return Array.isArray(eventsList) ? eventsList.filter(e => e && e.id) : [];
+          // Enrich events with club data
+          return clubEvents.map(e => ({
+            ...e,
+            club: club,
+            clubId: club.id,
+          }));
         } catch (err) {
+          console.warn(`Failed to load events for club ${club.id}:`, err);
           return [];
         }
       });
@@ -98,43 +180,123 @@ const StudentDashboard = () => {
       const clubEventsArrays = await Promise.all(clubEventsPromises);
       const clubEvents = clubEventsArrays.flat().filter(e => e && e.id);
       const allEvents = [...eventsList, ...clubEvents];
+      // Remove duplicates based on event ID
       const uniqueEvents = allEvents.filter((event, index, self) =>
         event && event.id && index === self.findIndex(e => e && e.id === event.id)
       );
       setEvents(uniqueEvents);
 
+      if (import.meta.env.DEV) {
+        console.log('✅ Loaded events:', uniqueEvents.length);
+        if (uniqueEvents.length > 0) {
+          console.log('✅ Sample event:', uniqueEvents[0]);
+        }
+      }
+
       // Load announcements from joined clubs
       const announcementPromises = validClubs.map(async (club) => {
         try {
           const response = await announcementApi.getByClub(club.id);
+          let announcementsList: any[] = [];
           if (Array.isArray(response)) {
-            return response.filter(ann => ann && ann.id).map(ann => ({
-              ...ann,
-              club: club,
-            }));
+            announcementsList = response.filter(ann => ann && ann.id);
+          } else {
+            const extracted = extractCollection<any>(response);
+            announcementsList = Array.isArray(extracted) ? extracted.filter(ann => ann && ann.id) : [];
           }
-          const announcementsList = extractCollection<any>(response);
-          return Array.isArray(announcementsList)
-            ? announcementsList.filter(ann => ann && ann.id).map(ann => ({
-                ...ann,
-                club: club,
-              }))
-            : [];
+          // Enrich announcements with club data
+          return announcementsList.map(ann => ({
+            ...ann,
+            club: club,
+            clubId: club.id,
+          }));
         } catch (err) {
+          console.warn(`Failed to load announcements for club ${club.id}:`, err);
           return [];
         }
       });
 
       const announcementArrays = await Promise.all(announcementPromises);
       const allAnnouncementsList = announcementArrays.flat();
+      // Remove duplicates based on announcement ID
       const uniqueAnnouncements = allAnnouncementsList.filter((ann, index, self) =>
         ann && ann.id && index === self.findIndex(a => a && a.id === ann.id)
       );
       setAnnouncements(uniqueAnnouncements);
 
-      // Handle authorities
-      const authoritiesList = extractCollection<any>(authoritiesRes) || [];
-      setAuthorities(authoritiesList);
+      if (import.meta.env.DEV) {
+        console.log('✅ Loaded announcements:', uniqueAnnouncements.length);
+        if (uniqueAnnouncements.length > 0) {
+          console.log('✅ Sample announcement:', uniqueAnnouncements[0]);
+        }
+      }
+
+      // Handle authorities - normalize structure
+      let authoritiesList: any[] = [];
+      if (Array.isArray(authoritiesRes)) {
+        authoritiesList = authoritiesRes.filter(a => a && (a.id || a.authorityId));
+      } else if (authoritiesRes && typeof authoritiesRes === 'object') {
+        const extracted = extractCollection<any>(authoritiesRes);
+        if (extracted && extracted.length > 0) {
+          authoritiesList = extracted.filter(a => a && (a.id || a.authorityId));
+        } else if (authoritiesRes._embedded) {
+          const embedded = authoritiesRes._embedded;
+          if (embedded.authorityResponseDtoList) {
+            authoritiesList = Array.isArray(embedded.authorityResponseDtoList) ? embedded.authorityResponseDtoList : [];
+          } else if (embedded.authorities) {
+            authoritiesList = Array.isArray(embedded.authorities) ? embedded.authorities : [];
+          }
+        } else if (authoritiesRes.authorities) {
+          authoritiesList = Array.isArray(authoritiesRes.authorities) ? authoritiesRes.authorities : [];
+        }
+      }
+
+      // Normalize authorities structure
+      const normalizedAuthorities = authoritiesList
+        .filter((auth: any) => auth && (auth.id || auth.authorityId))
+        .map((auth: any) => {
+          const normalized: any = {
+            id: auth.id || auth.authorityId || Math.random(),
+            name: auth.name || auth.authority || auth.role || 'Unknown Role',
+            startDate: auth.startDate || auth.start_date || auth.startAt,
+            endDate: auth.endDate || auth.end_date || auth.endAt,
+          };
+
+          // Ensure club data is properly structured
+          if (auth.club && typeof auth.club === 'object') {
+            normalized.club = {
+              id: auth.club.id || auth.club.clubId || auth.clubId,
+              title: auth.club.title || auth.club.name,
+              name: auth.club.name || auth.club.title,
+              club_Type: auth.club.club_Type || auth.club.clubType || auth.club.club_type,
+            };
+          } else if (auth.clubId) {
+            // Try to find club from clubsList
+            const club = clubsList.find((c: any) => c.id === auth.clubId);
+            if (club) {
+              normalized.club = {
+                id: club.id,
+                title: club.title || club.name,
+                name: club.name || club.title,
+                club_Type: club.club_Type || club.clubType,
+              };
+            }
+          }
+
+          return {
+            ...auth,
+            ...normalized,
+          };
+        });
+
+      setAuthorities(normalizedAuthorities);
+
+      if (import.meta.env.DEV) {
+        console.log('✅ Loaded authorities:', normalizedAuthorities.length);
+        if (normalizedAuthorities.length > 0) {
+          console.log('✅ Sample authority:', normalizedAuthorities[0]);
+        }
+      }
 
       // Add activities
       if (clubsList.length > 0) {
@@ -163,9 +325,13 @@ const StudentDashboard = () => {
   };
 
   const upcomingEventsCount = events.filter(e => {
-    if (!e || !e.startAt) return false;
+    if (!e) return false;
+    // Check multiple possible date fields
+    const eventDateStr = e.startAt || e.startDate || e.date;
+    if (!eventDateStr) return false;
     try {
-      const eventDate = new Date(e.startAt);
+      const eventDate = new Date(eventDateStr);
+      if (isNaN(eventDate.getTime())) return false;
       return eventDate > new Date();
     } catch {
       return false;
@@ -173,12 +339,21 @@ const StudentDashboard = () => {
   }).length;
 
   const activeRolesCount = authorities.filter(auth => {
-    if (!auth.startDate) return false;
+    if (!auth) return false;
+    // Check multiple possible date fields
+    const startDateStr = auth.startDate || auth.start_date || auth.startAt;
+    if (!startDateStr) return false;
     try {
-      const startDate = new Date(auth.startDate);
-      if (startDate > new Date()) return false;
-      if (!auth.endDate) return true;
-      return new Date(auth.endDate) > new Date();
+      const startDate = new Date(startDateStr);
+      if (isNaN(startDate.getTime())) return false;
+      if (startDate > new Date()) return false; // Not started yet
+      
+      const endDateStr = auth.endDate || auth.end_date || auth.endAt;
+      if (!endDateStr) return true; // No end date means active
+      
+      const endDate = new Date(endDateStr);
+      if (isNaN(endDate.getTime())) return true; // Invalid end date, consider active
+      return endDate > new Date(); // Active if end date is in the future
     } catch {
       return false;
     }

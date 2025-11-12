@@ -60,10 +60,24 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
   };
 
   const isActive = (authority: Authority) => {
-    if (!authority.startDate) return false;
-    if (isAfter(new Date(authority.startDate), new Date())) return false;
-    if (!authority.endDate) return true;
-    return isAfter(new Date(authority.endDate), new Date());
+    if (!authority) return false;
+    // Check multiple possible date fields
+    const startDateStr = authority.startDate || (authority as any).start_date || (authority as any).startAt;
+    if (!startDateStr) return false;
+    try {
+      const startDate = new Date(startDateStr);
+      if (isNaN(startDate.getTime())) return false;
+      if (isAfter(startDate, new Date())) return false; // Not started yet
+      
+      const endDateStr = authority.endDate || (authority as any).end_date || (authority as any).endAt;
+      if (!endDateStr) return true; // No end date means active
+      
+      const endDate = new Date(endDateStr);
+      if (isNaN(endDate.getTime())) return true; // Invalid end date, consider active
+      return isAfter(endDate, new Date()); // Active if end date is in the future
+    } catch {
+      return false;
+    }
   };
 
   const activeAuthorities = authorities.filter(isActive);
@@ -145,12 +159,22 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
                         <Badge className={getRoleBadgeColor(authority.name)}>
                           Active
                         </Badge>
-                        {authority.startDate && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            <span>Since {format(new Date(authority.startDate), 'MMM yyyy')}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const startDateStr = authority.startDate || (authority as any).start_date || (authority as any).startAt;
+                          if (!startDateStr) return null;
+                          try {
+                            const startDate = new Date(startDateStr);
+                            if (isNaN(startDate.getTime())) return null;
+                            return (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>Since {format(startDate, 'MMM yyyy')}</span>
+                              </div>
+                            );
+                          } catch {
+                            return null;
+                          }
+                        })()}
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />

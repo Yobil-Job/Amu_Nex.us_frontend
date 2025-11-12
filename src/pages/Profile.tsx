@@ -17,7 +17,6 @@ import { toast } from 'sonner';
 import { User, Pencil, Building2, Calendar, Shield, Mail, Phone, MapPin, GraduationCap, Clock, HelpCircle, Lock, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import PasswordChange from '@/components/student/PasswordChange';
 import RolesView from '@/components/student/RolesView';
 import { isStudent } from '@/lib/roles';
 
@@ -73,14 +72,19 @@ const Profile = () => {
 
     setIsLoading(true);
     
+    // Declare profileRes outside try block so it can be used later
+    let profileRes: any = null;
+    
     // Load additional data in background (non-blocking)
     try {
       // Load user profile first (fastest), then clubs, events, authorities in parallel
-      const profileRes = await studentApi.getMe().catch(() => null);
+      profileRes = await studentApi.getMe().catch(() => null);
       
       // Update profile if we got more data from API
       if (profileRes) {
-        console.log('📊 Profile API response:', JSON.stringify(profileRes, null, 2));
+        if (import.meta.env.DEV) {
+          console.log('📊 Profile API response:', JSON.stringify(profileRes, null, 2));
+        }
         
         // Try multiple response structures
         let profileData: any = null;
@@ -102,7 +106,9 @@ const Profile = () => {
           profileData = profileRes;
         }
         
-        console.log('✅ Extracted profile data:', profileData);
+        if (import.meta.env.DEV) {
+          console.log('✅ Extracted profile data:', profileData);
+        }
         
         if (profileData) {
           setProfile(profileData);
@@ -112,9 +118,19 @@ const Profile = () => {
             email: profileData.email || user.email || '',
             gender: profileData.gender || user.gender || '',
             yearOfStay: profileData.yearOfStay || user.yearOfStay || '',
-            department: profileData.department || '', // Only use department, never email
+            department: profileData.department || user.department || '', // Use department from profile or user context
             password: '', // Password never pre-filled
           });
+          
+          if (import.meta.env.DEV) {
+            console.log('✅ Profile form data set:', {
+              firstname: profileData.firstname || user.firstname,
+              lastname: profileData.lastname || user.lastname,
+              department: profileData.department || user.department,
+              yearOfStay: profileData.yearOfStay || user.yearOfStay,
+              gender: profileData.gender || user.gender,
+            });
+          }
         }
       }
     } catch (error: any) {
@@ -123,56 +139,213 @@ const Profile = () => {
     }
 
     // Try to extract authorities from profile response (for students)
+    // Note: /student/me returns authorities as [{ authority: "ROLE_STUDENT" }], not full authority objects
+    // These are just role strings, not the full authority objects with club info
     let authoritiesFromProfile: any[] = [];
     if (profileRes) {
       if (profileRes.authorities && Array.isArray(profileRes.authorities)) {
+        // The authorities from /student/me are just role strings like [{ authority: "ROLE_STUDENT" }]
+        // We'll use these as fallback, but the real authorities come from /authorities/students/{id}
         authoritiesFromProfile = profileRes.authorities;
-        console.log('✅ Found authorities in profile response:', authoritiesFromProfile.length);
+        if (import.meta.env.DEV) {
+          console.log('✅ Found authorities in profile response:', authoritiesFromProfile.length);
+        }
       } else if (profileRes.student?.authorities && Array.isArray(profileRes.student.authorities)) {
         authoritiesFromProfile = profileRes.student.authorities;
-        console.log('✅ Found authorities in profile.student:', authoritiesFromProfile.length);
+        if (import.meta.env.DEV) {
+          console.log('✅ Found authorities in profile.student:', authoritiesFromProfile.length);
+        }
       }
     }
 
     // Load clubs, events, authorities in parallel (non-blocking UI)
     // For authorities: Try API endpoint first, fallback to profile authorities for students
-    const authoritiesPromise = isStudent(user?.role)
-      ? authorityApi.getByStudent(user.id)
-          .then((res) => extractCollection<any>(res))
-          .catch((error) => {
-            console.log('⚠️ Authority API failed for student (expected), using profile authorities if available');
-            return authoritiesFromProfile;
-          })
-      : authorityApi.getByStudent(user.id)
-          .then((res) => extractCollection<any>(res))
-          .catch((error) => {
-            console.log('⚠️ Authority API failed, trying profile authorities');
-            return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
-          });
+    const authoritiesPromise = authorityApi.getByStudent(user.id)
+      .then((res) => {
+        // Try to extract from HATEOAS response
+        const extracted = extractCollection<any>(res);
+        if (extracted && extracted.length > 0) {
+          return extracted;
+        }
+        // If extraction returns empty, check if authorities are in response directly
+        if (res && Array.isArray(res)) {
+          return res;
+        }
+        // Check for nested structure
+        if (res?.authorities && Array.isArray(res.authorities)) {
+          return res.authorities;
+        }
+        // Fallback to profile authorities if available
+        return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
+      })
+      .catch((error) => {
+        console.log('⚠️ Authority API failed, using profile authorities if available:', error);
+        // Return profile authorities as fallback
+        return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
+      });
 
     Promise.all([
-      studentApi.getClubs(user.id).catch((error) => {
-        console.error('❌ Failed to load user clubs:', error);
-        return { _embedded: { responseClubDtoList: [] } };
-      }),
-      studentApi.getEvents(user.id).catch((error) => {
-        console.error('❌ Failed to load user events:', error);
-        return { _embedded: { eventList: [] } };
-      }),
+      studentApi.getClubs(user.id)
+        .then((res) => {
+          if (import.meta.env.DEV) {
+            console.log('📊 getClubs API response:', res);
+            console.log('📊 getClubs response type:', typeof res, Array.isArray(res));
+          }
+          return res;
+        })
+        .catch((error) => {
+          console.error('❌ Failed to load user clubs:', error);
+          if (import.meta.env.DEV) {
+            console.error('❌ Clubs error details:', {
+              message: error.message,
+              response: error.response,
+              status: error.status,
+            });
+          }
+          return { _embedded: { responseClubDtoList: [] } };
+        }),
+      studentApi.getEvents(user.id)
+        .then((res) => {
+          if (import.meta.env.DEV) {
+            console.log('📊 getEvents API response:', res);
+            console.log('📊 getEvents response type:', typeof res, Array.isArray(res));
+          }
+          return res;
+        })
+        .catch((error) => {
+          console.error('❌ Failed to load user events:', error);
+          if (import.meta.env.DEV) {
+            console.error('❌ Events error details:', {
+              message: error.message,
+              response: error.response,
+              status: error.status,
+            });
+          }
+          return { _embedded: { eventList: [] } };
+        }),
       authoritiesPromise,
     ]).then(([clubsRes, eventsRes, authoritiesList]) => {
-      const clubsList = extractCollection<any>(clubsRes);
-      const eventsList = extractCollection<any>(eventsRes);
+      // Extract clubs - handle multiple response structures
+      let clubsList: any[] = [];
+      if (Array.isArray(clubsRes)) {
+        clubsList = clubsRes.filter(c => c && c.id);
+      } else if (clubsRes && typeof clubsRes === 'object') {
+        // Try HATEOAS extraction
+        const extracted = extractCollection<any>(clubsRes);
+        if (extracted && extracted.length > 0) {
+          clubsList = extracted.filter(c => c && c.id);
+        } else if (clubsRes._embedded) {
+          // Check for nested collections
+          const embedded = clubsRes._embedded;
+          if (embedded.responseClubDtoList) {
+            clubsList = Array.isArray(embedded.responseClubDtoList) ? embedded.responseClubDtoList : [];
+          } else if (embedded.clubs) {
+            clubsList = Array.isArray(embedded.clubs) ? embedded.clubs : [];
+          }
+        } else if (clubsRes.clubs) {
+          clubsList = Array.isArray(clubsRes.clubs) ? clubsRes.clubs : [];
+        }
+      }
+      
+      // Extract events - handle multiple response structures
+      let eventsList: any[] = [];
+      if (Array.isArray(eventsRes)) {
+        eventsList = eventsRes.filter(e => e && e.id);
+      } else if (eventsRes && typeof eventsRes === 'object') {
+        // Try HATEOAS extraction
+        const extracted = extractCollection<any>(eventsRes);
+        if (extracted && extracted.length > 0) {
+          eventsList = extracted.filter(e => e && e.id);
+        } else if (eventsRes._embedded) {
+          // Check for nested collections
+          const embedded = eventsRes._embedded;
+          if (embedded.eventList) {
+            eventsList = Array.isArray(embedded.eventList) ? embedded.eventList : [];
+          } else if (embedded.events) {
+            eventsList = Array.isArray(embedded.events) ? embedded.events : [];
+          }
+        } else if (eventsRes.events) {
+          eventsList = Array.isArray(eventsRes.events) ? eventsRes.events : [];
+        }
+      }
 
-      console.log('✅ Loaded profile data:', {
-        clubs: clubsList.length,
-        events: eventsList.length,
-        authorities: Array.isArray(authoritiesList) ? authoritiesList.length : 0,
-      });
+      // Ensure authorities is an array and has proper structure
+      let processedAuthorities: any[] = [];
+      if (Array.isArray(authoritiesList)) {
+        processedAuthorities = authoritiesList
+          .filter((auth: any) => auth && (auth.id || auth.authorityId)) // Filter out invalid entries
+          .map((auth: any) => {
+            // Transform authority to match RolesView expected structure
+            const transformed: any = {
+              id: auth.id || auth.authorityId || Math.random(), // Ensure id exists
+              name: auth.name || auth.authority || auth.role || 'Unknown Role', // Map name field
+              startDate: auth.startDate || auth.start_date || auth.startAt,
+              endDate: auth.endDate || auth.end_date || auth.endAt,
+            };
+
+            // Ensure club data is properly structured
+            if (auth.club && typeof auth.club === 'object') {
+              transformed.club = {
+                id: auth.club.id || auth.club.clubId || auth.clubId,
+                title: auth.club.title || auth.club.name,
+                name: auth.club.name || auth.club.title,
+                club_Type: auth.club.club_Type || auth.club.clubType || auth.club.club_type,
+              };
+            } else if (auth.clubId) {
+              // If clubId exists but no club object, try to find club from clubsList
+              const club = clubsList.find((c: any) => c.id === auth.clubId);
+              if (club) {
+                transformed.club = {
+                  id: club.id,
+                  title: club.title || club.name,
+                  name: club.name || club.title,
+                  club_Type: club.club_Type || club.clubType,
+                };
+              }
+            }
+
+            // Preserve any other fields
+            return {
+              ...auth,
+              ...transformed,
+            };
+          });
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('✅ Loaded profile data:', {
+          clubs: clubsList.length,
+          events: eventsList.length,
+          authorities: processedAuthorities.length,
+        });
+        if (clubsList.length > 0) {
+          console.log('✅ Sample club structure:', clubsList[0]);
+          console.log('✅ Club keys:', Object.keys(clubsList[0]));
+        }
+        if (eventsList.length > 0) {
+          console.log('✅ Sample event structure:', eventsList[0]);
+          console.log('✅ Event keys:', Object.keys(eventsList[0]));
+        }
+        if (processedAuthorities.length > 0) {
+          console.log('✅ Sample authority structure:', processedAuthorities[0]);
+          console.log('✅ Authority keys:', Object.keys(processedAuthorities[0]));
+          console.log('✅ All authorities:', processedAuthorities);
+        } else {
+          console.warn('⚠️ No authorities found. Raw authoritiesList:', authoritiesList);
+          console.warn('⚠️ Authorities list type:', typeof authoritiesList, Array.isArray(authoritiesList));
+        }
+        if (clubsList.length === 0 && eventsList.length === 0 && processedAuthorities.length === 0) {
+          console.warn('⚠️ No data loaded - checking raw responses:', {
+            clubsRes: clubsRes,
+            eventsRes: eventsRes,
+            authoritiesList: authoritiesList,
+          });
+        }
+      }
 
       setUserClubs(clubsList);
       setUserEvents(eventsList);
-      setUserAuthorities(Array.isArray(authoritiesList) ? authoritiesList : []);
+      setUserAuthorities(processedAuthorities);
       setIsLoading(false);
     }).catch((error) => {
       console.error('❌ Failed to load profile collections:', error);
@@ -251,25 +424,39 @@ const Profile = () => {
         lastname: formData.lastname,
       };
 
-      // Only include optional fields if they have values
+      // Include optional fields - send empty string or null if not set (backend may handle this)
+      // Gender enum values: MALE, FEMALE, PREFER_NOT_TO_MENTION
       if (formData.gender) {
-        // Gender enum values: MALE, FEMALE, PREFER_NOT_TO_MENTION
         updatePayload.gender = formData.gender;
       }
-      if (formData.department) {
-        updatePayload.department = formData.department;
+      
+      // Department is optional but should be included if provided
+      if (formData.department !== undefined) {
+        updatePayload.department = formData.department || null;
       }
+      
+      // Year of stay is optional
       if (formData.yearOfStay) {
         updatePayload.yearOfStay = formData.yearOfStay;
       }
 
       // Include new password if password change is being performed
+      // Note: Backend may require current password verification separately
       if (showPasswordFields && passwordData.newPassword) {
         updatePayload.password = passwordData.newPassword;
+        // Note: If backend requires current password, we may need a separate endpoint
+        // For now, we'll send new password and let backend handle validation
       }
 
       await studentApi.update(user.id, updatePayload);
-      toast.success('Profile updated successfully');
+      
+      // Show appropriate success message
+      if (showPasswordFields && passwordData.newPassword) {
+        toast.success('Profile and password updated successfully');
+      } else {
+        toast.success('Profile updated successfully');
+      }
+      
       setIsEditDialogOpen(false);
       // Reset password fields
       setFormData({ ...formData, password: '' });
@@ -279,7 +466,14 @@ const Profile = () => {
       // Refresh user context if needed
       window.location.reload(); // Simple refresh to update context
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+      console.error('Profile update error:', error);
+      // Check if error is about password
+      if (error.message?.toLowerCase().includes('password') || 
+          error.message?.toLowerCase().includes('current password')) {
+        toast.error(error.message || 'Password change failed. Please check your current password.');
+      } else {
+        toast.error(error.message || 'Failed to update profile');
+      }
     }
   };
 
@@ -378,16 +572,13 @@ const Profile = () => {
 
       {/* Profile Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={`grid w-full ${isStudent(user?.role) ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        <TabsList className={`grid w-full ${isStudent(user?.role) ? 'grid-cols-4' : 'grid-cols-4'}`}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="clubs">My Clubs ({userClubs.length})</TabsTrigger>
           <TabsTrigger value="events">My Events ({userEvents.length})</TabsTrigger>
           <TabsTrigger value="authorities">
             {isStudent(user?.role) ? 'My Roles' : 'Authorities'} ({userAuthorities.length})
           </TabsTrigger>
-          {isStudent(user?.role) && (
-            <TabsTrigger value="security">Security</TabsTrigger>
-          )}
         </TabsList>
 
         {/* Overview Tab */}
@@ -473,36 +664,36 @@ const Profile = () => {
 
           {/* Quick Stats */}
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-            <Card className="border-primary/20">
+            <Card className="border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40 cursor-pointer">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Clubs Joined</p>
-                    <p className="text-3xl font-bold text-primary">{userClubs.length}</p>
+                    <p className="text-3xl font-bold text-primary">{isLoading ? '...' : userClubs.length}</p>
                   </div>
-                  <Building2 className="h-8 w-8 text-primary/50" />
+                  <Building2 className="h-8 w-8 text-primary/50 transition-transform duration-300 hover:scale-110" />
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-success/20">
+            <Card className="border-success/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-success/40 cursor-pointer">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Events Attended</p>
-                    <p className="text-3xl font-bold text-success">{userEvents.length}</p>
+                    <p className="text-3xl font-bold text-success">{isLoading ? '...' : userEvents.length}</p>
                   </div>
-                  <Calendar className="h-8 w-8 text-success/50" />
+                  <Calendar className="h-8 w-8 text-success/50 transition-transform duration-300 hover:scale-110" />
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-accent/20">
+            <Card className="border-accent/20 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-accent/40 cursor-pointer">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Authority Roles</p>
-                    <p className="text-3xl font-bold text-accent">{userAuthorities.length}</p>
+                    <p className="text-3xl font-bold text-accent">{isLoading ? '...' : userAuthorities.length}</p>
                   </div>
-                  <Shield className="h-8 w-8 text-accent/50" />
+                  <Shield className="h-8 w-8 text-accent/50 transition-transform duration-300 hover:scale-110" />
                 </div>
               </CardContent>
             </Card>
@@ -569,7 +760,7 @@ const Profile = () => {
         {/* Authorities/Roles Tab */}
         <TabsContent value="authorities" className="space-y-4">
           {isStudent(user?.role) ? (
-            <RolesView authorities={userAuthorities} isLoading={isLoading} />
+            <RolesView authorities={userAuthorities || []} isLoading={isLoading} />
           ) : (
             userAuthorities.length === 0 ? (
               <Card>
@@ -621,12 +812,6 @@ const Profile = () => {
           )}
         </TabsContent>
 
-        {/* Security Tab (Student Only) */}
-        {isStudent(user?.role) && (
-          <TabsContent value="security" className="space-y-4">
-            <PasswordChange />
-          </TabsContent>
-        )}
       </Tabs>
 
       {/* Edit Profile Dialog */}

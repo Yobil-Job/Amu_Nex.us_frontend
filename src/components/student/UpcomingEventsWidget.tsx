@@ -39,17 +39,38 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
     const now = new Date();
     return events
       .filter(event => {
-        if (!event.startAt) return false;
+        if (!event) return false;
+        // Check multiple possible date fields
+        const eventDateStr = event.startAt || event.startDate || event.date;
+        if (!eventDateStr) return false;
         try {
-          return isAfter(parseISO(event.startAt), now);
+          const eventDate = parseISO(eventDateStr);
+          if (isNaN(eventDate.getTime())) {
+            // Fallback to Date constructor if parseISO fails
+            const fallbackDate = new Date(eventDateStr);
+            if (isNaN(fallbackDate.getTime())) return false;
+            return isAfter(fallbackDate, now);
+          }
+          return isAfter(eventDate, now);
         } catch {
           return false;
         }
       })
       .sort((a, b) => {
-        if (!a.startAt || !b.startAt) return 0;
+        const aDateStr = a.startAt || a.startDate || a.date;
+        const bDateStr = b.startAt || b.startDate || b.date;
+        if (!aDateStr || !bDateStr) return 0;
         try {
-          return parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime();
+          const aDate = parseISO(aDateStr);
+          const bDate = parseISO(bDateStr);
+          if (isNaN(aDate.getTime()) || isNaN(bDate.getTime())) {
+            // Fallback to Date constructor
+            const aFallback = new Date(aDateStr);
+            const bFallback = new Date(bDateStr);
+            if (isNaN(aFallback.getTime()) || isNaN(bFallback.getTime())) return 0;
+            return aFallback.getTime() - bFallback.getTime();
+          }
+          return aDate.getTime() - bDate.getTime();
         } catch {
           return 0;
         }
@@ -131,9 +152,18 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
 
   const getEventsForDate = (date: Date) => {
     return upcomingEvents.filter(event => {
-      if (!event || !event.id || !event.startAt) return false;
+      if (!event || !event.id) return false;
+      // Check multiple possible date fields
+      const eventDateStr = event.startAt || event.startDate || event.date;
+      if (!eventDateStr) return false;
       try {
-        const eventDate = parseISO(event.startAt);
+        const eventDate = parseISO(eventDateStr);
+        if (isNaN(eventDate.getTime())) {
+          // Fallback to Date constructor
+          const fallbackDate = new Date(eventDateStr);
+          if (isNaN(fallbackDate.getTime())) return false;
+          return isSameDay(fallbackDate, date);
+        }
         return isSameDay(eventDate, date);
       } catch {
         return false;
@@ -230,14 +260,35 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
                             </span>
                           </div>
                         )}
-                        {event.startAt && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <span>
-                              {format(parseISO(event.startAt), 'MMM dd, yyyy HH:mm')}
-                            </span>
-                          </div>
-                        )}
+                        {(() => {
+                          const eventDateStr = event.startAt || event.startDate || event.date;
+                          if (!eventDateStr) return null;
+                          try {
+                            const eventDate = parseISO(eventDateStr);
+                            if (isNaN(eventDate.getTime())) {
+                              const fallbackDate = new Date(eventDateStr);
+                              if (isNaN(fallbackDate.getTime())) return null;
+                              return (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
+                                  <span>
+                                    {format(fallbackDate, 'MMM dd, yyyy HH:mm')}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3 flex-shrink-0" />
+                                <span>
+                                  {format(eventDate, 'MMM dd, yyyy HH:mm')}
+                                </span>
+                              </div>
+                            );
+                          } catch {
+                            return null;
+                          }
+                        })()}
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>

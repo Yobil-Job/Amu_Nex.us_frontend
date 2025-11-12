@@ -22,7 +22,21 @@ interface RolesViewProps {
 }
 
 const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
+  // Validate and normalize authorities data
+  const normalizedAuthorities = (authorities || []).map((auth: any, index: number) => {
+    // Ensure required fields exist
+    return {
+      id: auth.id || auth.authorityId || index,
+      name: auth.name || auth.authority || auth.role || 'Unknown Role',
+      club: auth.club || null,
+      startDate: auth.startDate || auth.start_date || auth.startAt || null,
+      endDate: auth.endDate || auth.end_date || auth.endAt || null,
+    };
+  });
+
   const getRoleIcon = (roleName: string) => {
+    if (!roleName) return <Shield className="h-5 w-5 text-muted-foreground" />;
+    
     const name = roleName.toLowerCase();
     if (name.includes('president') || name.includes('chair')) {
       return <Crown className="h-5 w-5 text-accent" />;
@@ -53,30 +67,43 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
     return 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30';
   };
 
-  const isUpcoming = (authority: Authority) => {
+  const isUpcoming = (authority: any) => {
     // Upcoming: startDate exists and is in the future
     if (!authority.startDate) return false;
-    return isAfter(new Date(authority.startDate), new Date());
+    try {
+      const startDate = new Date(authority.startDate);
+      if (isNaN(startDate.getTime())) return false;
+      return isAfter(startDate, new Date());
+    } catch {
+      return false;
+    }
   };
 
-  const isActive = (authority: Authority) => {
+  const isActive = (authority: any) => {
     // Active: not upcoming, and (no endDate OR endDate is in the future)
     if (isUpcoming(authority)) return false;
     if (!authority.endDate) return true;
-    return isAfter(new Date(authority.endDate), new Date());
+    try {
+      const endDate = new Date(authority.endDate);
+      if (isNaN(endDate.getTime())) return true; // If invalid date, consider active
+      return isAfter(endDate, new Date());
+    } catch {
+      return true; // If error parsing, consider active
+    }
   };
 
-  const isExpired = (authority: Authority) => {
+  const isExpired = (authority: any) => {
     // Expired: not upcoming, and endDate exists and is in the past
     if (isUpcoming(authority)) return false;
     if (!authority.endDate) return false;
-    return !isAfter(new Date(authority.endDate), new Date());
+    try {
+      const endDate = new Date(authority.endDate);
+      if (isNaN(endDate.getTime())) return false;
+      return !isAfter(endDate, new Date());
+    } catch {
+      return false;
+    }
   };
-
-  // Filter authorities into categories (upcoming takes precedence)
-  const upcomingAuthorities = authorities.filter(isUpcoming);
-  const activeAuthorities = authorities.filter(isActive);
-  const expiredAuthorities = authorities.filter(isExpired);
 
   if (isLoading) {
     return (
@@ -89,7 +116,7 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
     );
   }
 
-  if (authorities.length === 0) {
+  if (normalizedAuthorities.length === 0) {
     return (
       <Card className="border-primary/20">
         <CardContent className="text-center py-12">
@@ -102,6 +129,11 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
       </Card>
     );
   }
+
+  // Filter authorities into categories (upcoming takes precedence)
+  const upcomingAuthorities = normalizedAuthorities.filter(isUpcoming);
+  const activeAuthorities = normalizedAuthorities.filter(isActive);
+  const expiredAuthorities = normalizedAuthorities.filter(isExpired);
 
   return (
     <div className="space-y-6">
@@ -133,30 +165,48 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
-                    <span className="font-medium">
-                      {authority.club?.title || authority.club?.name || 'Unknown Club'}
-                    </span>
-                  </div>
+                  {authority.club && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium">
+                        {authority.club?.title || authority.club?.name || authority.club?.id ? `Club ${authority.club.id}` : 'Unknown Club'}
+                      </span>
+                    </div>
+                  )}
                   {authority.club?.club_Type && (
                     <Badge variant="outline" className="text-xs">
                       {authority.club.club_Type}
                     </Badge>
                   )}
                   <div className="flex flex-col gap-1 text-xs text-muted-foreground pt-2 border-t">
-                    {authority.startDate && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3" />
-                        <span>Started: {format(new Date(authority.startDate), 'MMM dd, yyyy')}</span>
-                      </div>
-                    )}
-                    {authority.endDate && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3" />
-                        <span>Ends: {format(new Date(authority.endDate), 'MMM dd, yyyy')}</span>
-                      </div>
-                    )}
+                    {authority.startDate && (() => {
+                      try {
+                        const startDate = new Date(authority.startDate);
+                        if (!isNaN(startDate.getTime())) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              <span>Started: {format(startDate, 'MMM dd, yyyy')}</span>
+                            </div>
+                          );
+                        }
+                      } catch {}
+                      return null;
+                    })()}
+                    {authority.endDate && (() => {
+                      try {
+                        const endDate = new Date(authority.endDate);
+                        if (!isNaN(endDate.getTime())) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              <span>Ends: {format(endDate, 'MMM dd, yyyy')}</span>
+                            </div>
+                          );
+                        }
+                      } catch {}
+                      return null;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -193,18 +243,28 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
-                    <span className="font-medium">
-                      {authority.club?.title || authority.club?.name || 'Unknown Club'}
-                    </span>
-                  </div>
-                  {authority.startDate && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>Starts: {format(new Date(authority.startDate), 'MMM dd, yyyy')}</span>
+                  {authority.club && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium">
+                        {authority.club?.title || authority.club?.name || authority.club?.id ? `Club ${authority.club.id}` : 'Unknown Club'}
+                      </span>
                     </div>
                   )}
+                  {authority.startDate && (() => {
+                    try {
+                      const startDate = new Date(authority.startDate);
+                      if (!isNaN(startDate.getTime())) {
+                        return (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Starts: {format(startDate, 'MMM dd, yyyy')}</span>
+                          </div>
+                        );
+                      }
+                    } catch {}
+                    return null;
+                  })()}
                 </CardContent>
               </Card>
             ))}
@@ -240,18 +300,28 @@ const RolesView = ({ authorities, isLoading }: RolesViewProps) => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
-                    <span className="font-medium">
-                      {authority.club?.title || authority.club?.name || 'Unknown Club'}
-                    </span>
-                  </div>
-                  {authority.endDate && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span>Ended: {format(new Date(authority.endDate), 'MMM dd, yyyy')}</span>
+                  {authority.club && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium">
+                        {authority.club?.title || authority.club?.name || authority.club?.id ? `Club ${authority.club.id}` : 'Unknown Club'}
+                      </span>
                     </div>
                   )}
+                  {authority.endDate && (() => {
+                    try {
+                      const endDate = new Date(authority.endDate);
+                      if (!isNaN(endDate.getTime())) {
+                        return (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Ended: {format(endDate, 'MMM dd, yyyy')}</span>
+                          </div>
+                        );
+                      }
+                    } catch {}
+                    return null;
+                  })()}
                 </CardContent>
               </Card>
             ))}

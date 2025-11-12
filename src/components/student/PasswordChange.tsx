@@ -3,10 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Lock, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { studentApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PasswordChange = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -15,6 +18,7 @@ const PasswordChange = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const validatePassword = (password: string) => {
     const minLength = password.length >= 8;
@@ -35,8 +39,13 @@ const PasswordChange = () => {
 
   const passwordValidation = formData.newPassword ? validatePassword(formData.newPassword) : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user?.id) {
+      toast.error('User not found. Please log in again.');
+      return;
+    }
 
     // Validate inputs
     if (!formData.currentPassword) {
@@ -64,15 +73,36 @@ const PasswordChange = () => {
       return;
     }
 
-    // This is UI-only, so we just show a message
-    toast.success('Password change request submitted (UI only - backend integration required)');
-    
-    // Reset form
-    setFormData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
+    setIsLoading(true);
+    try {
+      // Use the update endpoint with password field
+      // Note: Backend may require current password verification, but we'll send new password
+      // If backend has a dedicated change-password endpoint, it should be added to api.ts
+      await studentApi.update(user.id, {
+        password: formData.newPassword,
+      });
+      
+      toast.success('Password changed successfully');
+      
+      // Reset form
+      setFormData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      // Check if error is about current password verification
+      if (error.message?.toLowerCase().includes('current password') || 
+          error.message?.toLowerCase().includes('invalid password') ||
+          error.response?.status === 401) {
+        toast.error('Current password is incorrect');
+      } else {
+        toast.error(error.message || 'Failed to change password. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -234,9 +264,16 @@ const PasswordChange = () => {
           <Button
             type="submit"
             className="w-full bg-gradient-primary shadow-colored-primary"
-            disabled={!passwordValidation?.isValid || formData.newPassword !== formData.confirmPassword || !formData.currentPassword}
+            disabled={isLoading || !passwordValidation?.isValid || formData.newPassword !== formData.confirmPassword || !formData.currentPassword}
           >
-            Update Password
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Updating Password...
+              </>
+            ) : (
+              'Update Password'
+            )}
           </Button>
         </form>
       </CardContent>
