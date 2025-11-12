@@ -249,7 +249,7 @@ const NotificationsPanel = ({
                   }}
                 >
                   <div
-                    className={cn(
+                  className={cn(
                       'glass-card rounded-lg border border-primary/20 hover:bg-primary/10 transition-all',
                     !notification.read && 'bg-primary/5 border-primary/40'
                   )}

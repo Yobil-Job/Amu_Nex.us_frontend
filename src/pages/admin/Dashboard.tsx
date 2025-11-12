@@ -174,8 +174,8 @@ const AdminDashboard = () => {
           try {
             // If both have timestamps, compare them
             if (a.timestamp && b.timestamp) {
-              const dateA = parseISO(a.timestamp);
-              const dateB = parseISO(b.timestamp);
+            const dateA = parseISO(a.timestamp);
+            const dateB = parseISO(b.timestamp);
               if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
                 return dateB.getTime() - dateA.getTime(); // Most recent first
               }
