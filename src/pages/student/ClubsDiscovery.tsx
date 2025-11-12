@@ -46,22 +46,12 @@ const ClubsDiscovery = () => {
       const stored = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
       if (stored) {
         const requests: JoinRequest[] = JSON.parse(stored);
-        console.log('📋 Loaded join requests from storage:', requests.length);
-        console.log('📊 Request statuses:', {
-          pending: requests.filter(r => r.status === 'pending').length,
-          approved: requests.filter(r => r.status === 'approved').length,
-          rejected: requests.filter(r => r.status === 'rejected').length,
-        });
         setJoinRequests(requests);
-        // Sync with current joined clubs to update statuses
-        if (joinedClubs.length > 0) {
-          syncJoinRequestsWithJoinedClubs(joinedClubs, clubs);
-        }
       }
     } catch (error) {
       console.error('Failed to load join requests:', error);
     }
-  }, [user?.id, joinedClubs, clubs, syncJoinRequestsWithJoinedClubs]);
+  }, [user?.id]);
 
   const saveJoinRequests = useCallback((requests: JoinRequest[]) => {
     if (!user?.id) return;
@@ -76,78 +66,87 @@ const ClubsDiscovery = () => {
   const syncJoinRequestsWithJoinedClubs = useCallback((joined: any[], allClubs: any[] = []) => {
     setJoinRequests(prev => {
       const updated = prev.map(req => {
-        // Check if student is in joined clubs for this request
-        const isJoined = joined.some(club => {
+        // Find matching club from joined clubs
+        const joinedClub = joined.find(club => {
           const clubId = club.id || club.clubId || club.club_id;
           const reqClubId = req.clubId;
           return String(clubId) === String(reqClubId);
         });
 
-        // If joined and was pending, mark as approved
-        if (isJoined && req.status === 'pending') {
-          console.log(`✅ Join request approved: Club ${req.clubId} - synced from joined clubs`);
-          return { ...req, status: 'approved' as const };
-        }
+        // Find matching club from all clubs (for enrichment)
+        const clubData = allClubs.find(club => {
+          const clubId = club.id || club.clubId || club.club_id;
+          const reqClubId = req.clubId;
+          return String(clubId) === String(reqClubId);
+        });
 
-        // If already approved and still in joined clubs, keep as approved
-        if (isJoined && req.status === 'approved') {
-          return req;
-        }
+        // Enrich request with club data if missing
+        const enrichedRequest = {
+          ...req,
+          clubTitle: req.clubTitle || clubData?.title || clubData?.name || joinedClub?.title || joinedClub?.name,
+          clubName: req.clubName || clubData?.name || joinedClub?.name,
+          clubType: req.clubType || clubData?.club_Type || joinedClub?.club_Type,
+        };
 
-        // Check if request should be marked as rejected
-        // If request is pending but student is NOT in joined clubs, and request is old (7+ days)
-        if (req.status === 'pending' && !isJoined) {
-          const requestedDate = new Date(req.requestedAt);
-          const daysSinceRequest = (Date.now() - requestedDate.getTime()) / (1000 * 60 * 60 * 24);
-          
-          // Check if club still exists and if request might have been rejected
-          const clubExists = allClubs.some(club => {
-            const clubId = club.id || club.clubId || club.club_id;
-            return String(clubId) === String(req.clubId);
-          });
-
-          // If request is older than 7 days and student is not in joined clubs, mark as potentially rejected
-          // But only if we can't find the club or if it's been a long time
-          if (daysSinceRequest > 7 && clubExists) {
-            // Try to check if request was rejected by checking if we can still request to join
-            // For now, we'll mark very old pending requests as rejected if student is not in club
-            console.log(`⚠️ Join request potentially rejected: Club ${req.clubId} - pending for ${Math.floor(daysSinceRequest)} days`);
-            // Don't auto-mark as rejected - let admin rejection handle it
-            // But we can add a visual indicator that it's been pending for a long time
+        // If student is in the club
+        if (joinedClub) {
+          // If request was pending, mark as approved
+          if (req.status === 'pending') {
+            console.log(`✅ Join request approved: Club ${req.clubId} - synced from joined clubs`);
+            return { ...enrichedRequest, status: 'approved' as const };
           }
-        }
-
-        return req;
-      });
-
-      // Also check for any pending requests that should be marked as rejected
-      // This happens when a request was pending but the student is not in joined clubs
-      // and the request is old enough to assume it was rejected
-      const finalUpdated = updated.map(req => {
-        if (req.status === 'pending') {
-          const isStillJoined = joined.some(club => {
-            const clubId = club.id || club.clubId || club.club_id;
-            return String(clubId) === String(req.clubId);
-          });
-          
-          if (!isStillJoined) {
+          // If request was already approved, keep it approved (enrich with data)
+          if (req.status === 'approved') {
+            return enrichedRequest;
+          }
+          // If request was rejected but student is now in club, mark as approved
+          if (req.status === 'rejected') {
+            console.log(`✅ Rejected request now approved: Club ${req.clubId} - synced from joined clubs`);
+            return { ...enrichedRequest, status: 'approved' as const };
+          }
+        } else {
+          // Student is NOT in the club
+          // If request is pending, check if it should be marked as rejected
+          if (req.status === 'pending') {
             const requestedDate = new Date(req.requestedAt);
             const daysSinceRequest = (Date.now() - requestedDate.getTime()) / (1000 * 60 * 60 * 24);
             
-            // If request is older than 14 days and student is not in club, mark as rejected
+            // Check if club still exists
+            const clubExists = clubData || allClubs.some(club => {
+              const clubId = club.id || club.clubId || club.club_id;
+              return String(clubId) === String(req.clubId);
+            });
+
+            // If request is older than 7 days, club exists, and student is not in club, mark as rejected
             // This is a heuristic - ideally we'd get this from the backend
-            if (daysSinceRequest > 14) {
-              console.log(`❌ Marking old pending request as rejected: Club ${req.clubId} - ${Math.floor(daysSinceRequest)} days old`);
-              return { ...req, status: 'rejected' as const };
+            if (daysSinceRequest > 7 && clubExists) {
+              console.log(`❌ Join request rejected: Club ${req.clubId} - pending for ${Math.floor(daysSinceRequest)} days, student not in club`);
+              return { ...enrichedRequest, status: 'rejected' as const };
             }
+            // Otherwise keep as pending but enrich with data
+            return enrichedRequest;
+          }
+          // If request was already approved but student is not in club, keep as approved (might have left)
+          if (req.status === 'approved') {
+            return enrichedRequest;
+          }
+          // If request was already rejected, keep as rejected (enrich with data)
+          if (req.status === 'rejected') {
+            return enrichedRequest;
           }
         }
-        return req;
+        
+        return enrichedRequest;
       });
-
-      if (JSON.stringify(finalUpdated) !== JSON.stringify(prev)) {
-        saveJoinRequests(finalUpdated);
-        return finalUpdated;
+      
+      if (JSON.stringify(updated) !== JSON.stringify(prev)) {
+        console.log('📊 Join requests synced:', {
+          pending: updated.filter(r => r.status === 'pending').length,
+          approved: updated.filter(r => r.status === 'approved').length,
+          rejected: updated.filter(r => r.status === 'rejected').length,
+        });
+        saveJoinRequests(updated);
+        return updated;
       }
       return prev;
     });
@@ -190,9 +189,7 @@ const ClubsDiscovery = () => {
       const clubsList = extractCollection<any>(response);
       console.log('📊 Loaded joined clubs:', clubsList.length);
       setJoinedClubs(clubsList);
-      // Sync join requests with joined clubs to update status
-      // Pass clubs list to help with rejection detection
-      syncJoinRequestsWithJoinedClubs(clubsList, clubs);
+      // Don't sync here - let the useEffect handle it to avoid double syncing
     } catch (error: any) {
       console.error('Failed to load joined clubs:', error);
       const status = error?.status;
@@ -204,7 +201,7 @@ const ClubsDiscovery = () => {
       
       setJoinedClubs([]);
     }
-  }, [user?.id, syncJoinRequestsWithJoinedClubs, clubs]);
+  }, [user?.id]);
 
   useEffect(() => {
     // Wait for both user ID and role before making any API calls
@@ -217,32 +214,34 @@ const ClubsDiscovery = () => {
     
     // Load joined clubs (this endpoint is accessible to students)
     loadJoinedClubs();
-  }, [user?.id, user?.role, loadJoinedClubs]);
+    loadJoinRequests();
 
-  // Load join requests after clubs are loaded
-  useEffect(() => {
-    if (user?.id) {
-      loadJoinRequests();
-    }
-  }, [user?.id, loadJoinRequests]);
-
-  // Sync requests when joined clubs or all clubs change
-  useEffect(() => {
-    if (joinedClubs.length >= 0 && user?.id) {
-      syncJoinRequestsWithJoinedClubs(joinedClubs, clubs);
-    }
-  }, [joinedClubs, clubs, user?.id, syncJoinRequestsWithJoinedClubs]);
-
-  // Set up periodic sync to check if requests were approved/rejected
-  useEffect(() => {
-    if (!user?.id) return;
-
+    // Set up periodic sync to check if requests were approved/rejected
     const syncInterval = setInterval(() => {
-      loadJoinedClubs();
+      if (user?.id) {
+        loadJoinedClubs();
+      }
     }, 30000); // Sync every 30 seconds
 
     return () => clearInterval(syncInterval);
-  }, [user?.id, loadJoinedClubs]);
+  }, [user?.id, user?.role, loadJoinedClubs]);
+
+  // Sync requests when joined clubs or all clubs change (to enrich data and update status)
+  // This ensures approved/rejected requests have complete club data and correct status
+  // Note: We don't include joinRequests in deps to avoid infinite loops (syncJoinRequestsWithJoinedClubs uses setState with prev)
+  useEffect(() => {
+    // Only sync if we have actual data and user is logged in
+    if (!user?.id) return;
+    // Only sync if we have join requests loaded (check localStorage to avoid unnecessary work)
+    const hasRequests = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
+    if (!hasRequests) return;
+    
+    // Only sync if we have club data
+    if (joinedClubs.length === 0 && clubs.length === 0) return;
+    
+    // Sync will check joinRequests internally via setState callback
+    syncJoinRequestsWithJoinedClubs(joinedClubs, clubs);
+  }, [joinedClubs.length, clubs.length, user?.id, syncJoinRequestsWithJoinedClubs]);
 
   const handleJoinClub = async (club: any) => {
     if (!user?.id) {
@@ -276,25 +275,7 @@ const ClubsDiscovery = () => {
         requestedAt: new Date().toISOString(),
       };
 
-      // Check if there's already a request for this club (in any status)
-      const existingRequestIndex = joinRequests.findIndex(req => req.clubId === club.id);
-      let updated: JoinRequest[];
-      
-      if (existingRequestIndex >= 0) {
-        // Update existing request to pending (in case it was rejected before)
-        updated = [...joinRequests];
-        updated[existingRequestIndex] = {
-          ...updated[existingRequestIndex],
-          status: 'pending',
-          requestedAt: new Date().toISOString(),
-        };
-        console.log('🔄 Updated existing request to pending:', club.id);
-      } else {
-        // Add new request
-        updated = [...joinRequests, newRequest];
-        console.log('➕ Added new join request:', club.id);
-      }
-      
+      const updated = [...joinRequests, newRequest];
       saveJoinRequests(updated);
       
       // Track activity
@@ -480,13 +461,13 @@ const ClubsDiscovery = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-xl mb-2 truncate">
-                              {club.title || club.name}
-                            </CardTitle>
-                            {club.club_Type && (
-                              <Badge variant="outline" className="mb-2">
-                                {club.club_Type}
-                              </Badge>
-                            )}
+                            {club.title || club.name}
+                          </CardTitle>
+                          {club.club_Type && (
+                            <Badge variant="outline" className="mb-2">
+                              {club.club_Type}
+                            </Badge>
+                          )}
                           </div>
                         </div>
                         {joined && (
@@ -590,15 +571,15 @@ const ClubsDiscovery = () => {
                   </p>
                 </div>
               </div>
-              <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {joinedClubs.map((club) => (
-                  <Card
-                    key={club.id}
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {joinedClubs.map((club) => (
+                <Card
+                  key={club.id}
                     className="border-success/20 hover:shadow-lg hover:border-success/40 transition-all cursor-pointer glass-card"
                     style={{ pointerEvents: 'auto' }}
-                    onClick={() => openClubDetails(club)}
-                  >
-                    <CardHeader>
+                  onClick={() => openClubDetails(club)}
+                >
+                  <CardHeader>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {club.logo ? (
@@ -622,43 +603,43 @@ const ClubsDiscovery = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-xl mb-2 truncate text-white">
-                              {club.title || club.name}
-                            </CardTitle>
-                            {club.club_Type && (
+                          {club.title || club.name}
+                        </CardTitle>
+                        {club.club_Type && (
                               <Badge variant="outline" className="mb-2 text-xs">
-                                {club.club_Type}
-                              </Badge>
-                            )}
-                          </div>
+                            {club.club_Type}
+                          </Badge>
+                        )}
+                      </div>
                         </div>
                         <Badge className="bg-success/20 text-success border-success/30 flex-shrink-0">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Member
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Member
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                       <CardDescription className="line-clamp-2 text-sm">
-                        {club.description || 'No description available'}
-                      </CardDescription>
-                      <Button
-                        variant="outline"
+                      {club.description || 'No description available'}
+                    </CardDescription>
+                    <Button
+                      variant="outline"
                         size="sm"
                         className="w-full border-success/30 hover:bg-success/10 hover:border-success/50"
                         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
-                        onClick={(e) => {
+                      onClick={(e) => {
                           e.preventDefault();
-                          e.stopPropagation();
-                          openClubDetails(club);
-                        }}
-                      >
+                        e.stopPropagation();
+                        openClubDetails(club);
+                      }}
+                    >
                         <Building2 className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      View Details
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
             </>
           )}
         </TabsContent>
@@ -734,7 +715,7 @@ const ClubsDiscovery = () => {
                     {selectedClub.description || 'No description available'}
                   </p>
                 </div>
-
+                
                 {/* Club Type */}
                 {selectedClub.club_Type && (
                   <div>

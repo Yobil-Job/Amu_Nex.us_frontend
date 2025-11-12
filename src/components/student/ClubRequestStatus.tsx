@@ -21,29 +21,20 @@ interface ClubRequestStatusProps {
 }
 
 const ClubRequestStatus = ({ requests, onViewClubDetails }: ClubRequestStatusProps) => {
-  const pendingRequests = useMemo(() => {
-    const filtered = requests.filter(req => req.status === 'pending');
-    if (import.meta.env.DEV) {
-      console.log('📊 Pending requests:', filtered.length, filtered);
-    }
-    return filtered;
-  }, [requests]);
+  const pendingRequests = useMemo(() => 
+    requests.filter(req => req.status === 'pending'),
+    [requests]
+  );
 
-  const approvedRequests = useMemo(() => {
-    const filtered = requests.filter(req => req.status === 'approved');
-    if (import.meta.env.DEV) {
-      console.log('✅ Approved requests:', filtered.length, filtered);
-    }
-    return filtered;
-  }, [requests]);
+  const approvedRequests = useMemo(() => 
+    requests.filter(req => req.status === 'approved'),
+    [requests]
+  );
 
-  const rejectedRequests = useMemo(() => {
-    const filtered = requests.filter(req => req.status === 'rejected');
-    if (import.meta.env.DEV) {
-      console.log('❌ Rejected requests:', filtered.length, filtered);
-    }
-    return filtered;
-  }, [requests]);
+  const rejectedRequests = useMemo(() => 
+    requests.filter(req => req.status === 'rejected'),
+    [requests]
+  );
 
   const EmptyState = ({ icon: Icon, title, message }: { icon: any; title: string; message: string }) => (
     <Card>
