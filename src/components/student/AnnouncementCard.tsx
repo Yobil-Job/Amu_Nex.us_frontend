@@ -27,10 +27,28 @@ const AnnouncementCard = ({
   onViewDetails,
   onMarkAsRead,
 }: AnnouncementCardProps) => {
-  const getTimeAgo = (dateString?: string) => {
-    if (!dateString) return 'Unknown date';
+  const getTimeAgo = (announcement: any) => {
+    // Try multiple date fields
+    const dateStr = announcement.createdAt || announcement.created_at || announcement.scheduledAt || announcement.scheduled_at || announcement.date || announcement.postedAt;
+    if (!dateStr) return 'Unknown date';
     try {
-      const date = parseISO(dateString);
+      let date: Date;
+      // Try parseISO first (for ISO strings)
+      if (typeof dateStr === 'string') {
+        try {
+          date = parseISO(dateStr);
+          if (isNaN(date.getTime())) {
+            date = new Date(dateStr);
+          }
+        } catch {
+          date = new Date(dateStr);
+        }
+      } else {
+        date = new Date(dateStr);
+      }
+      
+      if (isNaN(date.getTime())) return 'Unknown date';
+      
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
@@ -91,7 +109,7 @@ const AnnouncementCard = ({
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{getTimeAgo(announcement.createdAt)}</span>
+            <span>{getTimeAgo(announcement)}</span>
           </div>
           {!isRead && onMarkAsRead && (
             <Button

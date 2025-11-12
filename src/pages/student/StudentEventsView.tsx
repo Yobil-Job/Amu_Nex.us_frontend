@@ -72,6 +72,47 @@ const StudentEventsView = () => {
     }
   }, [user?.id]);
 
+  // Helper function to extract club ID from multiple possible fields
+  const getEventClubId = (event: any): number | null => {
+    if (!event) return null;
+    
+    // Try multiple possible locations for club ID
+    const clubId = event.club?.id || 
+                   event.clubId || 
+                   event.club_id || 
+                   event.club?.clubId || 
+                   event.club?.club_id ||
+                   event.club?.club?.id ||
+                   (event.club && typeof event.club === 'number' ? event.club : null);
+    
+    if (clubId == null || clubId === undefined) return null;
+    
+    // Convert to number, handling string numbers
+    const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+    return isNaN(numId) ? null : numId;
+  };
+
+  // Helper function to extract event date from multiple possible fields
+  const getEventDate = (event: any): Date | null => {
+    const dateStr = event.startAt || event.startDate || event.date;
+    if (!dateStr) return null;
+    try {
+      const date = parseISO(dateStr);
+      if (isNaN(date.getTime())) {
+        const fallbackDate = new Date(dateStr);
+        return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+      }
+      return date;
+    } catch {
+      try {
+        const fallbackDate = new Date(dateStr);
+        return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+      } catch {
+        return null;
+      }
+    }
+  };
+
   const loadData = async () => {
     if (!user?.id) return;
     setIsLoading(true);
@@ -129,8 +170,37 @@ const StudentEventsView = () => {
         event && event.id && index === self.findIndex(e => e && e.id === event.id)
       );
 
-      setAllEvents(uniqueEvents);
-      setEvents(uniqueEvents);
+      // Enrich events with club data if missing
+      const enrichedEvents = uniqueEvents.map(event => {
+        // If event doesn't have club data, try to find it from joined clubs
+        if (!event.club || !event.club.id) {
+          const eventClubId = getEventClubId(event);
+          if (eventClubId) {
+            const club = clubsList.find(c => {
+              const clubId = c.id || c.clubId || c.club_id;
+              return clubId != null && Number(clubId) === eventClubId;
+            });
+            if (club) {
+              return {
+                ...event,
+                club: {
+                  id: club.id || club.clubId || club.club_id,
+                  title: club.title || club.name,
+                  name: club.name || club.title,
+                },
+                clubId: eventClubId,
+              };
+            }
+          }
+        }
+        return event;
+      });
+
+      console.log('📊 Loaded events:', enrichedEvents.length);
+      console.log('📊 Sample event structure:', enrichedEvents[0]);
+      console.log('📊 Joined clubs:', clubsList.map(c => ({ id: c.id, title: c.title || c.name })));
+      setAllEvents(enrichedEvents);
+      setEvents(enrichedEvents);
     } catch (error: any) {
       console.error('Failed to load events:', error);
       // Only show error if it's not a permission issue
@@ -145,42 +215,120 @@ const StudentEventsView = () => {
   };
 
   const filteredEvents = useMemo(() => {
+    console.log('🔍 Filtering events:', {
+      totalEvents: allEvents.length,
+      joinedClubs: joinedClubs.length,
+      filterType,
+      filterClubId,
+      searchQuery,
+    });
+
     // Filter out any null/undefined events
     let filtered = allEvents.filter(event => event && event.id);
+    console.log('✅ After null filter:', filtered.length);
 
     // Filter by type (upcoming/past)
     if (filterType === 'upcoming') {
+      const before = filtered.length;
       filtered = filtered.filter(event => {
-        if (!event.startAt) return false;
-        try {
-          return isAfter(parseISO(event.startAt), new Date());
-        } catch {
-          return false;
-        }
+        const eventDate = getEventDate(event);
+        if (!eventDate) return false;
+        return isAfter(eventDate, new Date());
       });
+      console.log(`📅 After upcoming filter: ${before} -> ${filtered.length}`);
     } else if (filterType === 'past') {
+      const before = filtered.length;
       filtered = filtered.filter(event => {
-        if (!event.startAt) return true;
-        try {
-          return isBefore(parseISO(event.startAt), new Date());
-        } catch {
-          return false;
-        }
+        const eventDate = getEventDate(event);
+        if (!eventDate) return true; // Events without dates are considered past
+        return isBefore(eventDate, new Date());
       });
+      console.log(`📅 After past filter: ${before} -> ${filtered.length}`);
     }
 
-    // Filter by club
+    // Filter by club - only show events from joined clubs
+    const joinedClubIds = joinedClubs.map(club => {
+      const clubId = club.id || club.clubId || club.club_id;
+      if (clubId == null) return null;
+      const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+      return isNaN(numId) ? null : numId;
+    }).filter(id => id != null) as number[];
+    
+    console.log('🏛️ Joined club IDs:', joinedClubIds);
+    console.log('🏛️ Sample events before club filter:', filtered.slice(0, 2).map(e => ({
+      id: e.id,
+      title: e.title,
+      clubId: getEventClubId(e),
+      club: e.club,
+      hasClub: !!e.club,
+    })));
+    
+    // First, filter to only show events from joined clubs
+    // BUT: If events were loaded from student events API, they're already from joined clubs
+    // So we should be more lenient - show events that either:
+    // 1. Have a club ID that matches a joined club, OR
+    // 2. Were loaded from student events (which means they're from joined clubs)
+    const beforeClubFilter = filtered.length;
+    
+    // If no joined clubs, don't filter (show all events - they're from student events API)
+    if (joinedClubIds.length === 0) {
+      console.log('⚠️ No joined clubs found - showing all events (likely from student events API)');
+    } else {
+      filtered = filtered.filter(event => {
+        const eventClubId = getEventClubId(event);
+        
+        // If event has a club ID, check if it matches a joined club (with type coercion)
+        if (eventClubId != null) {
+          // Try both number and string comparison
+          const matches = joinedClubIds.some(joinedId => {
+            return joinedId === eventClubId || 
+                   String(joinedId) === String(eventClubId) ||
+                   Number(joinedId) === Number(eventClubId);
+          });
+          
+          if (!matches) {
+            console.log(`❌ Event ${event.id} filtered out - club ID ${eventClubId} (${typeof eventClubId}) not in joined clubs ${joinedClubIds}`, {
+              eventClubId,
+              eventClubIdType: typeof eventClubId,
+              joinedClubIds,
+              joinedClubIdsTypes: joinedClubIds.map(id => typeof id),
+              eventClub: event.club,
+              eventKeys: Object.keys(event),
+            });
+          } else {
+            console.log(`✅ Event ${event.id} matches joined club ${eventClubId}`);
+          }
+          return matches;
+        }
+        
+        // If event doesn't have a club ID but was loaded, show it anyway
+        // (it was likely loaded from student events API which only returns events from joined clubs)
+        console.log(`⚠️ Event ${event.id} has no club ID, but showing it anyway (likely from student events)`, {
+          eventId: event.id,
+          eventTitle: event.title,
+          eventKeys: Object.keys(event),
+        });
+        return true;
+      });
+    }
+    console.log(`🏛️ After club filter: ${beforeClubFilter} -> ${filtered.length}`);
+    
+    // Then, if a specific club is selected, filter by that club
     if (filterClubId !== 'all') {
+      const before = filtered.length;
       const clubIdNum = parseInt(filterClubId);
       if (!isNaN(clubIdNum)) {
-        filtered = filtered.filter(event =>
-          event.club && event.club.id === clubIdNum
-        );
+        filtered = filtered.filter(event => {
+          const eventClubId = getEventClubId(event);
+          return eventClubId === clubIdNum;
+        });
       }
+      console.log(`🏛️ After specific club filter: ${before} -> ${filtered.length}`);
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
+      const before = filtered.length;
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(event => {
         const title = (event.title || '').toLowerCase();
@@ -188,24 +336,36 @@ const StudentEventsView = () => {
         const clubName = (event.club?.title || event.club?.name || '').toLowerCase();
         return title.includes(query) || description.includes(query) || clubName.includes(query);
       });
+      console.log(`🔍 After search filter: ${before} -> ${filtered.length}`);
     }
 
     // Sort by date (upcoming first, then past)
-    return filtered.sort((a, b) => {
-      if (!a.startAt) return 1;
-      if (!b.startAt) return -1;
-      try {
-        const dateA = parseISO(a.startAt);
-        const dateB = parseISO(b.startAt);
-        const now = new Date();
-        if (isAfter(dateA, now) && isBefore(dateB, now)) return -1;
-        if (isBefore(dateA, now) && isAfter(dateB, now)) return 1;
-        return dateB.getTime() - dateA.getTime(); // Most recent first
-      } catch {
-        return 0;
+    const sorted = filtered.sort((a, b) => {
+      const dateA = getEventDate(a);
+      const dateB = getEventDate(b);
+      
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      
+      const now = new Date();
+      const aIsUpcoming = isAfter(dateA, now);
+      const bIsUpcoming = isAfter(dateB, now);
+      
+      // Upcoming events first
+      if (aIsUpcoming && !bIsUpcoming) return -1;
+      if (!aIsUpcoming && bIsUpcoming) return 1;
+      
+      // For same type, sort by date (upcoming: earliest first, past: most recent first)
+      if (aIsUpcoming && bIsUpcoming) {
+        return dateA.getTime() - dateB.getTime(); // Upcoming: earliest first
+      } else {
+        return dateB.getTime() - dateA.getTime(); // Past: most recent first
       }
     });
-  }, [allEvents, filterType, filterClubId, searchQuery]);
+    
+    console.log('✅ Final filtered events:', sorted.length);
+    return sorted;
+  }, [allEvents, filterType, filterClubId, searchQuery, joinedClubs]);
 
   const handleMarkGoing = (eventId: number) => {
     const currentInteraction = interactions[eventId] || { eventId, isGoing: false, isInterested: false };
@@ -242,30 +402,53 @@ const StudentEventsView = () => {
     return interactions[eventId] || { eventId, isGoing: false, isInterested: false };
   };
 
-  const upcomingCount = useMemo(() =>
-    allEvents.filter(e => {
-      if (!e || !e.startAt) return false;
+  const upcomingCount = useMemo(() => {
+    const getEventDate = (event: any): Date | null => {
+      const dateStr = event?.startAt || event?.startDate || event?.date;
+      if (!dateStr) return null;
       try {
-        return isAfter(parseISO(e.startAt), new Date());
+        const date = parseISO(dateStr);
+        if (isNaN(date.getTime())) {
+          const fallbackDate = new Date(dateStr);
+          return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+        }
+        return date;
       } catch {
-        return false;
+        return null;
       }
-    }).length,
-    [allEvents]
-  );
-
-  const pastCount = useMemo(() =>
-    allEvents.filter(e => {
+    };
+    
+    return allEvents.filter(e => {
       if (!e) return false;
-      if (!e.startAt) return true;
+      const eventDate = getEventDate(e);
+      if (!eventDate) return false;
+      return isAfter(eventDate, new Date());
+    }).length;
+  }, [allEvents]);
+
+  const pastCount = useMemo(() => {
+    const getEventDate = (event: any): Date | null => {
+      const dateStr = event?.startAt || event?.startDate || event?.date;
+      if (!dateStr) return null;
       try {
-        return isBefore(parseISO(e.startAt), new Date());
+        const date = parseISO(dateStr);
+        if (isNaN(date.getTime())) {
+          const fallbackDate = new Date(dateStr);
+          return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+        }
+        return date;
       } catch {
-        return false;
+        return null;
       }
-    }).length,
-    [allEvents]
-  );
+    };
+    
+    return allEvents.filter(e => {
+      if (!e) return false;
+      const eventDate = getEventDate(e);
+      if (!eventDate) return true; // Events without dates are considered past
+      return isBefore(eventDate, new Date());
+    }).length;
+  }, [allEvents]);
 
   if (isLoading) {
     return (

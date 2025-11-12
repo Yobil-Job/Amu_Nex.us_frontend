@@ -28,6 +28,34 @@ const StudentFees = () => {
     }
   }, [user?.id]);
 
+  // Helper function to extract club ID from multiple possible fields
+  const getClubId = (club: any): number | null => {
+    if (!club) return null;
+    const clubId = club.id || club.clubId || club.club_id;
+    if (clubId == null) return null;
+    const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+    return isNaN(numId) ? null : numId;
+  };
+
+  // Helper function to extract fee club ID
+  const getFeeClubId = (fee: any): number | null => {
+    if (!fee) return null;
+    const clubId = fee.club?.id || fee.clubId || fee.club_id || fee.club?.clubId || fee.club?.club_id;
+    if (clubId == null) return null;
+    const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+    return isNaN(numId) ? null : numId;
+  };
+
+  // Helper function to extract amount from multiple possible fields
+  const getFeeAmount = (fee: any): number => {
+    return fee.amount || fee.feeAmount || fee.fee || fee.total || 0;
+  };
+
+  // Helper function to extract status from multiple possible fields
+  const getFeeStatus = (fee: any): string | null => {
+    return fee.status || fee.paymentStatus || fee.payment_status || null;
+  };
+
   const loadData = async () => {
     if (!user?.id) return;
     setIsLoading(true);
@@ -35,12 +63,10 @@ const StudentFees = () => {
       // Load fees for this student
       const feesResponse = await feeApi.getByStudent(user.id).catch((err) => {
         console.warn('Failed to load fees:', err);
-        // Handle different response formats
-        if (Array.isArray(err)) {
-          return [];
-        }
         return [];
       });
+
+      console.log('💰 Fees API response:', feesResponse);
 
       // Handle different response formats
       let feesList: any[] = [];
@@ -49,6 +75,9 @@ const StudentFees = () => {
       } else {
         feesList = extractCollection<any>(feesResponse) || [];
       }
+
+      console.log('💰 Extracted fees:', feesList.length);
+      console.log('💰 Sample fee:', feesList[0]);
 
       // Load joined clubs to enhance fee data with club info
       const joinedClubsRes = await studentApi.getClubs(user.id).catch((err) => {
@@ -59,28 +88,65 @@ const StudentFees = () => {
       const clubsList = extractCollection<any>(joinedClubsRes) || [];
       setJoinedClubs(clubsList);
 
+      console.log('💰 Joined clubs:', clubsList.length);
+
       // Create a map of club IDs to club objects for quick lookup
       const clubMap: Record<number, any> = {};
       clubsList.forEach(club => {
-        if (club && club.id) {
-          clubMap[club.id] = club;
+        const clubId = getClubId(club);
+        if (clubId != null) {
+          clubMap[clubId] = {
+            id: clubId,
+            title: club.title || club.name,
+            name: club.name || club.title,
+            ...club,
+          };
         }
       });
 
       // Enhance fees with club information
       const enhancedFees = feesList.map(fee => {
-        if (fee.clubId && clubMap[fee.clubId]) {
+        const feeClubId = getFeeClubId(fee);
+        
+        // Try to find club from map
+        if (feeClubId != null && clubMap[feeClubId]) {
           return {
             ...fee,
-            club: clubMap[fee.clubId],
+            club: clubMap[feeClubId],
+            clubId: feeClubId,
+            // Normalize amount and status
+            amount: getFeeAmount(fee),
+            status: getFeeStatus(fee),
           };
         }
-        // If fee has club object directly, keep it
+        
+        // If fee has club object directly, enrich it
         if (fee.club) {
-          return fee;
+          const clubId = getClubId(fee.club);
+          return {
+            ...fee,
+            club: {
+              id: clubId || fee.club.id,
+              title: fee.club.title || fee.club.name,
+              name: fee.club.name || fee.club.title,
+              ...fee.club,
+            },
+            clubId: clubId || getFeeClubId(fee),
+            amount: getFeeAmount(fee),
+            status: getFeeStatus(fee),
+          };
         }
-        return fee;
+        
+        // Return fee with normalized amount and status
+        return {
+          ...fee,
+          amount: getFeeAmount(fee),
+          status: getFeeStatus(fee),
+        };
       });
+
+      console.log('💰 Enhanced fees:', enhancedFees.length);
+      console.log('💰 Sample enhanced fee:', enhancedFees[0]);
 
       setAllFees(enhancedFees);
       setFees(enhancedFees);
@@ -96,23 +162,41 @@ const StudentFees = () => {
     }
   };
 
+  // Helper function to extract date from multiple possible fields
+  const getFeeDate = (fee: any): Date | null => {
+    const dateStr = fee.createdAt || fee.created_at || fee.paymentDate || fee.payment_date || fee.date || fee.paidDate || fee.paid_date;
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  };
+
   const filteredFees = useMemo(() => {
     let filtered = allFees.filter(fee => fee && fee.id);
 
-    // Filter by status
+    // Filter by status - use robust status extraction
     if (filterStatus !== 'all') {
-      filtered = filtered.filter(fee =>
-        fee.status?.toUpperCase() === filterStatus.toUpperCase()
-      );
+      filtered = filtered.filter(fee => {
+        const status = getFeeStatus(fee);
+        return status?.toUpperCase() === filterStatus.toUpperCase();
+      });
     }
 
-    // Filter by club
+    // Filter by club - use robust club ID matching
     if (filterClubId !== 'all') {
       const clubIdNum = parseInt(filterClubId);
       if (!isNaN(clubIdNum)) {
         filtered = filtered.filter(fee => {
-          const feeClubId = fee.club?.id || fee.clubId;
-          return feeClubId === clubIdNum;
+          const feeClubId = getFeeClubId(fee);
+          // Try both exact match and type-coerced match
+          return feeClubId != null && (
+            feeClubId === clubIdNum ||
+            Number(feeClubId) === Number(clubIdNum) ||
+            String(feeClubId) === String(clubIdNum)
+          );
         });
       }
     }
@@ -121,33 +205,42 @@ const StudentFees = () => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(fee => {
-        const purpose = (fee.purpose || '').toLowerCase();
+        const purpose = (fee.purpose || fee.description || '').toLowerCase();
         const clubName = (fee.club?.title || fee.club?.name || '').toLowerCase();
-        const amount = (fee.amount || 0).toString();
+        const amount = getFeeAmount(fee).toString();
         return purpose.includes(query) || clubName.includes(query) || amount.includes(query);
       });
     }
 
-    // Sort by date (newest first)
+    // Sort by date (newest first) - use robust date extraction
     return filtered.sort((a, b) => {
-      if (!a.createdAt) return 1;
-      if (!b.createdAt) return -1;
-      try {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      } catch {
-        return 0;
-      }
+      const dateA = getFeeDate(a);
+      const dateB = getFeeDate(b);
+      
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      
+      return dateB.getTime() - dateA.getTime();
     });
   }, [allFees, filterStatus, filterClubId, searchQuery]);
 
-  // Calculate status counts
+  // Calculate status counts - use robust status extraction
   const statusCounts = useMemo(() => {
     const validFees = allFees.filter(f => f && f.id);
     return {
       all: validFees.length,
-      paid: validFees.filter(f => f.status?.toUpperCase() === 'PAID').length,
-      pending: validFees.filter(f => f.status?.toUpperCase() === 'PENDING').length,
-      failed: validFees.filter(f => f.status?.toUpperCase() === 'FAILED').length,
+      paid: validFees.filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'PAID';
+      }).length,
+      pending: validFees.filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'PENDING';
+      }).length,
+      failed: validFees.filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'FAILED';
+      }).length,
     };
   }, [allFees]);
 
@@ -239,11 +332,15 @@ const StudentFees = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Clubs</SelectItem>
-                {joinedClubs.map((club) => (
-                  <SelectItem key={club.id} value={club.id.toString()}>
-                    {club.title || club.name || `Club ${club.id}`}
-                  </SelectItem>
-                ))}
+                {joinedClubs.map((club) => {
+                  const clubId = getClubId(club);
+                  if (!clubId) return null;
+                  return (
+                    <SelectItem key={clubId} value={clubId.toString()}>
+                      {club.title || club.name || `Club ${clubId}`}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

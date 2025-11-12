@@ -18,6 +18,42 @@ import { addActivity } from '@/components/student/ActivityTimeline';
 
 const STORAGE_KEY = 'student_read_announcements';
 
+// Helper function to extract club ID from multiple possible fields
+const getClubId = (club: any): number | null => {
+  if (!club) return null;
+  const clubId = club.id || club.clubId || club.club_id;
+  if (clubId == null) return null;
+  const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+  return isNaN(numId) ? null : numId;
+};
+
+// Helper function to extract announcement club ID
+const getAnnouncementClubId = (ann: any): number | null => {
+  if (!ann) return null;
+  const clubId = ann.club?.id || ann.clubId || ann.club_id || ann.club?.clubId || ann.club?.club_id;
+  if (clubId == null) return null;
+  const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+  return isNaN(numId) ? null : numId;
+};
+
+// Helper function to extract date from multiple possible fields
+const getAnnouncementDate = (ann: any): Date | null => {
+  const dateStr = ann.createdAt || ann.created_at || ann.scheduledAt || ann.scheduled_at || ann.date || ann.postedAt;
+  if (!dateStr) return null;
+  try {
+    // Try parseISO first (for ISO strings)
+    if (typeof dateStr === 'string') {
+      const parsed = parseISO(dateStr);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    // Fallback to Date constructor
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+};
+
 const StudentAnnouncements = () => {
   const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -61,6 +97,7 @@ const StudentAnnouncements = () => {
     }
   }, [user?.id]);
 
+
   const loadData = async () => {
     if (!user?.id) return;
     setIsLoading(true);
@@ -74,26 +111,51 @@ const StudentAnnouncements = () => {
       const clubsList = extractCollection<any>(joinedClubsRes) || [];
       setJoinedClubs(clubsList);
 
+      console.log('📢 Loaded joined clubs:', clubsList.length);
+      console.log('📢 Sample club:', clubsList[0]);
+
       // Load announcements from all joined clubs
-      const validClubs = clubsList.filter(club => club && club.id != null);
+      const validClubs = clubsList.filter(club => {
+        const clubId = getClubId(club);
+        return clubId != null;
+      });
+
+      console.log('📢 Valid clubs for announcements:', validClubs.length);
+
       const announcementPromises = validClubs.map(async (club) => {
         try {
-          const response = await announcementApi.getByClub(club.id);
+          const clubId = getClubId(club);
+          if (!clubId) return [];
+
+          const response = await announcementApi.getByClub(clubId);
+          
           // Handle different response formats
+          let announcementsList: any[] = [];
           if (Array.isArray(response)) {
-            return response.filter(ann => ann && ann.id).map(ann => ({
-              ...ann,
-              club: club, // Ensure club info is attached
-            }));
+            announcementsList = response;
+          } else {
+            // Try HATEOAS format
+            announcementsList = extractCollection<any>(response) || [];
           }
-          // Try HATEOAS format
-          const announcementsList = extractCollection<any>(response);
-          return Array.isArray(announcementsList)
-            ? announcementsList.filter(ann => ann && ann.id).map(ann => ({
+
+          // Enrich announcements with club data
+          return announcementsList
+            .filter(ann => ann && ann.id)
+            .map(ann => {
+              // Ensure club info is properly attached
+              const enrichedClub = {
+                id: clubId,
+                title: club.title || club.name,
+                name: club.name || club.title,
+                ...club,
+              };
+              
+              return {
                 ...ann,
-                club: club,
-              }))
-            : [];
+                club: enrichedClub,
+                clubId: clubId, // Also add top-level clubId for easier filtering
+              };
+            });
         } catch (err: any) {
           // Silently fail for individual clubs
           console.warn(`Failed to load announcements for club ${club.id}:`, err);
@@ -104,10 +166,15 @@ const StudentAnnouncements = () => {
       const announcementArrays = await Promise.all(announcementPromises);
       const allAnnouncementsList = announcementArrays.flat();
 
+      console.log('📢 Total announcements loaded:', allAnnouncementsList.length);
+
       // Deduplicate by ID
       const uniqueAnnouncements = allAnnouncementsList.filter((ann, index, self) =>
         ann && ann.id && index === self.findIndex(a => a && a.id === ann.id)
       );
+
+      console.log('📢 Unique announcements after deduplication:', uniqueAnnouncements.length);
+      console.log('📢 Sample announcement:', uniqueAnnouncements[0]);
 
       setAllAnnouncements(uniqueAnnouncements);
       setAnnouncements(uniqueAnnouncements);
@@ -123,6 +190,7 @@ const StudentAnnouncements = () => {
     }
   };
 
+
   const filteredAnnouncements = useMemo(() => {
     let filtered = allAnnouncements.filter(ann => ann && ann.id);
 
@@ -133,13 +201,19 @@ const StudentAnnouncements = () => {
       filtered = filtered.filter(ann => !readAnnouncements.includes(ann.id));
     }
 
-    // Filter by club
+    // Filter by club - use robust club ID matching
     if (filterClubId !== 'all') {
       const clubIdNum = parseInt(filterClubId);
       if (!isNaN(clubIdNum)) {
-        filtered = filtered.filter(ann =>
-          ann.club && ann.club.id === clubIdNum
-        );
+        filtered = filtered.filter(ann => {
+          const annClubId = getAnnouncementClubId(ann);
+          // Try both exact match and type-coerced match
+          return annClubId != null && (
+            annClubId === clubIdNum ||
+            Number(annClubId) === Number(clubIdNum) ||
+            String(annClubId) === String(clubIdNum)
+          );
+        });
       }
     }
 
@@ -154,17 +228,15 @@ const StudentAnnouncements = () => {
       });
     }
 
-    // Sort by date (newest first)
+    // Sort by date (newest first) - use robust date extraction
     return filtered.sort((a, b) => {
-      if (!a.createdAt) return 1;
-      if (!b.createdAt) return -1;
-      try {
-        const dateA = parseISO(a.createdAt);
-        const dateB = parseISO(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
-      } catch {
-        return 0;
-      }
+      const dateA = getAnnouncementDate(a);
+      const dateB = getAnnouncementDate(b);
+      
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      
+      return dateB.getTime() - dateA.getTime();
     });
   }, [allAnnouncements, filterReadStatus, filterClubId, searchQuery, readAnnouncements]);
 
@@ -296,11 +368,15 @@ const StudentAnnouncements = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Clubs</SelectItem>
-                {joinedClubs.map((club) => (
-                  <SelectItem key={club.id} value={club.id.toString()}>
-                    {club.title || club.name || `Club ${club.id}`}
-                  </SelectItem>
-                ))}
+                {joinedClubs.map((club) => {
+                  const clubId = getClubId(club);
+                  if (!clubId) return null;
+                  return (
+                    <SelectItem key={clubId} value={clubId.toString()}>
+                      {club.title || club.name || `Club ${clubId}`}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -376,17 +452,21 @@ const StudentAnnouncements = () => {
                 )}
 
                 {/* Date */}
-                {selectedAnnouncement.createdAt && (
-                  <div className="flex items-center gap-2 pt-4 border-t">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-semibold">Posted</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(parseISO(selectedAnnouncement.createdAt), 'EEEE, MMMM dd, yyyy HH:mm')}
-                      </p>
+                {(() => {
+                  const announcementDate = getAnnouncementDate(selectedAnnouncement);
+                  if (!announcementDate) return null;
+                  return (
+                    <div className="flex items-center gap-2 pt-4 border-t">
+                      <Clock className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-semibold">Posted</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(announcementDate, 'EEEE, MMMM dd, yyyy HH:mm')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Action */}
                 {!readAnnouncements.includes(selectedAnnouncement.id) && (

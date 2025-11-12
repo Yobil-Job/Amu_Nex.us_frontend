@@ -10,14 +10,22 @@ interface EventCardProps {
     title?: string;
     description?: string;
     startAt?: string;
+    startDate?: string;
+    date?: string;
     endAt?: string;
+    endDate?: string;
     latitude?: number;
+    lat?: number;
     longitude?: number;
+    lng?: number;
+    lon?: number;
     club?: {
       id: number;
       title?: string;
       name?: string;
     };
+    clubId?: number;
+    club_id?: number;
   };
   onViewDetails?: (event: any) => void;
   onMarkGoing?: (eventId: number) => void;
@@ -34,9 +42,17 @@ const EventCard = ({
   isGoing = false,
   isInterested = false,
 }: EventCardProps) => {
-  const isUpcoming = event?.startAt ? (() => {
+  // Robust date extraction
+  const eventDateStr = event?.startAt || event?.startDate || event?.date;
+  const isUpcoming = eventDateStr ? (() => {
     try {
-      return isAfter(parseISO(event.startAt), new Date());
+      const date = parseISO(eventDateStr);
+      if (isNaN(date.getTime())) {
+        const fallbackDate = new Date(eventDateStr);
+        if (isNaN(fallbackDate.getTime())) return false;
+        return isAfter(fallbackDate, new Date());
+      }
+      return isAfter(date, new Date());
     } catch {
       return false;
     }
@@ -73,13 +89,26 @@ const EventCard = ({
         )}
 
         <div className="space-y-2 text-sm">
-          {event?.startAt && (() => {
+          {eventDateStr && (() => {
             try {
+              const date = parseISO(eventDateStr);
+              if (isNaN(date.getTime())) {
+                const fallbackDate = new Date(eventDateStr);
+                if (isNaN(fallbackDate.getTime())) return null;
+                return (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      {format(fallbackDate, 'MMM dd, yyyy')}
+                    </span>
+                  </div>
+                );
+              }
               return (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   <span>
-                    {format(parseISO(event.startAt), 'MMM dd, yyyy')}
+                    {format(date, 'MMM dd, yyyy')}
                   </span>
                 </div>
               );
@@ -87,13 +116,17 @@ const EventCard = ({
               return null;
             }
           })()}
-          {event?.startAt && event?.endAt && (() => {
+          {eventDateStr && (event?.endAt || event?.endDate) && (() => {
             try {
+              const startDate = parseISO(eventDateStr);
+              const endDateStr = event?.endAt || event?.endDate;
+              const endDate = parseISO(endDateStr);
+              if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
               return (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="h-4 w-4" />
                   <span>
-                    {format(parseISO(event.startAt), 'hh:mm a')} - {format(parseISO(event.endAt), 'hh:mm a')}
+                    {format(startDate, 'hh:mm a')} - {format(endDate, 'hh:mm a')}
                   </span>
                 </div>
               );
@@ -101,12 +134,32 @@ const EventCard = ({
               return null;
             }
           })()}
-          {(event?.latitude != null && event?.longitude != null) && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>Location available</span>
-            </div>
-          )}
+          {(() => {
+            // Robust location extraction - check multiple possible field names
+            const lat = event?.latitude || event?.lat || event?.location?.latitude || event?.location?.lat;
+            const lng = event?.longitude || event?.lng || event?.lon || event?.location?.longitude || event?.location?.lng || event?.location?.lon;
+            const hasLocation = lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng));
+            
+            if (!hasLocation) return null;
+            
+            const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+            
+            return (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="hover:text-primary hover:underline truncate"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  View on Map
+                </a>
+              </div>
+            );
+          })()}
         </div>
 
         {isUpcoming && (

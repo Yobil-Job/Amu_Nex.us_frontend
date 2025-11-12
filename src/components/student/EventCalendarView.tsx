@@ -42,9 +42,17 @@ const EventCalendarView = ({ events, onDateClick, onEventClick }: EventCalendarV
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
-      if (!event || !event.id || !event.startAt) return false;
+      if (!event || !event.id) return false;
+      // Robust date extraction
+      const dateStr = event.startAt || event.startDate || event.date;
+      if (!dateStr) return false;
       try {
-        const eventDate = parseISO(event.startAt);
+        const eventDate = parseISO(dateStr);
+        if (isNaN(eventDate.getTime())) {
+          const fallbackDate = new Date(dateStr);
+          if (isNaN(fallbackDate.getTime())) return false;
+          return isSameDay(fallbackDate, date);
+        }
         return isSameDay(eventDate, date);
       } catch {
         return false;
@@ -118,10 +126,14 @@ const EventCalendarView = ({ events, onDateClick, onEventClick }: EventCalendarV
                   transition-colors
                 `}
                 onClick={() => {
-                  if (hasEvents && onDateClick) {
+                  if (hasEvents && onEventClick && dayEvents.length > 0) {
+                    // If clicking on a day with events, open the first event
+                    onEventClick(dayEvents[0]);
+                  } else if (hasEvents && onDateClick) {
                     onDateClick(date);
                   }
                 }}
+                style={{ pointerEvents: 'auto' }}
               >
                 <div className="text-xs font-medium mb-1">
                   {format(date, 'd')}
@@ -130,12 +142,24 @@ const EventCalendarView = ({ events, onDateClick, onEventClick }: EventCalendarV
                   {dayEvents.slice(0, 2).map((event) => (
                     <div
                       key={event.id}
-                      className="text-xs p-1 bg-primary/10 text-primary rounded truncate cursor-pointer hover:bg-primary/20"
+                      className="text-xs p-1 bg-primary/10 text-primary rounded truncate cursor-pointer hover:bg-primary/20 transition-colors"
+                      style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
+                        console.log('Event clicked in calendar:', event.id);
                         onEventClick?.(event);
                       }}
-                      title={event.title}
+                      title={event.title || 'Event'}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onEventClick?.(event);
+                        }
+                      }}
                     >
                       {event.title || 'Event'}
                     </div>

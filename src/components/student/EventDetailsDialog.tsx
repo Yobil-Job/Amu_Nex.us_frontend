@@ -26,17 +26,28 @@ const EventDetailsDialog = ({
 }: EventDetailsDialogProps) => {
   if (!event || !event.id) return null;
 
-  const isUpcoming = event?.startAt ? (() => {
+  // Robust date extraction
+  const eventDateStr = event?.startAt || event?.startDate || event?.date;
+  const isUpcoming = eventDateStr ? (() => {
     try {
-      return isAfter(parseISO(event.startAt), new Date());
+      const date = parseISO(eventDateStr);
+      if (isNaN(date.getTime())) {
+        const fallbackDate = new Date(eventDateStr);
+        if (isNaN(fallbackDate.getTime())) return false;
+        return isAfter(fallbackDate, new Date());
+      }
+      return isAfter(date, new Date());
     } catch {
       return false;
     }
   })() : false;
   
-  const hasLocation = event?.latitude != null && event?.longitude != null;
+  // Robust location extraction - check multiple possible field names
+  const lat = event?.latitude || event?.lat || event?.location?.latitude || event?.location?.lat;
+  const lng = event?.longitude || event?.lng || event?.lon || event?.location?.longitude || event?.location?.lng || event?.location?.lon;
+  const hasLocation = lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng));
   const mapUrl = hasLocation
-    ? `https://www.google.com/maps?q=${event.latitude},${event.longitude}`
+    ? `https://www.google.com/maps?q=${lat},${lng}`
     : null;
 
   return (
@@ -72,15 +83,31 @@ const EventDetailsDialog = ({
 
           {/* Date and Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {event?.startAt && (() => {
+            {eventDateStr && (() => {
               try {
+                const date = parseISO(eventDateStr);
+                if (isNaN(date.getTime())) {
+                  const fallbackDate = new Date(eventDateStr);
+                  if (isNaN(fallbackDate.getTime())) return null;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-semibold">Date</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(fallbackDate, 'EEEE, MMMM dd, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-primary" />
                     <div>
                       <p className="font-semibold">Date</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(parseISO(event.startAt), 'EEEE, MMMM dd, yyyy')}
+                        {format(date, 'EEEE, MMMM dd, yyyy')}
                       </p>
                     </div>
                   </div>
@@ -89,15 +116,19 @@ const EventDetailsDialog = ({
                 return null;
               }
             })()}
-            {event?.startAt && event?.endAt && (() => {
+            {eventDateStr && (event?.endAt || event?.endDate) && (() => {
               try {
+                const startDate = parseISO(eventDateStr);
+                const endDateStr = event?.endAt || event?.endDate;
+                const endDate = parseISO(endDateStr);
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
                 return (
                   <div className="flex items-center gap-2">
                     <Clock className="h-5 w-5 text-primary" />
                     <div>
                       <p className="font-semibold">Time</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(parseISO(event.startAt), 'hh:mm a')} - {format(parseISO(event.endAt), 'hh:mm a')}
+                        {format(startDate, 'hh:mm a')} - {format(endDate, 'hh:mm a')}
                       </p>
                     </div>
                   </div>
@@ -109,29 +140,41 @@ const EventDetailsDialog = ({
           </div>
 
           {/* Location */}
-          {hasLocation && (
+          {hasLocation ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
                 <h4 className="font-semibold">Location</h4>
               </div>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden bg-muted/20">
                 <LocationPicker
-                  latitude={typeof event.latitude === 'number' ? event.latitude : parseFloat(event.latitude.toString())}
-                  longitude={typeof event.longitude === 'number' ? event.longitude : parseFloat(event.longitude.toString())}
-                  readOnly={true}
+                  latitude={typeof lat === 'number' ? lat : parseFloat(String(lat))}
+                  longitude={typeof lng === 'number' ? lng : parseFloat(String(lng))}
+                  editable={false}
+                  height="300px"
+                  eventTitle={event.title || 'Event Location'}
+                  onLocationChange={() => {}} // Required prop but not used in read-only mode
                 />
               </div>
               {mapUrl && (
                 <Button
                   variant="outline"
-                  onClick={() => window.open(mapUrl, '_blank')}
+                  onClick={() => window.open(mapUrl, '_blank', 'noopener,noreferrer')}
                   className="w-full"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in Google Maps
                 </Button>
               )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <h4 className="font-semibold text-muted-foreground">Location</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">No location information available for this event.</p>
             </div>
           )}
 

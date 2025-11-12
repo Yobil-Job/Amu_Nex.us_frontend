@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ClubsJoinedWidget from '@/components/student/ClubsJoinedWidget';
 import UpcomingEventsWidget from '@/components/student/UpcomingEventsWidget';
 import AnnouncementsWidget from '@/components/student/AnnouncementsWidget';
-import ClubNewsWidget from '@/components/student/ClubNewsWidget';
+import LatestNewsCard from '@/components/student/LatestNewsCard';
 import ActivityTimeline from '@/components/student/ActivityTimeline';
 import ParticipationStatsWidget from '@/components/student/ParticipationStatsWidget';
 import { addActivity } from '@/components/student/ActivityTimeline';
@@ -493,7 +493,18 @@ const StudentDashboard = () => {
         />
       </div>
 
-      {/* Second Row - Announcements and Roles */}
+      {/* Latest News - Full Width */}
+      <LatestNewsCard
+        clubs={clubs}
+        isLoading={isLoading}
+        onViewAll={() => {
+          console.log('View All News clicked from dashboard');
+          // Navigate to news page when implemented
+          // navigate('/news');
+        }}
+      />
+
+      {/* Announcements - Two Columns */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Announcements Widget */}
         <AnnouncementsWidget
@@ -504,32 +515,18 @@ const StudentDashboard = () => {
           onMarkAsRead={handleMarkAnnouncementAsRead}
         />
 
-        {/* Club News Widget */}
-        <ClubNewsWidget
-          clubs={clubs}
-          isLoading={isLoading}
-          onViewAll={() => {
-            console.log('View All News clicked from dashboard');
-            // Navigate to news page when implemented
-            // navigate('/news');
-          }}
-        />
-      </div>
-
-      {/* Third Row - Stats and Activity */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        {/* Participation Stats Widget */}
-        <ParticipationStatsWidget
-          clubsCount={clubs.length}
-          eventsCount={events.length}
-          announcementsCount={announcements.length}
-          rolesCount={authorities.length}
-          isLoading={isLoading}
-        />
-
         {/* Activity Timeline */}
         <ActivityTimeline userId={user?.id} isLoading={isLoading} />
       </div>
+
+      {/* Participation Stats - Full Width */}
+      <ParticipationStatsWidget
+        clubsCount={clubs.length}
+        eventsCount={events.length}
+        announcementsCount={announcements.length}
+        rolesCount={authorities.length}
+        isLoading={isLoading}
+      />
 
       {/* Quick Actions */}
       <Card className="glass-card border-primary/20">

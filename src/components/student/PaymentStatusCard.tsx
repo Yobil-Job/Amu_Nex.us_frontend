@@ -18,8 +18,21 @@ interface PaymentStatusCardProps {
   };
 }
 
+// Helper function to extract status from multiple possible fields
+const getFeeStatus = (fee: any): string | null => {
+  return fee.status || fee.paymentStatus || fee.payment_status || null;
+};
+
+// Helper function to extract amount from multiple possible fields
+const getFeeAmount = (fee: any): number => {
+  return fee.amount || fee.feeAmount || fee.fee || fee.total || 0;
+};
+
 const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
-  const getStatusIcon = (status?: string) => {
+  const status = getFeeStatus(fee);
+  const amount = getFeeAmount(fee);
+
+  const getStatusIcon = (status?: string | null) => {
     switch (status?.toUpperCase()) {
       case 'PAID':
         return <CheckCircle2 className="h-5 w-5 text-success" />;
@@ -32,7 +45,7 @@ const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
     }
   };
 
-  const getStatusBadge = (status?: string) => {
+  const getStatusBadge = (status?: string | null) => {
     switch (status?.toUpperCase()) {
       case 'PAID':
         return (
@@ -61,7 +74,7 @@ const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
     }
   };
 
-  const getStatusColor = (status?: string) => {
+  const getStatusColor = (status?: string | null) => {
     switch (status?.toUpperCase()) {
       case 'PAID':
         return 'border-l-success bg-success/5';
@@ -74,15 +87,38 @@ const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
     }
   };
 
+  // Helper function to extract date from multiple possible fields
+  const getFeeDate = (fee: any): Date | null => {
+    const dateStr = fee.createdAt || fee.created_at || fee.paymentDate || fee.payment_date || fee.date || fee.paidDate || fee.paid_date;
+    if (!dateStr) return null;
+    try {
+      // Try parseISO first (for ISO strings)
+      if (typeof dateStr === 'string') {
+        try {
+          const parsed = parseISO(dateStr);
+          if (!isNaN(parsed.getTime())) return parsed;
+        } catch {
+          // Fallback to Date constructor
+        }
+      }
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  };
+
+  const feeDate = getFeeDate(fee);
+
   return (
-    <Card className={`border-l-4 transition-all hover:shadow-md ${getStatusColor(fee.status)}`}>
+    <Card className={`border-l-4 transition-all hover:shadow-md ${getStatusColor(status)}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              {getStatusIcon(fee.status)}
+              {getStatusIcon(status)}
               <CardTitle className="text-lg">
-                {fee.purpose || 'Fee Payment'}
+                {fee.purpose || fee.description || 'Fee Payment'}
               </CardTitle>
             </div>
             {fee.club && (
@@ -94,7 +130,7 @@ const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
               </div>
             )}
           </div>
-          {getStatusBadge(fee.status)}
+          {getStatusBadge(status)}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -104,24 +140,18 @@ const PaymentStatusCard = ({ fee }: PaymentStatusCardProps) => {
             <span className="text-sm">Amount</span>
           </div>
           <span className="text-xl font-semibold">
-            ${fee.amount?.toFixed(2) || '0.00'}
+            ${amount.toFixed(2)}
           </span>
         </div>
 
-        {fee.createdAt && (() => {
-          try {
-            return (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
-                <Calendar className="h-3 w-3" />
-                <span>
-                  {format(parseISO(fee.createdAt), 'MMM dd, yyyy HH:mm')}
-                </span>
-              </div>
-            );
-          } catch {
-            return null;
-          }
-        })()}
+        {feeDate && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
+            <Calendar className="h-3 w-3" />
+            <span>
+              {format(feeDate, 'MMM dd, yyyy HH:mm')}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

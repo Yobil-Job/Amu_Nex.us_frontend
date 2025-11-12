@@ -18,39 +18,77 @@ interface FeeSummaryProps {
   fees: Fee[];
 }
 
+// Helper function to extract amount from multiple possible fields
+const getFeeAmount = (fee: any): number => {
+  return fee.amount || fee.feeAmount || fee.fee || fee.total || 0;
+};
+
+// Helper function to extract status from multiple possible fields
+const getFeeStatus = (fee: any): string | null => {
+  return fee.status || fee.paymentStatus || fee.payment_status || null;
+};
+
+// Helper function to extract club ID
+const getClubId = (club: any): number | null => {
+  if (!club) return null;
+  const clubId = club.id || club.clubId || club.club_id;
+  if (clubId == null) return null;
+  const numId = typeof clubId === 'string' ? parseInt(clubId, 10) : Number(clubId);
+  return isNaN(numId) ? null : numId;
+};
+
 const FeeSummary = ({ fees }: FeeSummaryProps) => {
   const stats = useMemo(() => {
     const validFees = fees.filter(f => f && f.id);
     
     const totalPaid = validFees
-      .filter(f => f.status?.toUpperCase() === 'PAID')
-      .reduce((sum, f) => sum + (f.amount || 0), 0);
+      .filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'PAID';
+      })
+      .reduce((sum, f) => sum + getFeeAmount(f), 0);
 
     const totalPending = validFees
-      .filter(f => f.status?.toUpperCase() === 'PENDING')
-      .reduce((sum, f) => sum + (f.amount || 0), 0);
+      .filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'PENDING';
+      })
+      .reduce((sum, f) => sum + getFeeAmount(f), 0);
 
     const totalFailed = validFees
-      .filter(f => f.status?.toUpperCase() === 'FAILED')
-      .reduce((sum, f) => sum + (f.amount || 0), 0);
+      .filter(f => {
+        const status = getFeeStatus(f);
+        return status?.toUpperCase() === 'FAILED';
+      })
+      .reduce((sum, f) => sum + getFeeAmount(f), 0);
 
-    const totalAll = validFees.reduce((sum, f) => sum + (f.amount || 0), 0);
+    const totalAll = validFees.reduce((sum, f) => sum + getFeeAmount(f), 0);
 
-    const paidCount = validFees.filter(f => f.status?.toUpperCase() === 'PAID').length;
-    const pendingCount = validFees.filter(f => f.status?.toUpperCase() === 'PENDING').length;
-    const failedCount = validFees.filter(f => f.status?.toUpperCase() === 'FAILED').length;
+    const paidCount = validFees.filter(f => {
+      const status = getFeeStatus(f);
+      return status?.toUpperCase() === 'PAID';
+    }).length;
+    const pendingCount = validFees.filter(f => {
+      const status = getFeeStatus(f);
+      return status?.toUpperCase() === 'PENDING';
+    }).length;
+    const failedCount = validFees.filter(f => {
+      const status = getFeeStatus(f);
+      return status?.toUpperCase() === 'FAILED';
+    }).length;
 
     // Calculate club-wise totals
     const clubTotals: Record<number, { name: string; total: number; count: number }> = {};
     validFees.forEach(fee => {
-      if (fee.club?.id) {
-        const clubId = fee.club.id;
-        const clubName = fee.club.title || fee.club.name || `Club ${clubId}`;
+      const clubId = getClubId(fee.club);
+      if (clubId != null) {
+        const clubName = fee.club?.title || fee.club?.name || `Club ${clubId}`;
         if (!clubTotals[clubId]) {
           clubTotals[clubId] = { name: clubName, total: 0, count: 0 };
         }
-        if (fee.status?.toUpperCase() === 'PAID') {
-          clubTotals[clubId].total += fee.amount || 0;
+        const status = getFeeStatus(fee);
+        if (status?.toUpperCase() === 'PAID') {
+          clubTotals[clubId].total += getFeeAmount(fee);
         }
         clubTotals[clubId].count += 1;
       }
