@@ -37,15 +37,24 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
   const displayedClubs = useMemo(() => clubs.slice(0, 3), [clubs]);
 
   const handleViewAll = () => {
+    console.log('handleViewAll called');
     if (onViewAll) {
+      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
+      console.log('Navigating to /clubs');
       navigate('/clubs');
     }
   };
 
   const handleDiscoverClubs = () => {
-    navigate('/clubs');
+    console.log('handleDiscoverClubs called');
+    try {
+      navigate('/clubs');
+      console.log('Navigation to /clubs called successfully');
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   };
 
   if (isLoading) {
@@ -63,7 +72,7 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
   }
 
   return (
-    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all">
+    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all" style={{ pointerEvents: 'auto' }}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <div className="flex-1">
           <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
@@ -78,7 +87,7 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
           <Building2 className="h-6 w-6 text-primary" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4" style={{ pointerEvents: 'auto' }}>
         <div className="flex items-end justify-between">
           <div>
             <div className="text-4xl font-bold neon-text text-white mb-1">
@@ -123,12 +132,26 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
                 <span className="text-xs text-muted-foreground">+{clubsCount - 3} more</span>
               )}
             </div>
-            <div className="space-y-2 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+            <div className="space-y-2 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent" style={{ pointerEvents: 'auto' }}>
               {displayedClubs.map((club) => (
                 <div
                   key={club.id}
-                  className="glass-card p-2 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.01]"
-                  onClick={handleViewAll}
+                  className="glass-card p-2 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Club clicked:', club.id);
+                    navigate('/clubs', { state: { clubId: club.id } });
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate('/clubs', { state: { clubId: club.id } });
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     {club.logo ? (
@@ -179,19 +202,33 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
 
           <div className="flex gap-2 pt-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className="flex-1 border-primary/20 hover:bg-primary/10"
-              onClick={handleViewAll}
+              style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10, cursor: 'pointer' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('View All Clubs button clicked');
+                handleViewAll();
+              }}
             >
               View All
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
+              type="button"
               variant="default"
               size="sm"
               className="flex-1 bg-gradient-primary"
-              onClick={handleDiscoverClubs}
+              style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10, cursor: 'pointer' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Discover Clubs button clicked');
+                handleDiscoverClubs();
+              }}
             >
               <Plus className="h-4 w-4 mr-2" />
               Discover

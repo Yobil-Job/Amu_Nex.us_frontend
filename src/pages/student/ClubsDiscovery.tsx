@@ -66,8 +66,14 @@ const ClubsDiscovery = () => {
   const syncJoinRequestsWithJoinedClubs = useCallback((joined: any[]) => {
     setJoinRequests(prev => {
       const updated = prev.map(req => {
-        const isJoined = joined.some(club => club.id === req.clubId);
+        const isJoined = joined.some(club => {
+          // Robust club ID matching
+          const clubId = club.id || club.clubId || club.club_id;
+          const reqClubId = req.clubId;
+          return String(clubId) === String(reqClubId);
+        });
         if (isJoined && req.status === 'pending') {
+          console.log(`✅ Join request approved: Club ${req.clubId} - synced from joined clubs`);
           return { ...req, status: 'approved' as const };
         }
         return req;
@@ -79,20 +85,6 @@ const ClubsDiscovery = () => {
       return prev;
     });
   }, [saveJoinRequests]);
-
-  useEffect(() => {
-    // Wait for both user ID and role before making any API calls
-    if (!user?.id || !user?.role) {
-      return;
-    }
-
-    // Load all clubs (students can now access this endpoint for club discovery)
-    loadClubs();
-    
-    // Load joined clubs (this endpoint is accessible to students)
-    loadJoinedClubs();
-    loadJoinRequests();
-  }, [user?.id, user?.role]);
 
   const loadClubs = async () => {
     setIsLoading(true);
@@ -124,12 +116,14 @@ const ClubsDiscovery = () => {
     }
   };
 
-  const loadJoinedClubs = async () => {
+  const loadJoinedClubs = useCallback(async () => {
     if (!user?.id) return;
     try {
       const response = await studentApi.getClubs(user.id);
       const clubsList = extractCollection<any>(response);
+      console.log('📊 Loaded joined clubs:', clubsList.length);
       setJoinedClubs(clubsList);
+      // Sync join requests with joined clubs to update status
       syncJoinRequestsWithJoinedClubs(clubsList);
     } catch (error: any) {
       console.error('Failed to load joined clubs:', error);
@@ -142,7 +136,30 @@ const ClubsDiscovery = () => {
       
       setJoinedClubs([]);
     }
-  };
+  }, [user?.id, syncJoinRequestsWithJoinedClubs]);
+
+  useEffect(() => {
+    // Wait for both user ID and role before making any API calls
+    if (!user?.id || !user?.role) {
+      return;
+    }
+
+    // Load all clubs (students can now access this endpoint for club discovery)
+    loadClubs();
+    
+    // Load joined clubs (this endpoint is accessible to students)
+    loadJoinedClubs();
+    loadJoinRequests();
+
+    // Set up periodic sync to check if requests were approved/rejected
+    const syncInterval = setInterval(() => {
+      if (user?.id) {
+        loadJoinedClubs();
+      }
+    }, 30000); // Sync every 30 seconds
+
+    return () => clearInterval(syncInterval);
+  }, [user?.id, user?.role, loadJoinedClubs]);
 
   const handleJoinClub = async (club: any) => {
     if (!user?.id) {
@@ -442,83 +459,106 @@ const ClubsDiscovery = () => {
 
         <TabsContent value="joined" className="space-y-6">
           {joinedClubs.length === 0 ? (
-            <Card>
+            <Card className="border-primary/20">
               <CardContent className="text-center py-12">
-                <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Clubs Joined</h3>
-                <p className="text-muted-foreground mb-4">
-                  You haven't joined any clubs yet. Start exploring!
+                <div className="p-4 rounded-full bg-primary/10 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                  <Building2 className="h-10 w-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-white">No Clubs Joined</h3>
+                <p className="text-muted-foreground mb-6">
+                  You haven't joined any clubs yet. Start exploring and find clubs that match your interests!
                 </p>
-                <Button onClick={() => setActiveTab('discover')}>
+                <Button 
+                  onClick={() => setActiveTab('discover')}
+                  className="bg-gradient-primary"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
                   Discover Clubs
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {joinedClubs.map((club) => (
-                <Card
-                  key={club.id}
-                  className="border-success/20 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => openClubDetails(club)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {club.logo ? (
-                          <img
-                            src={club.logo}
-                            alt={`${club.title || club.name} logo`}
-                            className="w-14 h-14 rounded-full object-cover border-2 border-primary/30 shadow-md flex-shrink-0"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              if (target.nextElementSibling) {
-                                (target.nextElementSibling as HTMLElement).style.display = 'flex';
-                              }
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className={`w-14 h-14 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-primary/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
-                        >
-                          <Building2 className="h-7 w-7 text-primary-foreground" />
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Your Clubs ({joinedClubs.length})
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Clubs you're currently a member of
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {joinedClubs.map((club) => (
+                  <Card
+                    key={club.id}
+                    className="border-success/20 hover:shadow-lg hover:border-success/40 transition-all cursor-pointer glass-card"
+                    style={{ pointerEvents: 'auto' }}
+                    onClick={() => openClubDetails(club)}
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {club.logo ? (
+                            <img
+                              src={club.logo}
+                              alt={`${club.title || club.name} logo`}
+                              className="w-16 h-16 rounded-full object-cover border-2 border-success/30 shadow-md flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                if (target.nextElementSibling) {
+                                  (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center border-2 border-success/30 shadow-md flex-shrink-0 ${club.logo ? 'hidden' : ''}`}
+                          >
+                            <Building2 className="h-8 w-8 text-primary-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-xl mb-2 truncate text-white">
+                              {club.title || club.name}
+                            </CardTitle>
+                            {club.club_Type && (
+                              <Badge variant="outline" className="mb-2 text-xs">
+                                {club.club_Type}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-xl mb-2 truncate">
-                            {club.title || club.name}
-                          </CardTitle>
-                          {club.club_Type && (
-                            <Badge variant="outline" className="mb-2">
-                              {club.club_Type}
-                            </Badge>
-                          )}
-                        </div>
+                        <Badge className="bg-success/20 text-success border-success/30 flex-shrink-0">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Member
+                        </Badge>
                       </div>
-                      <Badge className="bg-success/20 text-success border-success/30">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Member
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <CardDescription className="line-clamp-3">
-                      {club.description || 'No description available'}
-                    </CardDescription>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openClubDetails(club);
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <CardDescription className="line-clamp-2 text-sm">
+                        {club.description || 'No description available'}
+                      </CardDescription>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-success/30 hover:bg-success/10 hover:border-success/50"
+                        style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openClubDetails(club);
+                        }}
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -560,13 +600,66 @@ const ClubsDiscovery = () => {
                 </div>
               </DialogHeader>
               <DialogDescription className="space-y-4">
+                {/* Club Logo */}
+                <div className="flex justify-center mb-4">
+                  {selectedClub.logo ? (
+                    <img
+                      src={selectedClub.logo}
+                      alt={`${selectedClub.title || selectedClub.name} logo`}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-primary/30 shadow-lg"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        if (target.nextElementSibling) {
+                          (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center border-4 border-primary/30 shadow-lg ${selectedClub.logo ? 'hidden' : ''}`}
+                  >
+                    <Building2 className="h-12 w-12 text-primary-foreground" />
+                  </div>
+                </div>
+
+                {/* Description */}
                 <div>
-                  <h4 className="font-semibold mb-2">Description</h4>
-                  <p className="text-muted-foreground">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    About
+                  </h4>
+                  <p className="text-muted-foreground leading-relaxed">
                     {selectedClub.description || 'No description available'}
                   </p>
                 </div>
+
+                {/* Club Type */}
+                {selectedClub.club_Type && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Category</h4>
+                    <Badge variant="outline" className="text-sm">
+                      {selectedClub.club_Type}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Join Status */}
+                <div className="pt-4 border-t">
+                  {isJoined(selectedClub.id) ? (
+                    <div className="flex items-center gap-2 text-success mb-4">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="font-medium">You are a member of this club</span>
+                    </div>
+                  ) : hasPendingRequest(selectedClub.id) ? (
+                    <div className="flex items-center gap-2 text-accent mb-4">
+                      <Clock className="h-5 w-5" />
+                      <span className="font-medium">Your join request is pending approval</span>
+                    </div>
+                  ) : null}
+                </div>
                 
+                {/* Action Button */}
                 <div className="flex flex-wrap gap-4 pt-4 border-t">
                   <Button
                     variant={isJoined(selectedClub.id) ? "secondary" : "default"}
@@ -574,6 +667,7 @@ const ClubsDiscovery = () => {
                     onClick={() => {
                       if (!isJoined(selectedClub.id) && !hasPendingRequest(selectedClub.id)) {
                         handleJoinClub(selectedClub);
+                        setIsDetailsDialogOpen(false);
                       }
                     }}
                     disabled={isJoined(selectedClub.id) || hasPendingRequest(selectedClub.id)}

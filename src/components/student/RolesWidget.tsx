@@ -84,10 +84,18 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
   const latestRoles = activeAuthorities.slice(0, 3);
 
   const handleViewAll = () => {
+    console.log('handleViewAll called');
     if (onViewAll) {
+      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      navigate('/profile');
+      console.log('Navigating to /profile');
+      try {
+        navigate('/profile', { state: { tab: 'authorities' } });
+        console.log('Navigation to /profile called successfully');
+      } catch (error) {
+        console.error('Navigation error:', error);
+      }
     }
   };
 
@@ -106,7 +114,7 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
   }
 
   return (
-    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all">
+    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all" style={{ pointerEvents: 'auto' }}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <div className="flex-1">
           <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
@@ -121,7 +129,7 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
           <Shield className="h-6 w-6 text-info" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4" style={{ pointerEvents: 'auto' }}>
         {activeAuthorities.length === 0 ? (
           <div className="text-center py-8">
             <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-3 opacity-50" />
@@ -132,12 +140,26 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
           </div>
         ) : (
           <>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent" style={{ pointerEvents: 'auto' }}>
               {latestRoles.map((authority) => (
                 <div
                   key={authority.id}
-                  className="glass-card p-3 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.01]"
-                  onClick={() => navigate('/profile')}
+                  className="glass-card p-3 rounded-lg border border-primary/20 hover:bg-primary/10 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Role clicked:', authority.id);
+                    navigate('/profile', { state: { tab: 'authorities' } });
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate('/profile', { state: { tab: 'authorities' } });
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -199,10 +221,17 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
                 </div>
               </div>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 className="w-full border-primary/20 hover:bg-primary/10"
-                onClick={handleViewAll}
+                style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10, cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('View All Roles button clicked');
+                  handleViewAll();
+                }}
               >
                 View All Roles
                 <ChevronRight className="h-4 w-4 ml-2" />

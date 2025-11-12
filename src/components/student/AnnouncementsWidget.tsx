@@ -99,10 +99,18 @@ const AnnouncementsWidget = ({
   };
 
   const handleViewAll = () => {
+    console.log('handleViewAll called');
     if (onViewAll) {
+      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      navigate('/announcements');
+      console.log('Navigating to /announcements');
+      try {
+        navigate('/announcements');
+        console.log('Navigation to /announcements called successfully');
+      } catch (error) {
+        console.error('Navigation error:', error);
+      }
     }
   };
 
@@ -121,7 +129,7 @@ const AnnouncementsWidget = ({
   }
 
   return (
-    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all">
+    <Card className="glass-card border-primary/20 glow-effect h-full hover:shadow-lg transition-all" style={{ pointerEvents: 'auto' }}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <div className="flex-1">
           <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
@@ -144,7 +152,7 @@ const AnnouncementsWidget = ({
           <Bell className="h-6 w-6 text-accent" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4" style={{ pointerEvents: 'auto' }}>
         {/* Announcements Statistics */}
         {announcements.length > 0 && announcementsByClub.length > 0 && (
           <div className="glass-card p-3 rounded-lg border border-primary/20">
@@ -175,18 +183,32 @@ const AnnouncementsWidget = ({
             <p className="text-sm text-muted-foreground">No announcements yet</p>
           </div>
         ) : (
-          <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent" style={{ pointerEvents: 'auto' }}>
             {latestAnnouncements.map((announcement) => {
               const isRead = readAnnouncements.includes(announcement.id);
               return (
                 <div
                   key={announcement.id}
-                  className={`glass-card p-3 rounded-lg border transition-all cursor-pointer hover:scale-[1.01] ${
+                  className={`glass-card p-3 rounded-lg border transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] ${
                     !isRead
                       ? 'border-l-4 border-l-primary bg-primary/5'
                       : 'border-primary/20 hover:bg-primary/10'
                   }`}
-                  onClick={() => navigate('/announcements')}
+                  style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Announcement clicked:', announcement.id);
+                    navigate('/announcements', { state: { announcementId: announcement.id } });
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate('/announcements', { state: { announcementId: announcement.id } });
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -238,11 +260,15 @@ const AnnouncementsWidget = ({
                     </div>
                     {!isRead && onMarkAsRead && (
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 flex-shrink-0"
+                        style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10, cursor: 'pointer' }}
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
+                          console.log('Mark as read clicked:', announcement.id);
                           onMarkAsRead(announcement.id);
                         }}
                       >
@@ -259,10 +285,17 @@ const AnnouncementsWidget = ({
         {latestAnnouncements.length > 0 && (
           <div className="pt-3 border-t border-primary/20">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className="w-full border-primary/20 hover:bg-primary/10"
-              onClick={handleViewAll}
+              style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10, cursor: 'pointer' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('View All Announcements button clicked');
+                handleViewAll();
+              }}
             >
               View All Announcements
               <ChevronRight className="h-4 w-4 ml-2" />

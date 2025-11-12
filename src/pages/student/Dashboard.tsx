@@ -6,12 +6,12 @@ import { studentApi, eventApi, announcementApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Calendar, Bell, Shield, Activity, TrendingUp, Sparkles } from 'lucide-react';
+import { Building2, Calendar, Bell, Newspaper, Activity, TrendingUp, Sparkles, UserCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import ClubsJoinedWidget from '@/components/student/ClubsJoinedWidget';
 import UpcomingEventsWidget from '@/components/student/UpcomingEventsWidget';
 import AnnouncementsWidget from '@/components/student/AnnouncementsWidget';
-import RolesWidget from '@/components/student/RolesWidget';
+import ClubNewsWidget from '@/components/student/ClubNewsWidget';
 import ActivityTimeline from '@/components/student/ActivityTimeline';
 import ParticipationStatsWidget from '@/components/student/ParticipationStatsWidget';
 import { addActivity } from '@/components/student/ActivityTimeline';
@@ -188,8 +188,22 @@ const StudentDashboard = () => {
 
       if (import.meta.env.DEV) {
         console.log('✅ Loaded events:', uniqueEvents.length);
+        console.log('📊 Events breakdown:', {
+          fromStudentApi: eventsList.length,
+          fromClubs: clubEvents.length,
+          total: allEvents.length,
+          unique: uniqueEvents.length,
+        });
         if (uniqueEvents.length > 0) {
           console.log('✅ Sample event:', uniqueEvents[0]);
+          console.log('✅ Event date fields:', {
+            startAt: uniqueEvents[0].startAt,
+            startDate: uniqueEvents[0].startDate,
+            date: uniqueEvents[0].date,
+          });
+        } else if (allEvents.length > 0) {
+          console.warn('⚠️ Events loaded but filtered out:', allEvents.length);
+          console.log('⚠️ Sample filtered event:', allEvents[0]);
         }
       }
 
@@ -338,26 +352,6 @@ const StudentDashboard = () => {
     }
   }).length;
 
-  const activeRolesCount = authorities.filter(auth => {
-    if (!auth) return false;
-    // Check multiple possible date fields
-    const startDateStr = auth.startDate || auth.start_date || auth.startAt;
-    if (!startDateStr) return false;
-    try {
-      const startDate = new Date(startDateStr);
-      if (isNaN(startDate.getTime())) return false;
-      if (startDate > new Date()) return false; // Not started yet
-      
-      const endDateStr = auth.endDate || auth.end_date || auth.endAt;
-      if (!endDateStr) return true; // No end date means active
-      
-      const endDate = new Date(endDateStr);
-      if (isNaN(endDate.getTime())) return true; // Invalid end date, consider active
-      return endDate > new Date(); // Active if end date is in the future
-    } catch {
-      return false;
-    }
-  }).length;
 
   const unreadAnnouncementsCount = announcements.filter(
     ann => !readAnnouncements.includes(ann.id)
@@ -456,13 +450,13 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-info/20 stat-card glow-effect hover:shadow-lg transition-all">
+        <Card className="glass-card border-accent/20 stat-card glow-effect hover:shadow-lg transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Active Roles
+              Club News
             </CardTitle>
-            <div className="p-3 rounded-xl bg-info/10 shadow-sm animate-float">
-              <Shield className="h-5 w-5 text-info" />
+            <div className="p-3 rounded-xl bg-accent/10 shadow-sm animate-float">
+              <Newspaper className="h-5 w-5 text-accent" />
             </div>
           </CardHeader>
           <CardContent>
@@ -470,10 +464,10 @@ const StudentDashboard = () => {
               {isLoading ? (
                 <span className="animate-pulse">...</span>
               ) : (
-                <span className="neon-text text-white">{activeRolesCount}</span>
+                <span className="neon-text text-white">{clubs.length > 0 ? clubs.length : 0}</span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Authority positions</p>
+            <p className="text-sm text-muted-foreground">News sources</p>
           </CardContent>
         </Card>
       </div>
@@ -490,9 +484,12 @@ const StudentDashboard = () => {
 
         {/* Upcoming Events Widget */}
         <UpcomingEventsWidget
-          events={events}
+          events={events || []}
           isLoading={isLoading}
-          onViewAll={() => navigate('/events')}
+          onViewAll={() => {
+            console.log('View All Events clicked');
+            navigate('/events');
+          }}
         />
       </div>
 
@@ -507,11 +504,15 @@ const StudentDashboard = () => {
           onMarkAsRead={handleMarkAnnouncementAsRead}
         />
 
-        {/* Roles Widget */}
-        <RolesWidget
-          authorities={authorities}
+        {/* Club News Widget */}
+        <ClubNewsWidget
+          clubs={clubs}
           isLoading={isLoading}
-          onViewAll={() => navigate('/profile')}
+          onViewAll={() => {
+            console.log('View All News clicked from dashboard');
+            // Navigate to news page when implemented
+            // navigate('/news');
+          }}
         />
       </div>
 
@@ -522,7 +523,7 @@ const StudentDashboard = () => {
           clubsCount={clubs.length}
           eventsCount={events.length}
           announcementsCount={announcements.length}
-          rolesCount={activeRolesCount}
+          rolesCount={authorities.length}
           isLoading={isLoading}
         />
 
@@ -591,11 +592,11 @@ const StudentDashboard = () => {
               onClick={() => navigate('/profile')}
             >
               <div className="p-2 rounded-lg bg-info/10 animate-float">
-                <Shield className="h-5 w-5 text-info" />
+                <UserCircle className="h-5 w-5 text-info" />
               </div>
               <div className="text-left">
                 <div className="font-semibold text-white">My Profile</div>
-                <div className="text-xs text-muted-foreground">View profile & roles</div>
+                <div className="text-xs text-muted-foreground">View profile & settings</div>
               </div>
             </Button>
           </div>
