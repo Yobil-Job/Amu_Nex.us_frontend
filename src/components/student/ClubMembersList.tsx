@@ -39,17 +39,8 @@ const ClubMembersList = ({ clubId }: ClubMembersListProps) => {
   const [hasAccess, setHasAccess] = useState(true);
 
   useEffect(() => {
-    // Students don't have permission to view club members/authorities
-    // Skip API calls and show access restricted message immediately
-    if (isStudent(user?.role)) {
-      setIsLoading(false);
-      setHasAccess(false);
-      setMembers([]);
-      setAuthorities([]);
-      return;
-    }
-
-    // For admins, try to load members and authorities
+    // Try to load members and authorities for all users
+    // Students might have read-only access to view members
     loadMembers();
     loadAuthorities();
   }, [clubId, user?.role]);
@@ -59,15 +50,21 @@ const ClubMembersList = ({ clubId }: ClubMembersListProps) => {
     try {
       const response = await clubApi.getMembers(clubId);
       const membersList = extractCollection<Member>(response);
+      console.log('📊 Loaded club members:', membersList.length);
       setMembers(membersList);
       setHasAccess(true);
     } catch (error: any) {
       console.error('Failed to load members:', error);
       if (error.status === 403) {
+        // Access denied - show appropriate message
         setHasAccess(false);
         setMembers([]);
-      } else {
+        // Don't show error toast for 403 - UI will show access restricted message
+      } else if (error.status !== 403) {
+        // Only show error toast for non-403 errors
         toast.error('Failed to load club members');
+        setMembers([]);
+      } else {
         setMembers([]);
       }
     } finally {
@@ -213,7 +210,10 @@ const ClubMembersList = ({ clubId }: ClubMembersListProps) => {
         <div className="space-y-3">
           {members.map((member) => {
             const authority = getAuthorityForStudent(member.id);
-            const isAdmin = authority !== undefined;
+            // Check if member is admin: either has authority role OR has ADMIN role
+            const isAdmin = authority !== undefined || member.role === 'ADMIN' || member.role === 'ROLE_ADMIN';
+            const displayName = (member.firstname || member.firstName || '') + ' ' + (member.lastname || member.lastName || '');
+            const trimmedName = displayName.trim() || member.email || 'Unknown User';
 
             return (
               <div
@@ -222,26 +222,33 @@ const ClubMembersList = ({ clubId }: ClubMembersListProps) => {
               >
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
                   <AvatarFallback className="bg-gradient-primary/10 text-primary font-semibold">
-                    {getInitials(member.firstname, member.lastname, member.email)}
+                    {getInitials(member.firstname || member.firstName, member.lastname || member.lastName, member.email)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">
-                      {member.firstname && member.lastname
-                        ? `${member.firstname} ${member.lastname}`
-                        : member.email || 'Unknown User'}
+                      {trimmedName}
                     </p>
-                    {isAdmin && authority && (
-                      <div className="flex items-center gap-1">
-                        {getRoleIcon(authority.name)}
-                        <Badge variant="secondary" className="text-xs">
-                          {authority.name}
-                        </Badge>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {authority ? (
+                          <>
+                            {getRoleIcon(authority.name)}
+                            <Badge variant="secondary" className="text-xs">
+                              {authority.name}
+                            </Badge>
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs bg-primary/20 text-primary border-primary/30">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Club Admin
+                          </Badge>
+                        )}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
                     {member.email && (
                       <span className="truncate">{member.email}</span>
                     )}

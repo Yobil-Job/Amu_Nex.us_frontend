@@ -10,32 +10,78 @@ import {
 } from '@/components/ui/dialog';
 import { LogOut, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { studentApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface LeaveClubButtonProps {
   clubName: string;
+  clubId: number;
   onLeave?: () => void;
 }
 
-const LeaveClubButton = ({ clubName, onLeave }: LeaveClubButtonProps) => {
+const LeaveClubButton = ({ clubName, clubId, onLeave }: LeaveClubButtonProps) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
   const handleLeave = async () => {
+    if (!user?.id) {
+      toast.error('Please login to leave a club');
+      return;
+    }
+
     setIsLeaving(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // UI-only action - no backend endpoint
-    toast.info('Leave club feature is UI-only. Backend endpoint is required for actual functionality.');
-    
-    // If a callback is provided, call it (for potential future integration)
-    if (onLeave) {
-      onLeave();
+    try {
+      // Try to call leave club endpoint (if it exists)
+      // DELETE /student/{studentId}/clubs/{clubId}/leave
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/student/${user.id}/clubs/${clubId}/leave`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        toast.success(`Successfully left ${clubName}`);
+        // Navigate to clubs page after leaving
+        navigate('/clubs');
+        // If a callback is provided, call it
+        if (onLeave) {
+          onLeave();
+        }
+      } else if (response.status === 404) {
+        // Endpoint doesn't exist - show info message
+        toast.info('Leave club endpoint not available. This is a UI-only action.');
+        // Still call callback for UI updates
+        if (onLeave) {
+          onLeave();
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to leave club');
+      }
+    } catch (error: any) {
+      console.error('Failed to leave club:', error);
+      // If it's a network error or endpoint doesn't exist, treat as UI-only
+      if (error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+        toast.info('Leave club endpoint not available. This is a UI-only action.');
+        if (onLeave) {
+          onLeave();
+        }
+      } else {
+        toast.error('Failed to leave club. Please try again.');
+      }
+    } finally {
+      setIsLeaving(false);
+      setIsDialogOpen(false);
     }
-    
-    setIsLeaving(false);
-    setIsDialogOpen(false);
   };
 
   return (

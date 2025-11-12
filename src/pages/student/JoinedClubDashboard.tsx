@@ -248,6 +248,7 @@ const JoinedClubDashboard = () => {
                       </Button>
                       <LeaveClubButton
                         clubName={selectedClub.title || selectedClub.name || 'this club'}
+                        clubId={selectedClubId}
                         onLeave={handleLeaveClub}
                       />
                     </CardContent>
