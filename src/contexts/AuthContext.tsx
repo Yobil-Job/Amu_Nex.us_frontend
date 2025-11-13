@@ -127,8 +127,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Role is already normalized in extractUserFromToken
             const fallbackUser: User = {
               email: tokenUser.email,
-              id: tokenUser.id,
-              role: tokenUser.role, // Already normalized (ADMIN, STUDENT, etc.)
+              id: tokenUser.id, // Ensure id is set from JWT
+              role: tokenUser.role, // Already normalized (ADMIN, STUDENT, SUPER_USER, etc.)
             };
             
             console.log('✅ Using JWT token data as fallback (user info extracted from token):', {
@@ -136,7 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: fallbackUser.id,
               role: fallbackUser.role,
               isClubAdmin: fallbackUser.role === 'ADMIN',
+              isSuperUser: fallbackUser.role === 'SUPER_USER',
             });
+            
+            // CRITICAL: Ensure id is set - if not in token, log warning
+            if (!fallbackUser.id) {
+              console.warn('⚠️ JWT token does not contain user id. This may cause issues with SUPER_USER club loading.');
+            }
+            
             setUser(fallbackUser);
             localStorage.setItem('user', JSON.stringify(fallbackUser));
             return fallbackUser;
@@ -303,16 +310,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return role.replace(/^ROLE_/, '').toUpperCase();
       };
 
-      // Create temporary user object with role and email
+      // Extract user ID from JWT token immediately (before fetchUserProfile)
+      // This ensures user.id is available for SUPER_USER club loading
+      let userIdFromToken: number | undefined;
+      try {
+        const tokenUser = extractUserFromToken(response.accessToken);
+        if (tokenUser && tokenUser.id) {
+          userIdFromToken = tokenUser.id;
+          console.log('✅ Extracted user ID from JWT token:', userIdFromToken);
+        }
+      } catch (tokenErr) {
+        console.warn('⚠️ Could not extract user ID from JWT token:', tokenErr);
+      }
+
+      // Create temporary user object with role, email, and id (if available from token)
       const tempUser: User = {
         email,
         role: normalizeRole(response.role),
+        id: userIdFromToken, // Set id immediately from JWT if available
       };
       
       console.log('✅ Normalized role from login response:', {
         rawRole: response.role,
         normalizedRole: tempUser.role,
         isClubAdmin: tempUser.role === 'ADMIN',
+        isSuperUser: tempUser.role === 'SUPER_USER',
+        userId: tempUser.id,
       });
       
       setUser(tempUser);
@@ -323,9 +346,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profileUser = await fetchUserProfile();
       if (profileUser) {
         // Profile fetched successfully (either from API or JWT)
+        // Ensure id is preserved if profile doesn't have it
+        if (!profileUser.id && tempUser.id) {
+          profileUser.id = tempUser.id;
+        }
         setUser(profileUser);
+        localStorage.setItem('user', JSON.stringify(profileUser));
+      } else if (tempUser.id) {
+        // If fetchUserProfile failed but we have id from token, keep tempUser
+        console.log('⚠️ fetchUserProfile returned null, but keeping tempUser with id from JWT');
       }
-      // If fetchUserProfile returns null, we continue with tempUser already set
+      // If fetchUserProfile returns null and no id from token, we continue with tempUser already set
 
       toast.success('Login successful!');
     } catch (error: any) {

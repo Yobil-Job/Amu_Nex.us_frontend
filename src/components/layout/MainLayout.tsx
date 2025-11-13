@@ -56,7 +56,10 @@ const MainLayout = () => {
   // Load club for super user
   useEffect(() => {
     if (isSuperUser(user?.role) && user?.id) {
+      console.log('🔍 [MainLayout] SUPER_USER detected, loading clubs for user ID:', user.id);
       loadSuperUserClub();
+    } else if (isSuperUser(user?.role) && !user?.id) {
+      console.warn('⚠️ [MainLayout] SUPER_USER detected but user.id is missing. Waiting for user profile to load...');
     }
   }, [user?.role, user?.id]);
 
@@ -200,25 +203,47 @@ const MainLayout = () => {
   };
 
   const loadSuperUserClub = async () => {
+    if (!user?.id) {
+      console.warn('⚠️ [MainLayout] loadSuperUserClub called but user.id is missing');
+      return;
+    }
+    
     try {
-      const authoritiesRes = await authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
-      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+      console.log('🔍 [MainLayout] Loading authorized clubs for SUPER_USER:', user.id);
+      
+      // Use the shared utility function (same approach as club admin)
+      const { loadAuthorizedClubsForUser } = await import('@/lib/superUserUtils');
+      const clubs = await loadAuthorizedClubsForUser(user.id);
 
-      // Filter authorities for the current user (SUPER_USER)
-      const userAuthorities = allAuthorities.filter((auth: any) => {
-        const studentId = auth.student?.id || auth.studentId;
-        return studentId === user?.id;
-      });
+      console.log('📊 [MainLayout] loadAuthorizedClubsForUser returned:', clubs.length, 'clubs');
 
-      if (userAuthorities.length > 0) {
-        // Get the first club ID (if multiple, use the first one)
-        const clubId = userAuthorities[0]?.club?.id || userAuthorities[0]?.clubId;
+      if (clubs.length > 0) {
+        // Get the first club ID (if multiple, can add selector later)
+        const clubId = clubs[0]?.id || clubs[0]?.clubId;
         if (clubId) {
-          setSuperUserClubId(clubId);
+          setSuperUserClubId(Number(clubId));
+          console.log('✅ [MainLayout] SUPER_USER club loaded successfully:', {
+            clubId: Number(clubId),
+            clubName: clubs[0]?.title || clubs[0]?.name,
+            totalClubs: clubs.length,
+          });
+        } else {
+          console.warn('⚠️ [MainLayout] Club object found but no valid club ID:', clubs[0]);
         }
+      } else {
+        console.warn('⚠️ [MainLayout] No clubs found for SUPER_USER. User may not be assigned to any club yet.');
+        console.warn('⚠️ [MainLayout] User details:', {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        });
       }
     } catch (error) {
-      console.error('Failed to load super user club:', error);
+      console.error('❌ [MainLayout] Failed to load super user club:', error);
+      console.error('❌ [MainLayout] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        user: { id: user?.id, email: user?.email, role: user?.role },
+      });
     }
   };
 

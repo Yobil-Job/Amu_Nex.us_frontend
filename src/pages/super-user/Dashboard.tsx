@@ -45,56 +45,48 @@ const SuperUserDashboard = () => {
     }
   }, [selectedClub?.id]);
 
-  // Load user's authorities (their positions in clubs)
+  // Load user's authorized clubs (using shared utility - same approach as club admin)
   const loadUserAuthorities = async () => {
+    if (!user?.id) return;
+    
     try {
-      const authoritiesRes = await authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
-      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+      const { loadAuthorizedClubsForUser, getUserPositionForClub } = await import('@/lib/superUserUtils');
+      const clubs = await loadAuthorizedClubsForUser(user.id);
 
-      // Filter authorities for the current user
-      // SUPER_USER role means they have authorities assigned by club admin
-      // Authority name is their position (e.g., "President", "Secretary", etc.)
-      const userAuths = allAuthorities.filter((auth: any) => {
-        const studentId = auth.student?.id || auth.studentId;
-        return studentId === user?.id;
-      });
-
-      setUserAuthorities(userAuths);
-
-      if (userAuths.length === 0) {
+      if (clubs.length === 0) {
         toast.info('You are not assigned as an authority for any club yet. Please contact your club admin to assign you a position.');
         setStats((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
-      // Get unique club IDs
-      const clubIds = [...new Set(userAuths.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
+      // Use the first club (if multiple, can add selector later)
+      const club = clubs[0];
+      setSelectedClub(club);
 
-      if (clubIds.length === 0) {
-        toast.error('No clubs found for your authorities');
-        setStats((prev) => ({ ...prev, isLoading: false }));
-        return;
+      // Get user position for this club
+      const clubId = club.id || club.clubId;
+      if (clubId) {
+        const position = await getUserPositionForClub(user.id, Number(clubId));
+        if (position) {
+          setUserPosition(position);
+        }
       }
 
-      // Fetch club details for the first club (if multiple, can add selector later)
+      // Also store all authorities for reference
       try {
-        const clubId = clubIds[0];
-        const club = await clubApi.getById(clubId);
-        setSelectedClub(club);
-
-        // Set user position for this club
-        const userAuthForClub = userAuths.find((auth: any) => (auth.club?.id || auth.clubId) === clubId);
-        if (userAuthForClub) {
-          setUserPosition(userAuthForClub.name || 'Authority');
-        }
-      } catch (error) {
-        console.error('Failed to load club:', error);
-        toast.error('Failed to load club information');
-        setStats((prev) => ({ ...prev, isLoading: false }));
+        const authoritiesRes = await authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+        const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+        const userAuths = allAuthorities.filter((auth: any) => {
+          const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
+          return studentId === user.id || Number(studentId) === Number(user.id);
+        });
+        setUserAuthorities(userAuths);
+      } catch (err) {
+        // Silently fail - not critical
       }
     } catch (error: any) {
-      console.error('Failed to load authorities:', error);
-      toast.error('Failed to load your authorities');
+      console.error('Failed to load authorized clubs:', error);
+      toast.error('Failed to load your club information');
       setStats((prev) => ({ ...prev, isLoading: false }));
     }
   };
