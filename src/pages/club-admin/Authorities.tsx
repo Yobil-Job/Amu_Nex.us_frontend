@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Shield, Plus, Search, X, RefreshCw } from 'lucide-react';
-import { authorityApi, clubApi } from '@/lib/api';
+import { authorityApi, clubApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { loadManagedClubsForUser } from '@/lib/clubAdminUtils';
 import { toast } from 'sonner';
@@ -78,10 +78,94 @@ const ClubAdminAuthorities = () => {
 
     setIsLoading(true);
     try {
-      const authoritiesRes = await authorityApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+      // Fetch both authorities and members in parallel
+      const [authoritiesRes, membersRes] = await Promise.all([
+        authorityApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } })),
+        clubApi.getMembers(selectedClub.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
+      ]);
+      
       const authoritiesList = extractCollection<any>(authoritiesRes) || [];
-      setAuthorities(authoritiesList);
+      const membersList = extractCollection<any>(membersRes) || [];
+      
+      if (import.meta.env.DEV) {
+        console.log('🔍 DEBUG: Authorities from getByClub:', authoritiesList.length);
+        console.log('🔍 DEBUG: Members from getMembers:', membersList.length);
+      }
+      
+      // Since authority response doesn't include student ID, we need to match by checking each member's authorities
+      // Create a map of authority ID to authority data
+      const authoritiesMap = new Map();
+      authoritiesList.forEach((auth: any) => {
+        authoritiesMap.set(Number(auth.id), auth);
+      });
+      
+      // For each member, get their authorities and match with our club's authorities
+      const enrichedAuthorities: any[] = [];
+      
+      for (const member of membersList) {
+        if (!member.id) continue;
+        
+        try {
+          // Get all authorities for this student
+          const studentAuthoritiesRes = await authorityApi.getByStudent(Number(member.id)).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+          const studentAuthorities = extractCollection<any>(studentAuthoritiesRes) || [];
+          
+          // Find authorities that match our club's authorities (by ID)
+          for (const studentAuth of studentAuthorities) {
+            const authorityId = studentAuth.id;
+            if (authoritiesMap.has(Number(authorityId))) {
+              // This student has this authority - enrich it with student data
+              const authority = authoritiesMap.get(Number(authorityId));
+              enrichedAuthorities.push({
+                ...authority,
+                student: {
+                  id: Number(member.id),
+                  firstname: member.firstname || '',
+                  lastname: member.lastname || '',
+                  email: member.email || '',
+                  department: member.department,
+                  yearOfStay: member.yearOfStay,
+                  ...member,
+                },
+                studentId: Number(member.id),
+              });
+              
+              // Remove from map so we don't add it twice
+              authoritiesMap.delete(Number(authorityId));
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to get authorities for student ${member.id}:`, error);
+        }
+      }
+      
+      // Add any remaining authorities that weren't matched (shouldn't happen, but handle gracefully)
+      authoritiesMap.forEach((authority) => {
+        enrichedAuthorities.push({
+          ...authority,
+          student: {},
+          studentId: undefined,
+        });
+      });
+      
+      if (import.meta.env.DEV) {
+        console.log('📊 Enriched authorities:', {
+          total: enrichedAuthorities.length,
+          withStudentData: enrichedAuthorities.filter(a => a.student?.firstname).length,
+        });
+      }
+      
+      setAuthorities(enrichedAuthorities);
+      
+      if (import.meta.env.DEV) {
+        console.log('📊 Authorities loaded:', {
+          total: enrichedAuthorities.length,
+          withStudentData: enrichedAuthorities.filter(a => a.student?.firstname).length,
+          membersCount: membersList.length,
+        });
+      }
     } catch (error: any) {
+      console.error('Failed to load authorities:', error);
       toast.error('Failed to load authorities');
       setAuthorities([]);
     } finally {
@@ -97,11 +181,11 @@ const ClubAdminAuthorities = () => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((authority) => {
-        const student = authority.student || {};
+        const student = authority.student || authority.studentResponseDto || {};
         const firstname = (student.firstname || '').toLowerCase();
         const lastname = (student.lastname || '').toLowerCase();
         const email = (student.email || '').toLowerCase();
-        const roleName = (authority.name || '').toLowerCase();
+        const roleName = (authority.name || authority.authority || '').toLowerCase();
         return (
           firstname.includes(query) ||
           lastname.includes(query) ||

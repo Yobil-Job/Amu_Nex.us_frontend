@@ -10,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { authFetch } from '@/lib/api';
 
 interface RemoveMemberDialogProps {
   member: any | null;
@@ -31,10 +30,14 @@ const RemoveMemberDialog = ({ member, clubId, isOpen, onClose, onSuccess }: Remo
       // Try to call remove member endpoint
       // DELETE /student/{studentId}/clubs/{clubId}/leave
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-      const response = await authFetch(
+      const response = await fetch(
         `${API_BASE_URL}/student/${member.id}/clubs/${clubId}/leave`,
         {
           method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          },
         }
       );
 

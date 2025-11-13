@@ -25,15 +25,18 @@ const JoinRequestsList = ({
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
-      const date = parseISO(dateString);
+      let date: Date;
+      try {
+        date = parseISO(dateString);
+      } catch {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) return 'N/A';
+      
       return format(date, 'MMM dd, yyyy HH:mm');
     } catch {
-      try {
-        const date = new Date(dateString);
-        return format(date, 'MMM dd, yyyy HH:mm');
-      } catch {
-        return dateString;
-      }
+      return 'N/A';
     }
   };
 
@@ -110,7 +113,7 @@ const JoinRequestsList = ({
             <TableBody>
               {requests.map((request) => {
                 const student = request.student || request;
-                const requestId = request.studentId || request.student?.id || request.id;
+                const requestId = request.requestId || request.studentId || request.student?.id || request.id;
 
                 return (
                   <TableRow
@@ -135,7 +138,7 @@ const JoinRequestsList = ({
                     <TableCell className="text-white">{student.email || 'N/A'}</TableCell>
                     <TableCell className="text-white">{student.department || 'N/A'}</TableCell>
                     <TableCell className="text-white">
-                      {formatDate(request.requestDate || request.createdAt)}
+                      {formatDate(request.requestDate || request.createdAt || request.date || request.request_date || request.created_at)}
                     </TableCell>
                     <TableCell>{getStatusBadge(request.status)}</TableCell>
                     <TableCell className="text-right">

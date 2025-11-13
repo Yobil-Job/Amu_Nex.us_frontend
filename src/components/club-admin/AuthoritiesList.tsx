@@ -23,15 +23,18 @@ const AuthoritiesList = ({
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
-      const date = parseISO(dateString);
+      let date: Date;
+      try {
+        date = parseISO(dateString);
+      } catch {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) return 'N/A';
+      
       return format(date, 'MMM dd, yyyy');
     } catch {
-      try {
-        const date = new Date(dateString);
-        return format(date, 'MMM dd, yyyy');
-      } catch {
-        return dateString;
-      }
+      return 'N/A';
     }
   };
 
@@ -93,12 +96,55 @@ const AuthoritiesList = ({
             </TableHeader>
             <TableBody>
               {authorities.map((authority) => {
-                const student = authority.student || {};
-                const startDate = authority.startDate ? parseISO(authority.startDate) : null;
-                const endDate = authority.endDate ? parseISO(authority.endDate) : null;
-                const duration = startDate && endDate 
-                  ? `${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))} days`
-                  : 'N/A';
+                const student = authority.student || authority.studentResponseDto || {};
+                
+                // Parse dates with fallback handling
+                let startDate: Date | null = null;
+                let endDate: Date | null = null;
+                
+                const startDateStr = authority.startDate || authority.start_date || authority.startAt;
+                const endDateStr = authority.endDate || authority.end_date || authority.endAt;
+                
+                if (startDateStr) {
+                  try {
+                    try {
+                      startDate = parseISO(startDateStr);
+                    } catch {
+                      startDate = new Date(startDateStr);
+                    }
+                    if (isNaN(startDate.getTime())) startDate = null;
+                  } catch {
+                    startDate = null;
+                  }
+                }
+                
+                if (endDateStr) {
+                  try {
+                    try {
+                      endDate = parseISO(endDateStr);
+                    } catch {
+                      endDate = new Date(endDateStr);
+                    }
+                    if (isNaN(endDate.getTime())) endDate = null;
+                  } catch {
+                    endDate = null;
+                  }
+                }
+                
+                // Calculate duration
+                let duration = 'N/A';
+                if (startDate && endDate) {
+                  const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                  if (days > 0) {
+                    duration = days === 1 ? '1 day' : `${days} days`;
+                  } else if (days === 0) {
+                    duration = 'Same day';
+                  } else {
+                    duration = 'Invalid range';
+                  }
+                } else if (startDate) {
+                  duration = 'Ongoing';
+                }
 
                 return (
                   <TableRow
@@ -112,7 +158,11 @@ const AuthoritiesList = ({
                         </div>
                         <div>
                           <div className="font-semibold text-white">
-                            {student.firstname} {student.lastname}
+                            {student.firstname && student.lastname 
+                              ? `${student.firstname} ${student.lastname}`
+                              : student.firstname || student.lastname
+                              ? `${student.firstname || ''} ${student.lastname || ''}`.trim()
+                              : 'Unknown Student'}
                           </div>
                           {student.email && (
                             <div className="text-xs text-muted-foreground">{student.email}</div>
@@ -121,15 +171,20 @@ const AuthoritiesList = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getRoleBadgeColor(authority.name)}>
-                        {authority.name || 'N/A'}
+                      <Badge className={getRoleBadgeColor(authority.name || authority.authority || '')}>
+                        {(() => {
+                          const roleName = authority.name || authority.authority || 'N/A';
+                          // Remove ROLE_ prefix if present and normalize
+                          const normalized = roleName.replace(/^ROLE_/, '').toUpperCase();
+                          return normalized === 'ADMIN' ? 'Club Admin' : normalized === 'SUPER_USER' ? 'Authority' : roleName;
+                        })()}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-white">
-                      {formatDate(authority.startDate)}
+                      {formatDate(authority.startDate || authority.start_date || authority.startAt)}
                     </TableCell>
                     <TableCell className="text-white">
-                      {formatDate(authority.endDate)}
+                      {formatDate(authority.endDate || authority.end_date || authority.endAt)}
                     </TableCell>
                     <TableCell className="text-white">
                       <span className="text-sm">{duration}</span>

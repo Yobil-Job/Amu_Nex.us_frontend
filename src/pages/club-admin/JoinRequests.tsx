@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Clock, RefreshCw, Search, X } from 'lucide-react';
-import { clubApi, authorityApi } from '@/lib/api';
+import { clubApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { loadManagedClubsForUser } from '@/lib/clubAdminUtils';
 import { toast } from 'sonner';
@@ -82,15 +82,66 @@ const ClubAdminJoinRequests = () => {
       const requestsRes = await clubApi.getPendingRequests(selectedClub.id).catch(() => ({ _embedded: { requestResponseDtoList: [] } }));
       const requestsList = extractCollection<any>(requestsRes) || [];
       
-      // Enrich requests with club info
-      const enrichedRequests = requestsList.map((request: any) => ({
-        ...request,
-        club: selectedClub,
-        status: request.status || 'PENDING',
-      }));
+      // Enrich requests with student data and club info
+      const enrichedRequests = await Promise.all(
+        requestsList.map(async (request: any) => {
+          // Extract student data from various possible locations
+          const studentData = request.student || 
+                             (request.firstname || request.email ? request : null) || 
+                             request.studentResponseDto ||
+                             {};
+          
+          // Extract student ID from various possible locations
+          const studentId = studentData?.id || 
+                           request.studentId || 
+                           request.student_id || 
+                           request.id;
+          
+          // Extract student fields - check both nested and top-level
+          let student = {
+            id: studentId,
+            firstname: studentData.firstname || request.firstname || '',
+            lastname: studentData.lastname || request.lastname || '',
+            email: studentData.email || request.email || '',
+            department: studentData.department || request.department,
+            yearOfStay: studentData.yearOfStay || request.yearOfStay,
+            gender: studentData.gender || request.gender,
+            ...studentData, // Include any other student fields
+          };
+          
+          // If student data is missing, try to fetch it using studentId
+          if ((!student.firstname && !student.email) && studentId) {
+            try {
+              const studentDetails = await studentApi.getById(Number(studentId));
+              student = {
+                ...student,
+                firstname: studentDetails.firstname || student.firstname || '',
+                lastname: studentDetails.lastname || student.lastname || '',
+                email: studentDetails.email || student.email || '',
+                department: studentDetails.department || student.department,
+                yearOfStay: studentDetails.yearOfStay || student.yearOfStay,
+                gender: studentDetails.gender || student.gender,
+              };
+            } catch (error) {
+              console.warn(`Failed to fetch student details for ID ${studentId}:`, error);
+            }
+          }
+          
+          return {
+            ...request,
+            club: selectedClub,
+            status: request.status || 'PENDING',
+            requestId: `${selectedClub.id}-${studentId}`,
+            // Ensure student ID is accessible
+            studentId: studentId,
+            student: student,
+          };
+        })
+      );
 
       setAllRequests(enrichedRequests);
     } catch (error: any) {
+      console.error('Failed to load join requests:', error);
       toast.error('Failed to load join requests');
       setAllRequests([]);
     } finally {
@@ -135,9 +186,17 @@ const ClubAdminJoinRequests = () => {
   };
 
   const handleViewDetails = (request: any) => {
-    // For now, just show a toast with request details
     const student = request.student || request;
-    toast.info(`${student.firstname} ${student.lastname} - ${student.email}`);
+    const studentInfo = [
+      `Name: ${student.firstname || ''} ${student.lastname || ''}`,
+      `Email: ${student.email || 'N/A'}`,
+      `Department: ${student.department || 'N/A'}`,
+      `Year: ${student.yearOfStay || 'N/A'}`,
+    ].filter(line => !line.includes('N/A') || line.includes('Email')).join('\n');
+    
+    toast.info(studentInfo, {
+      duration: 5000,
+    });
   };
 
   const handleSuccess = () => {

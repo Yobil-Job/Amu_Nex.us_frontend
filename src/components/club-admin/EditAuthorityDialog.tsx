@@ -34,8 +34,46 @@ const EditAuthorityDialog = ({ authority, clubAdminId, isOpen, onClose, onSucces
   useEffect(() => {
     if (authority && isOpen) {
       // Format dates for input (YYYY-MM-DD)
-      const startDate = authority.startDate ? authority.startDate.split('T')[0] : '';
-      const endDate = authority.endDate ? authority.endDate.split('T')[0] : '';
+      // Check multiple date fields and handle various formats
+      const startDateStr = authority.startDate || authority.start_date || authority.startAt || '';
+      const endDateStr = authority.endDate || authority.end_date || authority.endAt || '';
+      
+      let startDate = '';
+      let endDate = '';
+      
+      if (startDateStr) {
+        try {
+          // Try to parse and format
+          const date = startDateStr.includes('T') 
+            ? new Date(startDateStr.split('T')[0])
+            : new Date(startDateStr);
+          if (!isNaN(date.getTime())) {
+            startDate = date.toISOString().split('T')[0];
+          } else if (startDateStr.includes('-') && startDateStr.length >= 10) {
+            // Already in YYYY-MM-DD format
+            startDate = startDateStr.substring(0, 10);
+          }
+        } catch {
+          // Keep empty if parsing fails
+        }
+      }
+      
+      if (endDateStr) {
+        try {
+          // Try to parse and format
+          const date = endDateStr.includes('T') 
+            ? new Date(endDateStr.split('T')[0])
+            : new Date(endDateStr);
+          if (!isNaN(date.getTime())) {
+            endDate = date.toISOString().split('T')[0];
+          } else if (endDateStr.includes('-') && endDateStr.length >= 10) {
+            // Already in YYYY-MM-DD format
+            endDate = endDateStr.substring(0, 10);
+          }
+        } catch {
+          // Keep empty if parsing fails
+        }
+      }
       
       setFormData({
         name: authority.name || '',
@@ -103,7 +141,7 @@ const EditAuthorityDialog = ({ authority, clubAdminId, isOpen, onClose, onSucces
 
   if (!authority) return null;
 
-  const student = authority.student || {};
+  const student = authority.student || authority.studentResponseDto || {};
 
   // Common authority roles
   const commonRoles = [

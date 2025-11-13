@@ -24,16 +24,25 @@ const ApproveRequestDialog = ({ request, clubId, isOpen, onClose, onSuccess }: A
   const [isApproving, setIsApproving] = useState(false);
 
   const handleApprove = async () => {
-    if (!request?.studentId && !request?.student?.id) return;
+    // Extract student ID from various possible locations
+    const studentId = request?.studentId || 
+                     request?.student?.id || 
+                     request?.student_id ||
+                     request?.id;
+    
+    if (!studentId) {
+      toast.error('Student ID not found in request');
+      return;
+    }
 
     setIsApproving(true);
     try {
-      const studentId = request.studentId || request.student?.id;
-      await clubApi.approveRequest(clubId, studentId);
+      await clubApi.approveRequest(clubId, Number(studentId));
       toast.success('Join request approved successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
+      console.error('Failed to approve request:', error);
       toast.error(error.message || 'Failed to approve request');
     } finally {
       setIsApproving(false);

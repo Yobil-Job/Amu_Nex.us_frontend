@@ -27,17 +27,26 @@ const RejectRequestDialog = ({ request, clubId, isOpen, onClose, onSuccess }: Re
   const [rejectionReason, setRejectionReason] = useState('');
 
   const handleReject = async () => {
-    if (!request?.studentId && !request?.student?.id) return;
+    // Extract student ID from various possible locations
+    const studentId = request?.studentId || 
+                     request?.student?.id || 
+                     request?.student_id ||
+                     request?.id;
+    
+    if (!studentId) {
+      toast.error('Student ID not found in request');
+      return;
+    }
 
     setIsRejecting(true);
     try {
-      const studentId = request.studentId || request.student?.id;
-      await clubApi.rejectRequest(clubId, studentId);
+      await clubApi.rejectRequest(clubId, Number(studentId));
       toast.success('Join request rejected');
       setRejectionReason('');
       onSuccess();
       onClose();
     } catch (error: any) {
+      console.error('Failed to reject request:', error);
       toast.error(error.message || 'Failed to reject request');
     } finally {
       setIsRejecting(false);
