@@ -31,6 +31,10 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
 
     setIsLoading(true);
     try {
+      if (import.meta.env.DEV) {
+        console.log('🔔 Loading notifications for clubs:', managedClubIds);
+      }
+      
       const allNotifications: Notification[] = [];
 
       // Load notifications for each managed club
@@ -41,9 +45,14 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           const requests = extractCollection<any>(requestsRes) || [];
           
           if (requests.length > 0) {
-            // Get club name
-            const club = await clubApi.getById(clubId).catch(() => null);
-            const clubName = club?.title || club?.name || 'Club';
+            // Get club name (use cached if available)
+            let clubName = 'Club';
+            try {
+              const club = await clubApi.getById(clubId).catch(() => null);
+              clubName = club?.title || club?.name || 'Club';
+            } catch {
+              // Use default if fetch fails
+            }
             
             // Create stable ID based on club ID and request count
             const notificationId = `join_request_${clubId}_${requests.length}`;
@@ -55,7 +64,7 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
               message: `${requests.length} student${requests.length > 1 ? 's' : ''} want${requests.length === 1 ? 's' : ''} to join ${clubName}`,
               timestamp: new Date().toISOString(),
               read: false,
-              link: '/club-join-requests',
+              link: '/club-admin/join-requests',
               metadata: { clubId, count: requests.length },
             });
           }
@@ -69,9 +78,13 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
           const upcomingEvents = events.filter((event: any) => {
-            if (!event.startAt) return false;
+            // Try multiple possible date fields
+            const eventDateStr = event.startAt || event.startDate || event.date || event.scheduledAt || event.scheduled_at;
+            if (!eventDateStr) return false;
+            
             try {
-              const eventDate = new Date(event.startAt);
+              const eventDate = new Date(eventDateStr);
+              if (isNaN(eventDate.getTime())) return false;
               return eventDate > now && eventDate <= sevenDaysFromNow;
             } catch {
               return false;
@@ -79,8 +92,13 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           });
 
           if (upcomingEvents.length > 0) {
-            const club = await clubApi.getById(clubId).catch(() => null);
-            const clubName = club?.title || club?.name || 'Club';
+            let clubName = 'Club';
+            try {
+              const club = await clubApi.getById(clubId).catch(() => null);
+              clubName = club?.title || club?.name || 'Club';
+            } catch {
+              // Use default if fetch fails
+            }
             
             // Create stable ID based on club ID and upcoming events count
             const notificationId = `upcoming_event_${clubId}_${upcomingEvents.length}`;
@@ -92,7 +110,7 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
               message: `${upcomingEvents.length} event${upcomingEvents.length > 1 ? 's' : ''} ${upcomingEvents.length > 1 ? 'are' : 'is'} coming up in the next 7 days for ${clubName}`,
               timestamp: new Date().toISOString(),
               read: false,
-              link: '/events',
+              link: '/club-admin/events',
               metadata: { clubId, count: upcomingEvents.length },
             });
           }
@@ -105,8 +123,13 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           oneDayAgo.setHours(oneDayAgo.getHours() - 24);
 
           const recentAnnouncements = announcements.filter((announcement: any) => {
+            // Try multiple possible date fields
+            const announcementDateStr = announcement.createdAt || announcement.created_at || announcement.date || announcement.postedAt || announcement.posted_at;
+            if (!announcementDateStr) return false;
+            
             try {
-              const announcementDate = new Date(announcement.createdAt || announcement.date);
+              const announcementDate = new Date(announcementDateStr);
+              if (isNaN(announcementDate.getTime())) return false;
               return announcementDate > oneDayAgo;
             } catch {
               return false;
@@ -114,8 +137,13 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           });
 
           if (recentAnnouncements.length > 0) {
-            const club = await clubApi.getById(clubId).catch(() => null);
-            const clubName = club?.title || club?.name || 'Club';
+            let clubName = 'Club';
+            try {
+              const club = await clubApi.getById(clubId).catch(() => null);
+              clubName = club?.title || club?.name || 'Club';
+            } catch {
+              // Use default if fetch fails
+            }
             
             // Create stable ID based on club ID and announcement count
             // Use the latest announcement's ID if available for more stability
@@ -129,7 +157,7 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
               message: `${recentAnnouncements.length} new announcement${recentAnnouncements.length > 1 ? 's' : ''} from ${clubName}`,
               timestamp: new Date().toISOString(),
               read: false,
-              link: '/announcements',
+              link: '/club-admin/announcements',
               metadata: { clubId, count: recentAnnouncements.length },
             });
           }
@@ -196,6 +224,16 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
         return dateB - dateA;
       });
 
+      if (import.meta.env.DEV) {
+        console.log('🔔 Notifications loaded:', {
+          total: mergedNotifications.length,
+          unread: mergedNotifications.filter(n => !n.read).length,
+          joinRequests: mergedNotifications.filter(n => n.type === 'join_request').length,
+          events: mergedNotifications.filter(n => n.type === 'upcoming_event').length,
+          announcements: mergedNotifications.filter(n => n.type === 'announcement').length,
+        });
+      }
+
       setNotifications(mergedNotifications);
       
       // Save to localStorage
@@ -253,11 +291,6 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
     }
   };
 
-  const handleViewAll = () => {
-    // Could navigate to a dedicated notifications page if needed
-    navigate('/club-join-requests');
-  };
-
   return (
     <NotificationCenter
       notifications={notifications.slice(0, 10)} // Show only latest 10 in dropdown
@@ -265,7 +298,6 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
       onMarkAsRead={handleMarkAsRead}
       onMarkAllAsRead={handleMarkAllAsRead}
       onNotificationClick={handleNotificationClick}
-      onViewAll={handleViewAll}
       isLoading={isLoading}
     />
   );

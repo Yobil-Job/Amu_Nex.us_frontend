@@ -122,13 +122,24 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
           
           // Get current student data
           const currentStudent = await studentApi.getById(Number(studentId));
-          const currentRole = currentStudent.role || 'STUDENT';
           
-          // Determine new role based on hierarchy:
+          // Get the role from API (but don't trust it - backend may compute it from authorities)
+          const apiReportedRole = (currentStudent.role || 'STUDENT').toUpperCase();
+          
+          console.log('🔍 Current role analysis:', {
+            studentId,
+            roleFromAPI: currentStudent.role,
+            apiReportedRole,
+            hasOtherAuthorities,
+            isClubAdmin,
+            fullStudent: currentStudent,
+          });
+          
+          // Determine what the role SHOULD be based on actual status:
           // SYSTEM_ADMIN > ADMIN (Club Admin) > SUPER_USER (Authority) > STUDENT
           let newRole = 'STUDENT';
           
-          if (currentRole === 'SYSTEM_ADMIN') {
+          if (apiReportedRole === 'SYSTEM_ADMIN') {
             // Never change SYSTEM_ADMIN
             newRole = 'SYSTEM_ADMIN';
           } else if (isClubAdmin) {
@@ -142,21 +153,47 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
             newRole = 'STUDENT';
           }
           
-          if (import.meta.env.DEV) {
-            console.log('🔍 Role update decision:', {
-              studentId,
-              currentRole,
-              newRole,
-              isClubAdmin,
-              hasOtherAuthorities,
-              willUpdate: currentRole !== newRole && currentRole !== 'SYSTEM_ADMIN',
-            });
-          }
+          // CRITICAL: Always update the role when we delete an authority if:
+          // 1. Student is not SYSTEM_ADMIN (we never change SYSTEM_ADMIN)
+          // 2. Either:
+          //    a) The API role doesn't match what it should be, OR
+          //    b) We just deleted their last authority (force update to STUDENT)
+          // This ensures the database role field is updated even if API reports wrong role
+          const shouldUpdate = apiReportedRole !== 'SYSTEM_ADMIN' && (
+            apiReportedRole !== newRole || 
+            (newRole === 'STUDENT' && !hasOtherAuthorities && !isClubAdmin)
+          );
           
-          // Update student role if it needs to change
-          if (currentRole !== newRole && currentRole !== 'SYSTEM_ADMIN') {
+          console.log('🔍 Role update decision:', {
+            studentId,
+            roleFromAPI: currentStudent.role,
+            apiReportedRole,
+            newRole,
+            isClubAdmin,
+            hasOtherAuthorities,
+            shouldUpdate,
+            reason: apiReportedRole === 'SYSTEM_ADMIN' 
+              ? 'Student is SYSTEM_ADMIN - cannot change'
+              : apiReportedRole !== newRole
+                ? `Role mismatch: API says ${apiReportedRole}, should be ${newRole}`
+                : newRole === 'STUDENT' && !hasOtherAuthorities && !isClubAdmin
+                  ? 'Force update to STUDENT (authority deleted)'
+                  : 'No update needed',
+          });
+          
+          if (shouldUpdate) {
             try {
-              console.log(`🔄 Updating student ${studentId} role from ${currentRole} to ${newRole}...`);
+              const updateReason = apiReportedRole !== newRole
+                ? 'Role mismatch'
+                : newRole === 'STUDENT' && !hasOtherAuthorities && !isClubAdmin
+                  ? 'Force update (authority deleted)'
+                  : 'Update needed';
+              
+              console.log(`🔄 Updating student ${studentId} role to ${newRole}...`, {
+                reason: updateReason,
+                fromRole: currentStudent.role || apiReportedRole,
+                toRole: newRole,
+              });
               
               // Try updating with just the role field
               const updatePayload = { role: newRole };
@@ -216,9 +253,11 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
             }
           } else {
             console.log(`ℹ️ No role update needed:`, {
-              currentRole,
+              apiReportedRole,
               newRole,
-              reason: currentRole === 'SYSTEM_ADMIN' ? 'Student is SYSTEM_ADMIN' : 'Role is already correct',
+              reason: apiReportedRole === 'SYSTEM_ADMIN' 
+                ? 'Student is SYSTEM_ADMIN - cannot change' 
+                : 'Role is already correct',
             });
           }
         } catch (roleCheckError: any) {

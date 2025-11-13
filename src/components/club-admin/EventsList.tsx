@@ -5,6 +5,7 @@ import { Calendar, MapPin, Clock, Eye, Pencil, Trash2, Users } from 'lucide-reac
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import EmptyState from '@/components/admin/EmptyState';
+import { useEffect, useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,12 +65,23 @@ const EventsList = ({
     }
   };
 
+  // Real-time countdown timer state
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    // Update time every minute for countdown timers
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   const getTimeUntilEvent = (event: any) => {
     if (!event.startAt) return null;
     try {
       const startDate = parseISO(event.startAt);
-      const now = new Date();
-      const diff = startDate.getTime() - now.getTime();
+      const diff = startDate.getTime() - currentTime.getTime();
       
       if (diff < 0) return null; // Past event
       

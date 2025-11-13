@@ -89,8 +89,11 @@ const AnnouncementsList = ({
     <div className="space-y-4">
       {sortedAnnouncements.map((announcement) => {
         const creator = announcement.createdBy || announcement.creator || {};
-        const isCreator = currentUserId && (creator.id === currentUserId || announcement.createdById === currentUserId);
         const club = announcement.club || {};
+        
+        // For club admin pages, they can edit/delete all announcements in their managed clubs
+        // So we always show edit/delete buttons (currentUserId is passed but not required for club admin)
+        const canEditDelete = true; // Club admins can manage all announcements
 
         return (
           <Card
@@ -145,16 +148,18 @@ const AnnouncementsList = ({
                     size="sm"
                     onClick={() => onViewDetails(announcement)}
                     className="h-8 w-8 p-0 text-accent hover:text-accent hover:bg-accent/10"
+                    title="View Details"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  {isCreator && (
+                  {canEditDelete && (
                     <>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onEdit(announcement)}
                         className="h-8 w-8 p-0 text-accent hover:text-accent hover:bg-accent/10"
+                        title="Edit Announcement"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -163,6 +168,7 @@ const AnnouncementsList = ({
                         size="sm"
                         onClick={() => onDelete(announcement)}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Delete Announcement"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

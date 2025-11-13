@@ -90,9 +90,23 @@ const ClubAdminEvents = () => {
     try {
       const eventsRes = await eventApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { eventList: [] } }));
       const eventsList = extractCollection<any>(eventsRes) || [];
+      
+      // If participation count is not in the response, we can try to fetch it
+      // For now, we'll use what's in the response (if available)
+      // The backend may include participationCount in the event object
+      
       setAllEvents(eventsList);
       setEvents(eventsList);
+      
+      if (import.meta.env.DEV) {
+        console.log('📅 Events loaded:', {
+          clubId: selectedClub.id,
+          count: eventsList.length,
+          sampleEvent: eventsList[0],
+        });
+      }
     } catch (error: any) {
+      console.error('Failed to load events:', error);
       toast.error('Failed to load events');
       setEvents([]);
       setAllEvents([]);

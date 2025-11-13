@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, RefreshCw } from 'lucide-react';
-import { feeApi, clubApi, authorityApi } from '@/lib/api';
+import { feeApi, clubApi, authorityApi, studentApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { loadManagedClubsForUser } from '@/lib/clubAdminUtils';
 import { toast } from 'sonner';
@@ -79,21 +79,95 @@ const ClubAdminFees = () => {
 
     setIsLoading(true);
     try {
-      const feesRes = await feeApi.getByClub(selectedClub.id).catch(() => []);
-      const feesList = Array.isArray(feesRes) ? feesRes : extractCollection<any>(feesRes) || [];
+      // Fetch both fees and members in parallel (same approach as authorities page)
+      const [feesRes, membersRes] = await Promise.all([
+        feeApi.getByClub(selectedClub.id).catch(() => []),
+        clubApi.getMembers(selectedClub.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
+      ]);
       
-      // Enrich fees with student info
-      const enrichedFees = feesList.map((fee: any) => {
-        const student = fee.student || {};
-        return {
-          ...fee,
-          student: student,
-        };
+      const feesList = Array.isArray(feesRes) ? feesRes : extractCollection<any>(feesRes) || [];
+      const membersList = extractCollection<any>(membersRes) || [];
+      
+      if (import.meta.env.DEV) {
+        console.log('💰 Fees from getByClub:', feesList.length);
+        console.log('💰 Members from getMembers:', membersList.length);
+      }
+      
+      // Since fee response doesn't include student ID, we need to match by checking each member's fees
+      // Create a map of fee ID to fee data
+      const feesMap = new Map();
+      feesList.forEach((fee: any) => {
+        feesMap.set(Number(fee.id), fee);
       });
-
+      
+      // For each member, get their fees and match with our club's fees
+      const enrichedFees: any[] = [];
+      
+      for (const member of membersList) {
+        if (!member.id) continue;
+        
+        try {
+          // Get all fees for this student
+          const studentFeesRes = await feeApi.getByStudent(Number(member.id)).catch(() => []);
+          const studentFees = Array.isArray(studentFeesRes) ? studentFeesRes : extractCollection<any>(studentFeesRes) || [];
+          
+          // Find fees that match our club's fees (by ID)
+          for (const studentFee of studentFees) {
+            const feeId = studentFee.id;
+            if (feesMap.has(Number(feeId))) {
+              // This student has this fee - enrich it with student data
+              const fee = feesMap.get(Number(feeId));
+              enrichedFees.push({
+                ...fee,
+                student: {
+                  id: Number(member.id),
+                  firstname: member.firstname || '',
+                  lastname: member.lastname || '',
+                  email: member.email || '',
+                  department: member.department,
+                  yearOfStay: member.yearOfStay,
+                  ...member,
+                },
+                studentId: Number(member.id),
+              });
+              
+              // Remove from map so we don't add it twice
+              feesMap.delete(Number(feeId));
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to get fees for student ${member.id}:`, error);
+        }
+      }
+      
+      // Add any remaining fees that weren't matched (shouldn't happen, but handle gracefully)
+      feesMap.forEach((fee) => {
+        enrichedFees.push({
+          ...fee,
+          student: {},
+          studentId: undefined,
+        });
+      });
+      
+      if (import.meta.env.DEV) {
+        console.log('💰 Enriched fees:', {
+          total: enrichedFees.length,
+          withStudentData: enrichedFees.filter(f => f.student?.firstname).length,
+        });
+      }
+      
       setAllFees(enrichedFees);
       setFees(enrichedFees);
+      
+      if (import.meta.env.DEV) {
+        console.log('💰 Fees loaded:', {
+          total: enrichedFees.length,
+          withStudentData: enrichedFees.filter(f => f.student?.firstname).length,
+          membersCount: membersList.length,
+        });
+      }
     } catch (error: any) {
+      console.error('Failed to load fees:', error);
       toast.error('Failed to load fees');
       setFees([]);
       setAllFees([]);

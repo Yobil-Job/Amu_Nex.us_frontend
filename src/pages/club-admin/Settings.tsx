@@ -66,8 +66,17 @@ const ClubAdminSettings = () => {
     setIsLoading(true);
     try {
       const clubData = await clubApi.getById(selectedClub.id);
+      
+      if (import.meta.env.DEV) {
+        console.log('⚙️ Club settings loaded:', {
+          clubId: selectedClub.id,
+          clubData,
+        });
+      }
+      
       setClub(clubData);
     } catch (error: any) {
+      console.error('Failed to load club details:', error);
       toast.error('Failed to load club details');
     } finally {
       setIsLoading(false);

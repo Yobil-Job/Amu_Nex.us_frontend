@@ -118,14 +118,23 @@ const FeesTable = ({ fees, isLoading }: FeesTableProps) => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-                          {(student.firstname?.[0] || '') + (student.lastname?.[0] || '')}
+                          {(student.firstname?.[0] || '') + (student.lastname?.[0] || '') || '?'}
                         </div>
                         <div>
                           <div className="font-semibold text-white">
-                            {student.firstname} {student.lastname}
+                            {student.firstname && student.lastname
+                              ? `${student.firstname} ${student.lastname}`
+                              : student.firstname || student.lastname
+                              ? `${student.firstname || ''} ${student.lastname || ''}`.trim()
+                              : student.email
+                              ? student.email.split('@')[0]
+                              : 'Unknown Student'}
                           </div>
                           {student.email && (
                             <div className="text-xs text-muted-foreground">{student.email}</div>
+                          )}
+                          {!student.email && !student.firstname && !student.lastname && (
+                            <div className="text-xs text-muted-foreground">Student ID: {fee.studentId || 'N/A'}</div>
                           )}
                         </div>
                       </div>

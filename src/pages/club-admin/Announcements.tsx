@@ -87,9 +87,19 @@ const ClubAdminAnnouncements = () => {
     try {
       const announcementsRes = await announcementApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { announcementResponseDtoList: [] } }));
       const announcementsList = extractCollection<any>(announcementsRes) || [];
+      
+      if (import.meta.env.DEV) {
+        console.log('📢 Announcements loaded:', {
+          clubId: selectedClub.id,
+          count: announcementsList.length,
+          sampleAnnouncement: announcementsList[0],
+        });
+      }
+      
       setAllAnnouncements(announcementsList);
       setAnnouncements(announcementsList);
     } catch (error: any) {
+      console.error('Failed to load announcements:', error);
       toast.error('Failed to load announcements');
       setAnnouncements([]);
       setAllAnnouncements([]);
@@ -378,7 +388,13 @@ const ClubAdminAnnouncements = () => {
 
       <DeleteAnnouncementDialog
         announcement={selectedAnnouncement}
-        createdById={user?.id || 0}
+        createdById={
+          selectedAnnouncement?.createdBy?.id || 
+          selectedAnnouncement?.createdById || 
+          selectedAnnouncement?.creator?.id || 
+          user?.id || 
+          0
+        }
         isOpen={deleteDialogOpen}
         onClose={() => {
           setDeleteDialogOpen(false);

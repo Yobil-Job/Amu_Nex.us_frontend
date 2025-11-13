@@ -30,7 +30,6 @@ interface NotificationCenterProps {
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
   onNotificationClick: (notification: Notification) => void;
-  onViewAll?: () => void;
   isLoading?: boolean;
 }
 
@@ -40,7 +39,6 @@ const NotificationCenter = ({
   onMarkAsRead,
   onMarkAllAsRead,
   onNotificationClick,
-  onViewAll,
   isLoading = false,
 }: NotificationCenterProps) => {
   const getNotificationIcon = (type: Notification['type']) => {
@@ -205,23 +203,6 @@ const NotificationCenter = ({
             </div>
           )}
         </ScrollArea>
-
-        {notifications.length > 0 && (
-          <div className="p-3 border-t border-primary/20">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs text-white hover:text-white hover:bg-primary/20"
-              onClick={() => {
-                if (onViewAll) {
-                  onViewAll();
-                }
-              }}
-            >
-              View All Notifications
-            </Button>
-          </div>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { uploadImageToCloudinary } from '@/lib/cloudinary';
 
 interface ImageUploadProps {
   label?: string;
@@ -23,6 +24,13 @@ const ImageUpload = ({
   const [preview, setPreview] = useState<string | null>(value || null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update preview when value changes externally
+  useEffect(() => {
+    if (value) {
+      setPreview(value);
+    }
+  }, [value]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,23 +52,27 @@ const ImageUpload = ({
     setIsUploading(true);
 
     try {
-      // Convert to base64 for preview and storage
+      // Create a local preview first
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
         setPreview(base64String);
-        onChange(base64String);
-        setIsUploading(false);
-        toast.success('Image uploaded successfully');
-      };
-      reader.onerror = () => {
-        toast.error('Failed to read image file');
-        setIsUploading(false);
       };
       reader.readAsDataURL(file);
-    } catch (error: any) {
-      toast.error('Failed to upload image: ' + error.message);
+
+      // Upload to Cloudinary
+      const uploadResult = await uploadImageToCloudinary(file, 'clubs/logos');
+      const imageUrl = uploadResult.secure_url;
+      
+      setPreview(imageUrl);
+      onChange(imageUrl);
       setIsUploading(false);
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      console.error('Failed to upload image:', error);
+      toast.error(error.message || 'Failed to upload image');
+      setIsUploading(false);
+      setPreview(value || null); // Revert to previous value
     }
   };
 
@@ -128,7 +140,10 @@ const ImageUpload = ({
       />
 
       {isUploading && (
-        <p className="text-xs text-muted-foreground">Uploading image...</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Uploading image to Cloudinary...</span>
+        </div>
       )}
     </div>
   );
