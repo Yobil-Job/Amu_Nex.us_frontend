@@ -36,9 +36,17 @@ const MembersList = ({
   // Get member roles from authorities
   const getMemberRoles = (memberId: number) => {
     return authorities.filter((auth: any) => {
-      const studentId = auth.student?.id || auth.studentId;
-      return studentId === memberId;
-    }).map((auth: any) => auth.name || 'STUDENT');
+      const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
+      return studentId != null && (
+        Number(studentId) === Number(memberId) ||
+        studentId === memberId
+      );
+    }).map((auth: any) => {
+      // Normalize role name
+      const roleName = auth.name || auth.authority || 'STUDENT';
+      // Remove ROLE_ prefix if present
+      return roleName.replace(/^ROLE_/, '').toUpperCase();
+    });
   };
 
   // Pagination
@@ -112,7 +120,7 @@ const MembersList = ({
                     {hasAuthority ? (
                       memberRoles.map((role: string, index: number) => (
                         <Badge key={index} className={cn('text-xs', getRoleBadgeColor(role))}>
-                          {role === 'ADMIN' ? 'Club Admin' : role}
+                          {role === 'ADMIN' ? 'Club Admin' : role === 'SUPER_USER' ? 'Authority' : role}
                         </Badge>
                       ))
                     ) : (
@@ -121,13 +129,31 @@ const MembersList = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-white">
-                  {member.createdAt ? (
-                    <span className="text-sm">
-                      {format(parseISO(member.createdAt), 'MMM dd, yyyy')}
-                    </span>
-                  ) : (
-                    'N/A'
-                  )}
+                  {(() => {
+                    // Check multiple date fields for join date
+                    const joinDate = member.createdAt || member.joinedAt || member.dateJoined || member.joinDate || member.created_at || member.joined_at;
+                    if (!joinDate) return 'N/A';
+                    
+                    try {
+                      // Try parseISO first, then fallback to Date constructor
+                      let date: Date;
+                      try {
+                        date = parseISO(joinDate);
+                      } catch {
+                        date = new Date(joinDate);
+                      }
+                      
+                      if (isNaN(date.getTime())) return 'N/A';
+                      
+                      return (
+                        <span className="text-sm">
+                          {format(date, 'MMM dd, yyyy')}
+                        </span>
+                      );
+                    } catch {
+                      return 'N/A';
+                    }
+                  })()}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>

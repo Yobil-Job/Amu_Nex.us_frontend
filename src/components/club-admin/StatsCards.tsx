@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Shield, Calendar, Bell, DollarSign } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface StatsCardsProps {
   stats: {
@@ -15,6 +16,8 @@ interface StatsCardsProps {
 }
 
 const StatsCards = ({ stats }: StatsCardsProps) => {
+  const navigate = useNavigate();
+
   const statCards = [
     {
       title: 'Total Members',
@@ -23,6 +26,7 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
       color: 'text-primary',
       bgColor: 'bg-primary/10',
       description: 'Club members',
+      href: '/club-members',
     },
     {
       title: 'Authorities',
@@ -31,6 +35,7 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
       color: 'text-accent',
       bgColor: 'bg-accent/10',
       description: 'Leadership roles',
+      href: '/club-authorities',
     },
     {
       title: 'Upcoming Events',
@@ -39,6 +44,7 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
       color: 'text-success',
       bgColor: 'bg-success/10',
       description: 'Scheduled events',
+      href: '/events',
     },
     {
       title: 'Announcements',
@@ -47,6 +53,7 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
       color: 'text-info',
       bgColor: 'bg-info/10',
       description: 'Total announcements',
+      href: '/announcements',
     },
     {
       title: 'Fees Collected',
@@ -55,6 +62,7 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
       color: 'text-warning',
       bgColor: 'bg-warning/10',
       description: 'Total collected',
+      href: '/fees',
     },
   ];
 
@@ -67,9 +75,20 @@ const StatsCards = ({ stats }: StatsCardsProps) => {
             key={stat.title}
             className={cn(
               'glass-card border-primary/20 glow-effect animate-slide-up',
+              'transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-primary/40',
+              'cursor-pointer group',
               stat.bgColor
             )}
             style={{ animationDelay: `${index * 100}ms` }}
+            onClick={() => stat.href && navigate(stat.href)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                stat.href && navigate(stat.href);
+              }
+            }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">

@@ -11,19 +11,44 @@ interface FeesChartProps {
 
 const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
   const chartData = useMemo(() => {
+    if (!fees || fees.length === 0) {
+      if (import.meta.env.DEV) {
+        console.log('📊 FeesChart: No fees data', { fees });
+      }
+      return [
+        { name: 'Paid', value: 0, color: '#10b981' },
+        { name: 'Unpaid', value: 0, color: '#f59e0b' },
+      ];
+    }
+
     const paid = fees
-      .filter((fee) => (fee.status || '').toUpperCase() === 'PAID')
+      .filter((fee) => {
+        const status = (fee.status || fee.paymentStatus || '').toUpperCase();
+        return status === 'PAID';
+      })
       .reduce((sum, fee) => {
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || fee.total || '0') || 0;
         return sum + amount;
       }, 0);
 
     const unpaid = fees
-      .filter((fee) => (fee.status || '').toUpperCase() !== 'PAID')
+      .filter((fee) => {
+        const status = (fee.status || fee.paymentStatus || '').toUpperCase();
+        return status !== 'PAID';
+      })
       .reduce((sum, fee) => {
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || fee.total || '0') || 0;
         return sum + amount;
       }, 0);
+
+    if (import.meta.env.DEV) {
+      console.log('📊 FeesChart: Processed data', {
+        feeCount: fees.length,
+        paid,
+        unpaid,
+        sampleFee: fees[0],
+      });
+    }
 
     return [
       { name: 'Paid', value: paid, color: '#10b981' },
@@ -36,19 +61,23 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
     const monthMap: Record<string, { paid: number; unpaid: number }> = {};
 
     fees.forEach((fee) => {
-      const date = fee.paidAt || fee.createdAt || fee.date;
+      // Check multiple date fields
+      const date = fee.paidAt || fee.paid_at || fee.paymentDate || fee.payment_date || fee.createdAt || fee.created_at || fee.date;
       if (!date) return;
 
       try {
         const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) return;
+        
         const monthKey = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
         if (!monthMap[monthKey]) {
           monthMap[monthKey] = { paid: 0, unpaid: 0 };
         }
 
-        const amount = parseFloat(fee.amount || fee.feeAmount || '0') || 0;
-        const status = (fee.status || '').toUpperCase();
+        // Check multiple amount fields
+        const amount = parseFloat(fee.amount || fee.feeAmount || fee.fee || fee.total || '0') || 0;
+        const status = (fee.status || fee.paymentStatus || '').toUpperCase();
 
         if (status === 'PAID') {
           monthMap[monthKey].paid += amount;
@@ -111,7 +140,7 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
   return (
     <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
       {/* Total vs Unpaid Pie Chart */}
-      <Card className="glass-card border-primary/20">
+      <Card className="glass-card border-primary/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-primary/40">
         <CardHeader>
           <CardTitle className="text-lg text-white flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
@@ -119,31 +148,38 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 || (chartData[0].value === 0 && chartData[1].value === 0) ? (
+            <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
+              <DollarSign className="h-12 w-12 mb-3 opacity-50" />
+              <p>No fee data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
       {/* Monthly Trend Bar Chart */}
-      <Card className="glass-card border-primary/20">
+      <Card className="glass-card border-primary/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-primary/40">
         <CardHeader>
           <CardTitle className="text-lg text-white flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-accent" />
@@ -151,17 +187,24 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" stroke="#9ca3af" />
-              <YAxis stroke="#9ca3af" tickFormatter={formatCurrency} />
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-              <Bar dataKey="paid" fill="#10b981" name="Paid" />
-              <Bar dataKey="unpaid" fill="#f59e0b" name="Unpaid" />
-            </BarChart>
-          </ResponsiveContainer>
+          {monthlyData.length === 0 ? (
+            <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
+              <TrendingUp className="h-12 w-12 mb-3 opacity-50" />
+              <p>No fee data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" tickFormatter={formatCurrency} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+                <Bar dataKey="paid" fill="#10b981" name="Paid" />
+                <Bar dataKey="unpaid" fill="#f59e0b" name="Unpaid" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

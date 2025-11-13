@@ -36,6 +36,7 @@ const ClubAdminDashboard = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [fees, setFees] = useState<any[]>([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -46,6 +47,7 @@ const ClubAdminDashboard = () => {
   useEffect(() => {
     if (selectedClub?.id) {
       loadDashboardData();
+      setLogoError(false); // Reset logo error when club changes
     }
   }, [selectedClub?.id]);
 
@@ -54,225 +56,13 @@ const ClubAdminDashboard = () => {
     if (!user?.id) return;
     
     try {
-      console.log('🔍 Loading managed clubs for user:', user.id, 'role:', user.role);
+      const clubs = await loadManagedClubsForUser(user.id);
 
-      // Strategy 1: Check authorities where user is assigned as ADMIN
-      let clubIdsFromAuthorities: number[] = [];
-      try {
-        // First try to get authorities for this specific student (more efficient)
-        const authoritiesRes = await authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
-        const userAuthorities = extractCollection<any>(authoritiesRes) || [];
-        
-        console.log('📊 User authorities:', userAuthorities.length, userAuthorities);
-
-        // Filter authorities where user is the club admin (ADMIN role)
-        // Authority has studentId (the club admin) and clubId (the club they manage)
-        // In backend, authority name 'ADMIN' means club admin role
-        const adminAuthorities = userAuthorities.filter((auth: any) => {
-          const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
-          const authName = (auth.name || auth.authority || '').toUpperCase();
-          const isAdminAuth = authName === 'ADMIN' || authName === 'ROLE_ADMIN';
-          const matchesUser = studentId === user.id || Number(studentId) === Number(user.id);
-          
-          console.log('🔍 Checking authority:', {
-            studentId,
-            authName,
-            isAdminAuth,
-            matchesUser,
-            clubId: auth.club?.id || auth.clubId,
-          });
-          
-          return matchesUser && isAdminAuth;
-        });
-
-        console.log('✅ Admin authorities found:', adminAuthorities.length);
-
-        // Get unique club IDs from authorities
-        clubIdsFromAuthorities = [...new Set(
-          adminAuthorities.map((auth: any) => {
-            const clubId = auth.club?.id || auth.clubId || auth.club?.clubId;
-            return clubId != null ? Number(clubId) : null;
-          }).filter((id): id is number => id != null)
-        )];
-
-        console.log('🏛️ Club IDs from authorities:', clubIdsFromAuthorities);
-      } catch (err) {
-        console.warn('Failed to load authorities:', err);
-      }
-
-      // Strategy 2: Check all clubs where clubAdminId matches user.id
-      // This is the primary way club admins are stored in the backend
-      // Note: clubAdminId might not be in the list response, so we fetch individual club details
-      let clubsFromAdminId: any[] = [];
-      try {
-        const allClubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
-        const allClubs = extractCollection<any>(allClubsRes) || [];
-        
-        console.log('📊 All clubs loaded:', allClubs.length);
-        
-        // First, try to check clubAdminId in the list response (faster)
-        const clubsFromList = allClubs.filter((club: any) => {
-          const clubAdminId = club.clubAdminId || 
-                             club.club_admin_id || 
-                             club.clubAdmin?.id ||
-                             club.clubAdminId?.id;
-          
-          if (clubAdminId == null) return false;
-          
-          return (
-            Number(clubAdminId) === Number(user.id) ||
-            clubAdminId === user.id ||
-            String(clubAdminId) === String(user.id)
-          );
-        });
-
-        if (clubsFromList.length > 0) {
-          console.log('✅ Found clubs via list response:', clubsFromList.length);
-          clubsFromAdminId = clubsFromList;
-        } else {
-          // clubAdminId not in list response, try two approaches:
-          // 1. Fetch individual club details (clubAdminId might be there)
-          // 2. Check club members to see if user is listed as admin
-          console.log('🔍 clubAdminId not in list response, trying individual club details and members check...');
-          
-          const clubCheckPromises = allClubs.map(async (club: any) => {
-            try {
-              const clubId = club.id || club.clubId;
-              if (!clubId) return null;
-              
-              // Approach 1: Check club details for clubAdminId
-              const clubDetails = await clubApi.getById(clubId);
-              
-              // Check clubAdminId in detailed club object - try multiple field names
-              const detailedClubAdminId = clubDetails.clubAdminId || 
-                                         clubDetails.club_admin_id || 
-                                         clubDetails.clubAdmin?.id ||
-                                         clubDetails.clubAdminId?.id ||
-                                         (typeof clubDetails.clubAdmin === 'number' ? clubDetails.clubAdmin : null);
-              
-              console.log('🔍 Club details for', clubId, ':', {
-                clubTitle: clubDetails.title || clubDetails.name,
-                clubAdminId: detailedClubAdminId,
-                userId: user.id,
-                clubDetailsKeys: Object.keys(clubDetails),
-              });
-              
-              // Check if clubAdminId matches
-              if (detailedClubAdminId != null && (
-                Number(detailedClubAdminId) === Number(user.id) ||
-                detailedClubAdminId === user.id ||
-                String(detailedClubAdminId) === String(user.id)
-              )) {
-                console.log('✅ Found managed club via clubAdminId:', {
-                  clubId: clubDetails.id,
-                  clubTitle: clubDetails.title || clubDetails.name,
-                  clubAdminId: detailedClubAdminId,
-                });
-                return clubDetails;
-              }
-              
-              // Approach 2: Check club members to see if user is admin
-              // Sometimes the user might be in the members list with admin privileges
-              try {
-                const membersRes = await clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
-                const members = extractCollection<any>(membersRes) || [];
-                
-                console.log('🔍 Checking members for club', clubId, ':', {
-                  memberCount: members.length,
-                  userId: user.id,
-                });
-                
-                // Check if user is a member and has admin role or is the club admin
-                const userMember = members.find((member: any) => {
-                  const memberId = member.id || member.studentId || member.student?.id;
-                  return memberId != null && (
-                    Number(memberId) === Number(user.id) ||
-                    memberId === user.id
-                  );
-                });
-                
-                if (userMember) {
-                  console.log('🔍 User is a member of club', clubId, ':', {
-                    memberId: userMember.id,
-                    memberRole: userMember.role,
-                    hasAdminRole: userMember.role === 'ADMIN' || userMember.role === 'ROLE_ADMIN',
-                  });
-                  
-                  // Check if member has ADMIN role
-                  const memberRole = userMember.role || userMember.authority?.authority;
-                  const isAdminMember = memberRole === 'ADMIN' || 
-                                      memberRole === 'ROLE_ADMIN' ||
-                                      (typeof memberRole === 'string' && memberRole.toUpperCase().includes('ADMIN'));
-                  
-                  if (isAdminMember) {
-                    console.log('✅ Found managed club via member role:', {
-                      clubId: clubDetails.id,
-                      clubTitle: clubDetails.title || clubDetails.name,
-                      memberRole: memberRole,
-                    });
-                    return clubDetails;
-                  }
-                }
-              } catch (memberErr) {
-                console.warn(`Failed to check members for club ${clubId}:`, memberErr);
-              }
-              
-              return null;
-            } catch (err) {
-              console.warn(`Failed to load club ${club.id} details:`, err);
-              return null;
-            }
-          });
-          
-          const detailedClubs = (await Promise.all(clubCheckPromises)).filter(Boolean);
-          if (detailedClubs.length > 0) {
-            console.log('✅ Found clubs via individual club details/members check:', detailedClubs.length);
-            clubsFromAdminId = detailedClubs;
-          } else {
-            console.warn('⚠️ No clubs found where user is admin, even after checking individual details and members');
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load clubs:', err);
-      }
-
-      // Combine both strategies - get unique club IDs
-      const allClubIds = new Set<number>();
-      
-      // Add club IDs from authorities
-      clubIdsFromAuthorities.forEach(id => allClubIds.add(id));
-      
-      // Add club IDs from clubAdminId
-      clubsFromAdminId.forEach(club => {
-        const clubId = club.id || club.clubId;
-        if (clubId != null) {
-          allClubIds.add(Number(clubId));
-        }
-      });
-
-      const uniqueClubIds = Array.from(allClubIds);
-      console.log('🏛️ Total unique club IDs:', uniqueClubIds);
-
-      if (uniqueClubIds.length === 0) {
-        console.warn('⚠️ No managed clubs found for user:', user.id);
+      if (clubs.length === 0) {
         toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator to assign you as a club admin.');
         setStats((prev) => ({ ...prev, isLoading: false }));
         return;
       }
-
-      // Fetch club details for each club ID
-      const clubPromises = uniqueClubIds.map(async (clubId: number) => {
-        try {
-          const club = await clubApi.getById(clubId);
-          return club;
-        } catch (err) {
-          console.warn(`Failed to load club ${clubId}:`, err);
-          return null;
-        }
-      });
-
-      const clubs = (await Promise.all(clubPromises)).filter(Boolean);
-      console.log('✅ Loaded managed clubs:', clubs.length, clubs.map(c => ({ id: c.id, title: c.title || c.name })));
 
       setManagedClubs(clubs);
 
@@ -280,7 +70,7 @@ const ClubAdminDashboard = () => {
       if (clubs.length === 1) {
         setSelectedClub(clubs[0]);
       } else if (clubs.length > 1) {
-        // For now, select the first club (can be enhanced to show club selector)
+        // Select the first club (club selector will be shown in UI)
         setSelectedClub(clubs[0]);
       }
     } catch (error: any) {
@@ -329,21 +119,48 @@ const ClubAdminDashboard = () => {
           setFees(feesList);
           setPendingRequestsCount(requestsList.length);
 
-      // Calculate upcoming events (events after today)
+          // Debug logging
+          if (import.meta.env.DEV) {
+            console.log('📊 Dashboard Data Loaded:', {
+              members: membersList.length,
+              authorities: authoritiesList.length,
+              events: eventsList.length,
+              announcements: announcementsList.length,
+              fees: feesList.length,
+              pendingRequests: requestsList.length,
+              sampleEvent: eventsList[0],
+              sampleMember: membersList[0],
+              sampleFee: feesList[0],
+            });
+          }
+
+      // Calculate upcoming events (events after today) - check multiple date fields
       const now = new Date();
       const upcomingEventsCount = eventsList.filter((event: any) => {
         try {
-          if (!event.startAt) return false;
-          const eventDate = new Date(event.startAt);
+          // Check multiple possible date fields
+          const eventDateStr = event.startAt || event.startDate || event.date || event.start;
+          if (!eventDateStr) return false;
+          
+          const eventDate = new Date(eventDateStr);
+          if (isNaN(eventDate.getTime())) return false;
+          
           return eventDate > now;
         } catch {
           return false;
         }
       }).length;
 
-      // Calculate total fees collected
+      // Calculate total fees collected - check multiple amount fields and only count PAID fees
       const totalFees = feesList.reduce((sum: number, fee: any) => {
-        return sum + (fee.amount || 0);
+        // Only count fees with PAID status
+        const status = (fee.status || '').toUpperCase();
+        if (status !== 'PAID') return sum;
+        
+        // Check multiple possible amount fields
+        const amount = fee.amount || fee.feeAmount || fee.fee || fee.total || 0;
+        const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+        return sum + (isNaN(numAmount) ? 0 : numAmount);
       }, 0);
 
       setStats({
@@ -369,9 +186,18 @@ const ClubAdminDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-primary shadow-colored-primary">
-            <Building2 className="h-7 w-7 text-primary-foreground" />
-          </div>
+          {selectedClub?.logo && !logoError ? (
+            <img
+              src={selectedClub.logo}
+              alt={selectedClub.title || selectedClub.name || 'Club Logo'}
+              className="h-16 w-16 rounded-full object-cover border-2 border-primary/30 shadow-lg"
+              onError={() => setLogoError(true)}
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-gradient-primary shadow-colored-primary flex items-center justify-center">
+              <Building2 className="h-7 w-7 text-primary-foreground" />
+            </div>
+          )}
           <div>
             <h1 className="text-4xl font-bold tracking-tight neon-text text-white flex items-center gap-3">
               <Sparkles className="h-8 w-8 text-primary animate-float" />

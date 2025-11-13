@@ -12,7 +12,12 @@ interface MemberGrowthChartProps {
 
 const MemberGrowthChart = ({ members, isLoading }: MemberGrowthChartProps) => {
   const chartData = useMemo(() => {
-    if (!members || members.length === 0) return [];
+    if (!members || members.length === 0) {
+      if (import.meta.env.DEV) {
+        console.log('📊 MemberGrowthChart: No members data', { members });
+      }
+      return [];
+    }
 
     // Get last 30 days
     const last30Days = Array.from({ length: 30 }, (_, i) => {
@@ -24,20 +29,43 @@ const MemberGrowthChart = ({ members, isLoading }: MemberGrowthChartProps) => {
       };
     });
 
-    // Count members by join date (using createdAt or joinedAt if available)
+    // Count members by join date - check multiple date fields
+    let membersWithDates = 0;
+    const today = new Date();
+    const thirtyDaysAgo = subDays(today, 30);
+    
     members.forEach((member: any) => {
-      const joinDate = member.createdAt || member.joinedAt || member.dateJoined;
+      const joinDate = member.createdAt || member.joinedAt || member.dateJoined || member.joinDate || member.created_at || member.joined_at;
       if (joinDate) {
         try {
-          const memberDate = parseISO(joinDate);
-          const dayIndex = last30Days.findIndex((d) => {
-            return d.fullDate.toDateString() === memberDate.toDateString();
-          });
-          if (dayIndex >= 0) {
-            // Increment count for this day and all subsequent days
-            for (let i = dayIndex; i < last30Days.length; i++) {
-              last30Days[i].count++;
+          // Try parseISO first, then fallback to Date constructor
+          let memberDate: Date;
+          try {
+            memberDate = parseISO(joinDate);
+          } catch {
+            memberDate = new Date(joinDate);
+          }
+          
+          if (isNaN(memberDate.getTime())) return;
+          
+          // Only count if the date is within the last 30 days
+          if (memberDate >= thirtyDaysAgo && memberDate <= today) {
+            const dayIndex = last30Days.findIndex((d) => {
+              return d.fullDate.toDateString() === memberDate.toDateString();
+            });
+            if (dayIndex >= 0) {
+              membersWithDates++;
+              // Increment count for this day and all subsequent days
+              for (let i = dayIndex; i < last30Days.length; i++) {
+                last30Days[i].count++;
+              }
             }
+          } else if (memberDate < thirtyDaysAgo) {
+            // Member joined before the 30-day window, add to all days
+            membersWithDates++;
+            last30Days.forEach((day) => {
+              day.count++;
+            });
           }
         } catch {
           // Ignore invalid dates
@@ -45,11 +73,28 @@ const MemberGrowthChart = ({ members, isLoading }: MemberGrowthChartProps) => {
       }
     });
 
+    // If no members have dates, show current total for all days (flat line)
+    if (membersWithDates === 0 && members.length > 0) {
+      const totalMembers = members.length;
+      last30Days.forEach((day) => {
+        day.count = totalMembers;
+      });
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('📊 MemberGrowthChart: Processed data', {
+        memberCount: members.length,
+        chartDataPoints: last30Days.length,
+        sampleData: last30Days.slice(0, 5),
+        totalCount: last30Days[last30Days.length - 1]?.count || 0,
+      });
+    }
+
     return last30Days;
   }, [members]);
 
   return (
-    <Card className="glass-card border-primary/20 glow-effect">
+    <Card className="glass-card border-primary/20 glow-effect transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-primary/40 cursor-pointer">
       <CardHeader>
         <CardTitle className="text-xl neon-text text-white flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />

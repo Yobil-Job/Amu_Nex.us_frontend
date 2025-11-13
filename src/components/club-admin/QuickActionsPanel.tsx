@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Bell, Calendar, Clock, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -54,40 +53,78 @@ const QuickActionsPanel = ({ clubId, pendingRequestsCount = 0 }: QuickActionsPan
           Frequently used actions for club management
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="relative z-10">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
           {actions.map((action, index) => {
             const Icon = action.icon;
+            const handleClick = () => {
+              console.log('Quick action clicked:', action.title);
+              try {
+                action.action();
+              } catch (error) {
+                console.error('Navigation error:', error);
+              }
+            };
+            
             return (
-              <Button
+              <div
                 key={action.title}
-                variant="outline"
-                className={cn(
-                  'glass-card h-auto p-6 flex flex-col items-start gap-3 transition-all hover:scale-105 border-2',
-                  action.borderColor,
-                  'hover:bg-primary/10 relative group'
-                )}
-                onClick={action.action}
-                style={{ animationDelay: `${index * 100}ms` }}
+                className="relative"
+                style={{ zIndex: 10 }}
               >
-                <div className={cn('p-3 rounded-xl shadow-sm', action.bgColor)}>
-                  <Icon className={cn('h-6 w-6', action.color)} />
-                </div>
-                <div className="text-left flex-1">
-                  <div className="font-semibold text-white mb-1 flex items-center justify-between gap-2">
-                    <span>{action.title}</span>
-                    {action.badge !== undefined && action.badge > 0 && (
-                      <span className="bg-destructive text-destructive-foreground text-xs px-2 py-1 rounded-full">
-                        {action.badge}
-                      </span>
-                    )}
+                <button
+                  type="button"
+                  className={cn(
+                    'glass-card h-auto p-6 flex flex-col items-start gap-3 transition-all hover:scale-105 border-2 rounded-lg',
+                    'bg-background/50 backdrop-blur-sm',
+                    action.borderColor,
+                    'hover:bg-primary/10 relative group w-full cursor-pointer',
+                    'focus:outline-none focus:ring-2 focus:ring-primary/50',
+                    'active:scale-[0.98]'
+                  )}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleClick();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleClick();
+                    }
+                  }}
+                  style={{ 
+                    animationDelay: `${index * 100}ms`,
+                    position: 'relative',
+                    zIndex: 10,
+                    pointerEvents: 'auto'
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className={cn('p-3 rounded-xl shadow-sm flex-shrink-0', action.bgColor)} style={{ pointerEvents: 'none' }}>
+                    <Icon className={cn('h-6 w-6', action.color)} />
                   </div>
-                  <div className="text-xs text-muted-foreground line-clamp-2 break-words pr-8">
-                    {action.description}
+                  <div className="text-left flex-1 w-full min-w-0" style={{ pointerEvents: 'none' }}>
+                    <div className="font-semibold text-white mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate flex-1">{action.title}</span>
+                      {action.badge !== undefined && action.badge > 0 && (
+                        <span className="bg-destructive text-destructive-foreground text-xs px-2 py-1 rounded-full flex-shrink-0">
+                          {action.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground line-clamp-2 break-words pr-6">
+                      {action.description}
+                    </div>
                   </div>
-                </div>
-                <ArrowRight className={cn('h-4 w-4 absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity', action.color)} />
-              </Button>
+                  <ArrowRight 
+                    className={cn('h-4 w-4 absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0', action.color)} 
+                    style={{ pointerEvents: 'none' }}
+                  />
+                </button>
+              </div>
             );
           })}
         </div>

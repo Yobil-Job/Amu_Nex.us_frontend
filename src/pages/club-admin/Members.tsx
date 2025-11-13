@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Users, Building2 } from 'lucide-react';
 import { clubApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
@@ -157,8 +158,11 @@ const ClubAdminMembers = () => {
     if (roleFilter !== 'all') {
       filtered = filtered.filter((member) => {
         const memberAuthorities = authorities.filter((auth: any) => {
-          const studentId = auth.student?.id || auth.studentId;
-          return studentId === member.id;
+          const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
+          return studentId != null && member.id != null && (
+            Number(studentId) === Number(member.id) ||
+            studentId === member.id
+          );
         });
         
         if (roleFilter === 'AUTHORITY') {

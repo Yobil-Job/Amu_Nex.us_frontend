@@ -12,7 +12,12 @@ interface EventsChartProps {
 
 const EventsChart = ({ events, isLoading }: EventsChartProps) => {
   const chartData = useMemo(() => {
-    if (!events || events.length === 0) return [];
+    if (!events || events.length === 0) {
+      if (import.meta.env.DEV) {
+        console.log('📊 EventsChart: No events data', { events });
+      }
+      return [];
+    }
 
     // Get last 6 months
     const last6Months = Array.from({ length: 6 }, (_, i) => {
@@ -24,17 +29,28 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
       };
     });
 
-    // Count events by month
+    // Count events by month - check multiple date fields
+    let eventsWithDates = 0;
     events.forEach((event: any) => {
-      const eventDate = event.startAt || event.createdAt;
+      const eventDate = event.startAt || event.startDate || event.date || event.start || event.createdAt;
       if (eventDate) {
         try {
-          const date = parseISO(eventDate);
+          // Try parseISO first, then fallback to Date constructor
+          let date: Date;
+          try {
+            date = parseISO(eventDate);
+          } catch {
+            date = new Date(eventDate);
+          }
+          
+          if (isNaN(date.getTime())) return;
+          
           const monthStart = startOfMonth(date);
           const monthIndex = last6Months.findIndex((m) => {
             return m.fullDate.getTime() === monthStart.getTime();
           });
           if (monthIndex >= 0) {
+            eventsWithDates++;
             last6Months[monthIndex].count++;
           }
         } catch {
@@ -43,11 +59,27 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
       }
     });
 
+    // If events exist but have no valid dates, show total in the most recent month
+    if (eventsWithDates === 0 && events.length > 0) {
+      if (last6Months.length > 0) {
+        last6Months[last6Months.length - 1].count = events.length;
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('📊 EventsChart: Processed data', {
+        eventCount: events.length,
+        chartDataPoints: last6Months.length,
+        sampleData: last6Months,
+        totalEvents: last6Months.reduce((sum, m) => sum + m.count, 0),
+      });
+    }
+
     return last6Months;
   }, [events]);
 
   return (
-    <Card className="glass-card border-primary/20 glow-effect">
+    <Card className="glass-card border-primary/20 glow-effect transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-primary/40 cursor-pointer">
       <CardHeader>
         <CardTitle className="text-xl neon-text text-white flex items-center gap-2">
           <Calendar className="h-5 w-5 text-primary" />

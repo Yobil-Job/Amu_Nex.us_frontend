@@ -18,11 +18,19 @@ const MemberDetailsModal = ({ member, isOpen, onClose, isLoading = false, author
 
   // Get member's authorities/roles in this club
   const memberAuthorities = authorities.filter((auth: any) => {
-    const studentId = auth.student?.id || auth.studentId;
-    return studentId === member?.id;
+    const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
+    return studentId != null && member?.id != null && (
+      Number(studentId) === Number(member.id) ||
+      studentId === member.id
+    );
   });
 
-  const memberRoles = memberAuthorities.map((auth: any) => auth.name || 'STUDENT');
+  const memberRoles = memberAuthorities.map((auth: any) => {
+    // Normalize role name
+    const roleName = auth.name || auth.authority || 'STUDENT';
+    // Remove ROLE_ prefix if present
+    return roleName.replace(/^ROLE_/, '').toUpperCase();
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -59,7 +67,7 @@ const MemberDetailsModal = ({ member, isOpen, onClose, isLoading = false, author
                   {memberRoles.length > 0 ? (
                     memberRoles.map((role: string, index: number) => (
                       <Badge key={index} className={getRoleBadgeColor(role)}>
-                        {role === 'ADMIN' ? 'Club Admin' : role}
+                        {role === 'ADMIN' ? 'Club Admin' : role === 'SUPER_USER' ? 'Authority' : role}
                       </Badge>
                     ))
                   ) : (
@@ -147,19 +155,43 @@ const MemberDetailsModal = ({ member, isOpen, onClose, isLoading = false, author
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-semibold text-white">{auth.name || 'Authority'}</p>
+                          <p className="font-semibold text-white">
+                            {(() => {
+                              const roleName = auth.name || auth.authority || 'Authority';
+                              const normalized = roleName.replace(/^ROLE_/, '').toUpperCase();
+                              return normalized === 'ADMIN' ? 'Club Admin' : normalized === 'SUPER_USER' ? 'Authority' : normalized;
+                            })()}
+                          </p>
                           {auth.description && (
                             <p className="text-sm text-muted-foreground">{auth.description}</p>
                           )}
                         </div>
-                        {auth.startDate && (
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Since</p>
-                            <p className="text-sm text-white">
-                              {format(parseISO(auth.startDate), 'MMM dd, yyyy')}
-                            </p>
-                          </div>
-                        )}
+                        {(() => {
+                          const startDate = auth.startDate || auth.start_date || auth.startAt;
+                          if (!startDate) return null;
+                          
+                          try {
+                            let date: Date;
+                            try {
+                              date = parseISO(startDate);
+                            } catch {
+                              date = new Date(startDate);
+                            }
+                            
+                            if (isNaN(date.getTime())) return null;
+                            
+                            return (
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Since</p>
+                                <p className="text-sm text-white">
+                                  {format(date, 'MMM dd, yyyy')}
+                                </p>
+                              </div>
+                            );
+                          } catch {
+                            return null;
+                          }
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -168,16 +200,36 @@ const MemberDetailsModal = ({ member, isOpen, onClose, isLoading = false, author
             )}
 
             {/* Join Date */}
-            {member.createdAt && (
-              <div className="pt-4 border-t border-primary/20">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Joined: {format(parseISO(member.createdAt), 'MMM dd, yyyy')}
-                  </span>
-                </div>
-              </div>
-            )}
+            {(() => {
+              // Check multiple date fields for join date
+              const joinDate = member.createdAt || member.joinedAt || member.dateJoined || member.joinDate || member.created_at || member.joined_at;
+              if (!joinDate) return null;
+              
+              try {
+                // Try parseISO first, then fallback to Date constructor
+                let date: Date;
+                try {
+                  date = parseISO(joinDate);
+                } catch {
+                  date = new Date(joinDate);
+                }
+                
+                if (isNaN(date.getTime())) return null;
+                
+                return (
+                  <div className="pt-4 border-t border-primary/20">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Joined: {format(date, 'MMM dd, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              } catch {
+                return null;
+              }
+            })()}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

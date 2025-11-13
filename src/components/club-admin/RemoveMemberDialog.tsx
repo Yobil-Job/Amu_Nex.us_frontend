@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { clubApi } from '@/lib/api';
+import { authFetch } from '@/lib/api';
 
 interface RemoveMemberDialogProps {
   member: any | null;
@@ -28,20 +28,37 @@ const RemoveMemberDialog = ({ member, clubId, isOpen, onClose, onSuccess }: Remo
 
     setIsRemoving(true);
     try {
-      // Note: Backend might not have a direct remove member endpoint
-      // This might need to be implemented via a different endpoint
-      // For now, we'll show a message that this needs backend support
-      toast.info('Remove member functionality requires backend endpoint support');
-      
-      // If endpoint exists, it would be something like:
-      // await clubApi.removeMember(clubId, member.id);
-      
-      toast.success('Member removed successfully');
-      onSuccess();
-      onClose();
+      // Try to call remove member endpoint
+      // DELETE /student/{studentId}/clubs/{clubId}/leave
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+      const response = await authFetch(
+        `${API_BASE_URL}/student/${member.id}/clubs/${clubId}/leave`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (response.ok) {
+        toast.success('Member removed successfully');
+        onSuccess();
+        onClose();
+      } else if (response.status === 404) {
+        // Endpoint doesn't exist - show info message
+        toast.info('Remove member endpoint not available. This feature requires backend support.');
+        onClose();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to remove member');
+      }
     } catch (error: any) {
       console.error('Failed to remove member:', error);
-      toast.error(error.message || 'Failed to remove member');
+      // If it's a network error or endpoint doesn't exist, treat gracefully
+      if (error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+        toast.info('Remove member endpoint not available. This feature requires backend support.');
+        onClose();
+      } else {
+        toast.error(error.message || 'Failed to remove member');
+      }
     } finally {
       setIsRemoving(false);
     }
