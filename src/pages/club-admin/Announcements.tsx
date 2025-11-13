@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Bell, Plus, RefreshCw } from 'lucide-react';
 import { announcementApi, clubApi, authorityApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
+import { loadManagedClubsForUser } from '@/lib/clubAdminUtils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,36 +53,18 @@ const ClubAdminAnnouncements = () => {
 
   // Load clubs where user is assigned as club admin (ADMIN role)
   const loadManagedClubs = async () => {
+    if (!user?.id) return;
+    
     try {
-      // Get all authorities for the current user
-      const authoritiesRes = await authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
-      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+      setIsLoading(true);
+      const clubs = await loadManagedClubsForUser(user.id);
 
-      // Filter authorities where user is the club admin (ADMIN role)
-      const userAuthorities = allAuthorities.filter((auth: any) => {
-        const studentId = auth.student?.id || auth.studentId;
-        const authName = (auth.name || '').toUpperCase();
-        return studentId === user?.id && authName === 'ADMIN';
-      });
-
-      const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
-
-      if (clubIds.length === 0) {
+      if (clubs.length === 0) {
         toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator.');
         setIsLoading(false);
         return;
       }
 
-      const clubPromises = clubIds.map(async (clubId: number) => {
-        try {
-          const club = await clubApi.getById(clubId);
-          return club;
-        } catch {
-          return null;
-        }
-      });
-
-      const clubs = (await Promise.all(clubPromises)).filter(Boolean);
       setManagedClubs(clubs);
 
       if (clubs.length === 1) {
@@ -90,7 +73,9 @@ const ClubAdminAnnouncements = () => {
         setSelectedClub(clubs[0]);
       }
     } catch (error: any) {
+      console.error('Failed to load managed clubs:', error);
       toast.error('Failed to load your clubs');
+    } finally {
       setIsLoading(false);
     }
   };

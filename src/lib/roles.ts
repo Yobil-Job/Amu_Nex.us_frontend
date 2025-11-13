@@ -6,7 +6,11 @@
  * - ADMIN: Club admin (assigned by SUPER_ADMIN, manages specific club(s))
  * - SUPER_ADMIN: System admin (can create/delete clubs, manage all students, assign club admins)
  * 
- * Note: In backend enum, club admin role name is 'ADMIN'
+ * Important Notes:
+ * - In backend enum, club admin role name is 'ADMIN' (exactly, no ROLE_ prefix)
+ * - JWT token contains role as "ADMIN" exactly for club admin
+ * - All roles are normalized to uppercase (ADMIN, STUDENT, SUPER_ADMIN, SUPER_USER)
+ * - Role checks are case-insensitive for safety
  */
 
 export type UserRole = 'STUDENT' | 'SUPER_USER' | 'SUPER_ADMIN' | 'ADMIN';

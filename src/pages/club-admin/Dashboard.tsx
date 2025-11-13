@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Sparkles, Activity } from 'lucide-react';
 import { clubApi, eventApi, announcementApi, authorityApi, feeApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
+import { loadManagedClubsForUser } from '@/lib/clubAdminUtils';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import Breadcrumbs from '@/components/admin/Breadcrumbs';
@@ -50,67 +51,229 @@ const ClubAdminDashboard = () => {
 
   // Load clubs where user is assigned as club admin (ADMIN role)
   const loadManagedClubs = async () => {
+    if (!user?.id) return;
+    
     try {
-      // Get all authorities for the current user
-      const authoritiesRes = await authorityApi.getAll().catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
-      const allAuthorities = extractCollection<any>(authoritiesRes) || [];
+      console.log('🔍 Loading managed clubs for user:', user.id, 'role:', user.role);
 
-      // Filter authorities where user is the club admin (ADMIN role)
-      // Authority has studentId (the club admin) and clubId (the club they manage)
-      // In backend, authority name 'ADMIN' means club admin role
-      const userAuthorities = allAuthorities.filter((auth: any) => {
-        const studentId = auth.student?.id || auth.studentId;
-        const authName = (auth.name || '').toUpperCase();
-        // Check if user is assigned as club admin (ADMIN role) for this club
-        return studentId === user?.id && authName === 'ADMIN';
-      });
+      // Strategy 1: Check authorities where user is assigned as ADMIN
+      let clubIdsFromAuthorities: number[] = [];
+      try {
+        // First try to get authorities for this specific student (more efficient)
+        const authoritiesRes = await authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+        const userAuthorities = extractCollection<any>(authoritiesRes) || [];
+        
+        console.log('📊 User authorities:', userAuthorities.length, userAuthorities);
 
-      // Get unique club IDs
-      const clubIds = [...new Set(userAuthorities.map((auth: any) => auth.club?.id || auth.clubId))].filter(Boolean);
-
-      if (clubIds.length === 0) {
-        // If no authorities found, try alternative approach: check if user is a member of any clubs
-        // and has role ADMIN (they might be club admin without explicit authority record)
-        try {
-          const allClubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
-          const allClubs = extractCollection<any>(allClubsRes) || [];
+        // Filter authorities where user is the club admin (ADMIN role)
+        // Authority has studentId (the club admin) and clubId (the club they manage)
+        // In backend, authority name 'ADMIN' means club admin role
+        const adminAuthorities = userAuthorities.filter((auth: any) => {
+          const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
+          const authName = (auth.name || auth.authority || '').toUpperCase();
+          const isAdminAuth = authName === 'ADMIN' || authName === 'ROLE_ADMIN';
+          const matchesUser = studentId === user.id || Number(studentId) === Number(user.id);
           
-          // For each club, check if user is a member
-          const memberPromises = allClubs.map(async (club: any) => {
+          console.log('🔍 Checking authority:', {
+            studentId,
+            authName,
+            isAdminAuth,
+            matchesUser,
+            clubId: auth.club?.id || auth.clubId,
+          });
+          
+          return matchesUser && isAdminAuth;
+        });
+
+        console.log('✅ Admin authorities found:', adminAuthorities.length);
+
+        // Get unique club IDs from authorities
+        clubIdsFromAuthorities = [...new Set(
+          adminAuthorities.map((auth: any) => {
+            const clubId = auth.club?.id || auth.clubId || auth.club?.clubId;
+            return clubId != null ? Number(clubId) : null;
+          }).filter((id): id is number => id != null)
+        )];
+
+        console.log('🏛️ Club IDs from authorities:', clubIdsFromAuthorities);
+      } catch (err) {
+        console.warn('Failed to load authorities:', err);
+      }
+
+      // Strategy 2: Check all clubs where clubAdminId matches user.id
+      // This is the primary way club admins are stored in the backend
+      // Note: clubAdminId might not be in the list response, so we fetch individual club details
+      let clubsFromAdminId: any[] = [];
+      try {
+        const allClubsRes = await clubApi.getAll().catch(() => ({ _embedded: { responseClubDtoList: [] } }));
+        const allClubs = extractCollection<any>(allClubsRes) || [];
+        
+        console.log('📊 All clubs loaded:', allClubs.length);
+        
+        // First, try to check clubAdminId in the list response (faster)
+        const clubsFromList = allClubs.filter((club: any) => {
+          const clubAdminId = club.clubAdminId || 
+                             club.club_admin_id || 
+                             club.clubAdmin?.id ||
+                             club.clubAdminId?.id;
+          
+          if (clubAdminId == null) return false;
+          
+          return (
+            Number(clubAdminId) === Number(user.id) ||
+            clubAdminId === user.id ||
+            String(clubAdminId) === String(user.id)
+          );
+        });
+
+        if (clubsFromList.length > 0) {
+          console.log('✅ Found clubs via list response:', clubsFromList.length);
+          clubsFromAdminId = clubsFromList;
+        } else {
+          // clubAdminId not in list response, try two approaches:
+          // 1. Fetch individual club details (clubAdminId might be there)
+          // 2. Check club members to see if user is listed as admin
+          console.log('🔍 clubAdminId not in list response, trying individual club details and members check...');
+          
+          const clubCheckPromises = allClubs.map(async (club: any) => {
             try {
-              const membersRes = await clubApi.getMembers(club.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
-              const members = extractCollection<any>(membersRes) || [];
-              const isMember = members.some((m: any) => m.id === user?.id);
-              return isMember ? club : null;
-            } catch {
+              const clubId = club.id || club.clubId;
+              if (!clubId) return null;
+              
+              // Approach 1: Check club details for clubAdminId
+              const clubDetails = await clubApi.getById(clubId);
+              
+              // Check clubAdminId in detailed club object - try multiple field names
+              const detailedClubAdminId = clubDetails.clubAdminId || 
+                                         clubDetails.club_admin_id || 
+                                         clubDetails.clubAdmin?.id ||
+                                         clubDetails.clubAdminId?.id ||
+                                         (typeof clubDetails.clubAdmin === 'number' ? clubDetails.clubAdmin : null);
+              
+              console.log('🔍 Club details for', clubId, ':', {
+                clubTitle: clubDetails.title || clubDetails.name,
+                clubAdminId: detailedClubAdminId,
+                userId: user.id,
+                clubDetailsKeys: Object.keys(clubDetails),
+              });
+              
+              // Check if clubAdminId matches
+              if (detailedClubAdminId != null && (
+                Number(detailedClubAdminId) === Number(user.id) ||
+                detailedClubAdminId === user.id ||
+                String(detailedClubAdminId) === String(user.id)
+              )) {
+                console.log('✅ Found managed club via clubAdminId:', {
+                  clubId: clubDetails.id,
+                  clubTitle: clubDetails.title || clubDetails.name,
+                  clubAdminId: detailedClubAdminId,
+                });
+                return clubDetails;
+              }
+              
+              // Approach 2: Check club members to see if user is admin
+              // Sometimes the user might be in the members list with admin privileges
+              try {
+                const membersRes = await clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
+                const members = extractCollection<any>(membersRes) || [];
+                
+                console.log('🔍 Checking members for club', clubId, ':', {
+                  memberCount: members.length,
+                  userId: user.id,
+                });
+                
+                // Check if user is a member and has admin role or is the club admin
+                const userMember = members.find((member: any) => {
+                  const memberId = member.id || member.studentId || member.student?.id;
+                  return memberId != null && (
+                    Number(memberId) === Number(user.id) ||
+                    memberId === user.id
+                  );
+                });
+                
+                if (userMember) {
+                  console.log('🔍 User is a member of club', clubId, ':', {
+                    memberId: userMember.id,
+                    memberRole: userMember.role,
+                    hasAdminRole: userMember.role === 'ADMIN' || userMember.role === 'ROLE_ADMIN',
+                  });
+                  
+                  // Check if member has ADMIN role
+                  const memberRole = userMember.role || userMember.authority?.authority;
+                  const isAdminMember = memberRole === 'ADMIN' || 
+                                      memberRole === 'ROLE_ADMIN' ||
+                                      (typeof memberRole === 'string' && memberRole.toUpperCase().includes('ADMIN'));
+                  
+                  if (isAdminMember) {
+                    console.log('✅ Found managed club via member role:', {
+                      clubId: clubDetails.id,
+                      clubTitle: clubDetails.title || clubDetails.name,
+                      memberRole: memberRole,
+                    });
+                    return clubDetails;
+                  }
+                }
+              } catch (memberErr) {
+                console.warn(`Failed to check members for club ${clubId}:`, memberErr);
+              }
+              
+              return null;
+            } catch (err) {
+              console.warn(`Failed to load club ${club.id} details:`, err);
               return null;
             }
           });
           
-          const memberClubs = (await Promise.all(memberPromises)).filter(Boolean);
-          
-          // User is a member of clubs, but not assigned as admin via authorities
-          // This might mean they need to be assigned by system admin
-        } catch (err) {
-          // Silently fail - this is just a fallback check
+          const detailedClubs = (await Promise.all(clubCheckPromises)).filter(Boolean);
+          if (detailedClubs.length > 0) {
+            console.log('✅ Found clubs via individual club details/members check:', detailedClubs.length);
+            clubsFromAdminId = detailedClubs;
+          } else {
+            console.warn('⚠️ No clubs found where user is admin, even after checking individual details and members');
+          }
         }
-        
+      } catch (err) {
+        console.warn('Failed to load clubs:', err);
+      }
+
+      // Combine both strategies - get unique club IDs
+      const allClubIds = new Set<number>();
+      
+      // Add club IDs from authorities
+      clubIdsFromAuthorities.forEach(id => allClubIds.add(id));
+      
+      // Add club IDs from clubAdminId
+      clubsFromAdminId.forEach(club => {
+        const clubId = club.id || club.clubId;
+        if (clubId != null) {
+          allClubIds.add(Number(clubId));
+        }
+      });
+
+      const uniqueClubIds = Array.from(allClubIds);
+      console.log('🏛️ Total unique club IDs:', uniqueClubIds);
+
+      if (uniqueClubIds.length === 0) {
+        console.warn('⚠️ No managed clubs found for user:', user.id);
         toast.info('You are not assigned as a club admin for any club yet. Please contact the system administrator to assign you as a club admin.');
         setStats((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
       // Fetch club details for each club ID
-      const clubPromises = clubIds.map(async (clubId: number) => {
+      const clubPromises = uniqueClubIds.map(async (clubId: number) => {
         try {
           const club = await clubApi.getById(clubId);
           return club;
-        } catch {
+        } catch (err) {
+          console.warn(`Failed to load club ${clubId}:`, err);
           return null;
         }
       });
 
       const clubs = (await Promise.all(clubPromises)).filter(Boolean);
+      console.log('✅ Loaded managed clubs:', clubs.length, clubs.map(c => ({ id: c.id, title: c.title || c.name })));
+
       setManagedClubs(clubs);
 
       // Auto-select first club if only one, or prompt selection

@@ -48,13 +48,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try multiple response structures
       let userData: User = {};
       
+      // Helper function to normalize role (remove ROLE_ prefix if present, keep as uppercase)
+      const normalizeRole = (role: string | undefined | null): string => {
+        if (!role) return 'STUDENT';
+        if (typeof role !== 'string') return 'STUDENT';
+        // Remove ROLE_ prefix if present, then uppercase
+        return role.replace(/^ROLE_/, '').toUpperCase();
+      };
+
       // Strategy 1: Response has principal object
       if (meResponse.principal) {
         const principal = meResponse.principal;
         const name = meResponse.name; // This is the email
+        const extractedRole = meResponse.authorities?.[0]?.authority || principal?.role || meResponse.role || 'STUDENT';
         userData = {
           email: name || principal?.username || principal?.email,
-          role: meResponse.authorities?.[0]?.authority?.replace('ROLE_', '') || principal?.role || 'STUDENT',
+          role: normalizeRole(extractedRole),
           id: principal?.id || principal?.studentId,
           firstname: principal?.firstname || principal?.student?.firstname,
           lastname: principal?.lastname || principal?.student?.lastname,
@@ -65,11 +74,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
       // Strategy 2: Response is direct Map (backend returns Map<String, Object>)
-      // Backend /student/me returns: { id, email, firstname, lastname, gender, yearOfStay, department, etc. }
+      // Backend /student/me returns: { id, email, firstname, lastname, gender, yearOfStay, department, role, etc. }
+      // Note: Role comes as "ADMIN" exactly for club admin
       if (meResponse.id || meResponse.email) {
         userData = {
           email: meResponse.email,
-          role: meResponse.role || 'STUDENT',
+          role: normalizeRole(meResponse.role),
           id: meResponse.id,
           firstname: meResponse.firstname,
           lastname: meResponse.lastname,
@@ -84,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const student = meResponse.student;
         userData = {
           email: student.email || meResponse.email,
-          role: student.role || meResponse.role || 'STUDENT',
+          role: normalizeRole(student.role || meResponse.role),
           id: student.id,
           firstname: student.firstname,
           lastname: student.lastname,
@@ -109,20 +119,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Fallback: Extract user info from JWT token
+      // JWT token contains role as "ADMIN" exactly for club admin
       if (currentAccessToken) {
         try {
           const tokenUser = extractUserFromToken(currentAccessToken);
           if (tokenUser && tokenUser.email) {
+            // Role is already normalized in extractUserFromToken
             const fallbackUser: User = {
               email: tokenUser.email,
               id: tokenUser.id,
-              role: tokenUser.role,
+              role: tokenUser.role, // Already normalized (ADMIN, STUDENT, etc.)
             };
             
             console.log('✅ Using JWT token data as fallback (user info extracted from token):', {
               email: fallbackUser.email,
               id: fallbackUser.id,
-              role: fallbackUser.role
+              role: fallbackUser.role,
+              isClubAdmin: fallbackUser.role === 'ADMIN',
             });
             setUser(fallbackUser);
             localStorage.setItem('user', JSON.stringify(fallbackUser));
@@ -266,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Backend login response: { accessToken, refreshToken, role }
       // NO user object in response
+      // Note: Role comes as "ADMIN" exactly for club admin (no ROLE_ prefix)
       console.log('🔐 Attempting login for:', email);
       const response = await authApi.login(email, password);
       console.log('✅ Login API response received:', { 
@@ -281,11 +295,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
 
+      // Normalize role (remove ROLE_ prefix if present, keep as uppercase)
+      // Role comes as "ADMIN" exactly for club admin
+      const normalizeRole = (role: string | undefined | null): string => {
+        if (!role) return 'STUDENT';
+        if (typeof role !== 'string') return 'STUDENT';
+        return role.replace(/^ROLE_/, '').toUpperCase();
+      };
+
       // Create temporary user object with role and email
       const tempUser: User = {
         email,
-        role: response.role || 'STUDENT',
+        role: normalizeRole(response.role),
       };
+      
+      console.log('✅ Normalized role from login response:', {
+        rawRole: response.role,
+        normalizedRole: tempUser.role,
+        isClubAdmin: tempUser.role === 'ADMIN',
+      });
+      
       setUser(tempUser);
       localStorage.setItem('user', JSON.stringify(tempUser));
 

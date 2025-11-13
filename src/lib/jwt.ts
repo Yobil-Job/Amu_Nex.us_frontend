@@ -30,6 +30,7 @@ export function decodeJwt(token: string): any {
 /**
  * Extract user info from JWT token
  * Backend JWT contains: sub (email), id, role, iat, exp
+ * Note: Role comes as "ADMIN" exactly (for club admin) - no ROLE_ prefix
  */
 export function extractUserFromToken(token: string | null): {
   email?: string;
@@ -42,10 +43,26 @@ export function extractUserFromToken(token: string | null): {
     const decoded = decodeJwt(token);
     if (!decoded) return null;
 
+    // Extract role - handle both "ADMIN" and "ROLE_ADMIN" formats
+    let role = decoded.role;
+    if (role && typeof role === 'string') {
+      // Remove ROLE_ prefix if present, but keep the role name as-is
+      role = role.replace(/^ROLE_/, '').toUpperCase();
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('🔐 JWT Token decoded:', {
+        email: decoded.sub || decoded.email,
+        id: decoded.id || decoded.studentId,
+        rawRole: decoded.role,
+        normalizedRole: role || 'STUDENT',
+      });
+    }
+
     return {
       email: decoded.sub || decoded.email,
       id: decoded.id || decoded.studentId,
-      role: decoded.role || 'STUDENT',
+      role: role || 'STUDENT',
     };
   } catch (error) {
     console.error('Failed to extract user from token:', error);
