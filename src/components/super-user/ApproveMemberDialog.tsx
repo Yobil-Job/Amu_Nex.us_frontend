@@ -29,12 +29,18 @@ const ApproveMemberDialog = ({ request, clubId, isOpen, onClose, onSuccess }: Ap
     setIsApproving(true);
     try {
       const studentId = request.studentId || request.student?.id;
+      // SUPER_USER cannot access /clubs/{clubId}/requests/{studentId}/approve (restricted to SUPER_ADMIN and ADMIN)
       await clubApi.approveRequest(clubId, studentId);
       toast.success('Join request approved successfully');
       onSuccess();
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to approve request');
+      const errorMessage = error.message || 'Failed to approve request';
+      if (errorMessage.includes('Access Denied') || errorMessage.includes('403') || errorMessage.includes('permission')) {
+        toast.error('You do not have permission to approve requests. Only Club Admins can approve join requests.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsApproving(false);
     }

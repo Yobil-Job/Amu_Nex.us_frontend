@@ -99,20 +99,58 @@ const SuperUserDashboard = () => {
     try {
       const clubId = selectedClub.id;
 
-      // Load all data in parallel
+      // SUPER_USER cannot access /clubs/{clubId}/get-members (restricted to SUPER_ADMIN and ADMIN)
+      // Instead, use numberOfMmbers from ResponseClubDto (populated by ClubMapper)
+      let memberCount = 0;
+      
+      // Try to get member count from selectedClub (ResponseClubDto has numberOfMmbers field)
+      // ClubMapper.toResponseClubDto() sets this using studentClubRepository.countApprovedMembersByClubId()
+      if (selectedClub.numberOfMmbers !== undefined && selectedClub.numberOfMmbers !== null) {
+        memberCount = Number(selectedClub.numberOfMmbers);
+        if (import.meta.env.DEV) {
+          console.log('✅ [SuperUserDashboard] Using member count from selectedClub.numberOfMmbers:', memberCount);
+        }
+      } else if (selectedClub.numberOfMembers !== undefined && selectedClub.numberOfMembers !== null) {
+        memberCount = Number(selectedClub.numberOfMembers);
+        if (import.meta.env.DEV) {
+          console.log('✅ [SuperUserDashboard] Using member count from selectedClub.numberOfMembers:', memberCount);
+        }
+      } else {
+        // Fallback: Try to fetch club details to get updated member count
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [SuperUserDashboard] numberOfMmbers not found in selectedClub, trying to fetch club details');
+          console.log('🔍 [SuperUserDashboard] selectedClub keys:', Object.keys(selectedClub));
+        }
+        try {
+          const clubDetails = await clubApi.getById(clubId);
+          const club = extractCollection<any>(clubDetails)?.[0] || clubDetails;
+          memberCount = Number(club?.numberOfMmbers || club?.numberOfMembers || 0);
+          // Update selectedClub with fresh data if we got it
+          if (club && (club.numberOfMmbers !== undefined || club.numberOfMembers !== undefined)) {
+            setSelectedClub((prev: any) => ({ ...prev, ...club }));
+            if (import.meta.env.DEV) {
+              console.log('✅ [SuperUserDashboard] Fetched member count from club details:', memberCount);
+            }
+          }
+        } catch (err) {
+          // If we can't fetch club details, member count stays 0
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [SuperUserDashboard] Could not fetch club details for member count:', err);
+          }
+        }
+      }
+
+      // Load other data in parallel
       const [
-        membersRes,
         eventsRes,
         announcementsRes,
         requestsRes,
       ] = await Promise.all([
-        clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
         eventApi.getByClub(clubId).catch(() => ({ _embedded: { eventList: [] } })),
         announcementApi.getByClub(clubId).catch(() => ({ _embedded: { announcementResponseDtoList: [] } })),
         clubApi.getPendingRequests(clubId).catch(() => ({ _embedded: { requestResponseDtoList: [] } })),
       ]);
 
-      const membersList = extractCollection<any>(membersRes) || [];
       const eventsList = extractCollection<any>(eventsRes) || [];
       const announcementsList = extractCollection<any>(announcementsRes) || [];
       const requestsList = extractCollection<any>(requestsRes) || [];
@@ -148,7 +186,7 @@ const SuperUserDashboard = () => {
       setRecentEvents(sortedRecentEvents);
 
       setStats({
-        totalMembers: membersList.length,
+        totalMembers: memberCount,
         upcomingEvents: upcomingEventsList.length,
         totalAnnouncements: announcementsList.length,
         pendingRequests: requestsList.length,

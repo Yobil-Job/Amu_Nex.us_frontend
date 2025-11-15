@@ -32,13 +32,19 @@ const RejectMemberDialog = ({ request, clubId, isOpen, onClose, onSuccess }: Rej
     setIsRejecting(true);
     try {
       const studentId = request.studentId || request.student?.id;
+      // SUPER_USER cannot access /clubs/{clubId}/requests/{studentId}/reject (restricted to ADMIN only)
       await clubApi.rejectRequest(clubId, studentId);
       toast.success('Join request rejected');
       setRejectionReason('');
       onSuccess();
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to reject request');
+      const errorMessage = error.message || 'Failed to reject request';
+      if (errorMessage.includes('Access Denied') || errorMessage.includes('403') || errorMessage.includes('permission')) {
+        toast.error('You do not have permission to reject requests. Only Club Admins can reject join requests.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsRejecting(false);
     }

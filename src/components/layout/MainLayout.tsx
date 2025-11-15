@@ -56,10 +56,7 @@ const MainLayout = () => {
   // Load club for super user
   useEffect(() => {
     if (isSuperUser(user?.role) && user?.id) {
-      console.log('🔍 [MainLayout] SUPER_USER detected, loading clubs for user ID:', user.id);
       loadSuperUserClub();
-    } else if (isSuperUser(user?.role) && !user?.id) {
-      console.warn('⚠️ [MainLayout] SUPER_USER detected but user.id is missing. Waiting for user profile to load...');
     }
   }, [user?.role, user?.id]);
 
@@ -203,47 +200,29 @@ const MainLayout = () => {
   };
 
   const loadSuperUserClub = async () => {
-    if (!user?.id) {
-      console.warn('⚠️ [MainLayout] loadSuperUserClub called but user.id is missing');
-      return;
-    }
+    if (!user?.id) return;
     
     try {
-      console.log('🔍 [MainLayout] Loading authorized clubs for SUPER_USER:', user.id);
-      
       // Use the shared utility function (same approach as club admin)
       const { loadAuthorizedClubsForUser } = await import('@/lib/superUserUtils');
       const clubs = await loadAuthorizedClubsForUser(user.id);
-
-      console.log('📊 [MainLayout] loadAuthorizedClubsForUser returned:', clubs.length, 'clubs');
 
       if (clubs.length > 0) {
         // Get the first club ID (if multiple, can add selector later)
         const clubId = clubs[0]?.id || clubs[0]?.clubId;
         if (clubId) {
           setSuperUserClubId(Number(clubId));
-          console.log('✅ [MainLayout] SUPER_USER club loaded successfully:', {
-            clubId: Number(clubId),
-            clubName: clubs[0]?.title || clubs[0]?.name,
-            totalClubs: clubs.length,
-          });
-        } else {
-          console.warn('⚠️ [MainLayout] Club object found but no valid club ID:', clubs[0]);
+          if (import.meta.env.DEV) {
+            console.log('✅ [MainLayout] SUPER_USER club loaded:', clubId);
+          }
         }
       } else {
-        console.warn('⚠️ [MainLayout] No clubs found for SUPER_USER. User may not be assigned to any club yet.');
-        console.warn('⚠️ [MainLayout] User details:', {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-        });
+        if (import.meta.env.DEV) {
+          console.log('⚠️ [MainLayout] No clubs found for SUPER_USER');
+        }
       }
     } catch (error) {
-      console.error('❌ [MainLayout] Failed to load super user club:', error);
-      console.error('❌ [MainLayout] Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        user: { id: user?.id, email: user?.email, role: user?.role },
-      });
+      console.error('Failed to load super user club:', error);
     }
   };
 
@@ -452,7 +431,7 @@ const MainLayout = () => {
     { name: 'Events', href: '/events', icon: Calendar, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
-    { name: 'Members', href: '/members', icon: Users, roles: ['SUPER_USER'] },
+    // Members removed for SUPER_USER - they can only see member count, not manage members
     { name: 'Resources', href: '/resources', icon: Package, roles: ['SUPER_USER'] },
     { name: 'Reports', href: '/reports', icon: TrendingUp, roles: ['SUPER_USER'] },
   ];

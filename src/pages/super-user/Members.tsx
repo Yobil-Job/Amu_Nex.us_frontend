@@ -90,20 +90,42 @@ const SuperUserMembers = () => {
     try {
       const clubId = selectedClub.id;
 
+      // SUPER_USER cannot access /clubs/{id}/get-members (restricted to SUPER_ADMIN and ADMIN)
+      // Try to fetch but handle permission errors gracefully
       const [membersRes, authoritiesRes] = await Promise.all([
-        clubApi.getMembers(clubId).catch(() => ({ _embedded: { studentResponseDtoList: [] } })),
-        authorityApi.getByClub(clubId).catch(() => ({ _embedded: { authorityResponseDtoList: [] } })),
+        clubApi.getMembers(clubId).catch((err: any) => {
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [SuperUserMembers] Cannot fetch members - permission denied:', err);
+          }
+          // Return empty array wrapped in expected format
+          return [];
+        }),
+        authorityApi.getByClub(clubId).catch((err: any) => {
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [SuperUserMembers] Cannot fetch authorities by club - permission denied:', err);
+          }
+          // Try alternative: get authorities by current user (SUPER_USER can access this)
+          return authorityApi.getByStudent(user?.id || 0).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+        }),
       ]);
 
-      const membersList = extractCollection<any>(membersRes) || [];
+      // getMembers returns List<StudentResponseDto> directly (not HATEOAS) if successful, or empty array if failed
+      const membersList = Array.isArray(membersRes) ? membersRes : extractCollection<any>(membersRes) || [];
       const authoritiesList = extractCollection<any>(authoritiesRes) || [];
 
       setAllMembers(membersList);
       setMembers(membersList);
       setAuthorities(authoritiesList);
+
+      // Show info message if members list is empty due to permissions
+      if (membersList.length === 0 && selectedClub?.id) {
+        if (import.meta.env.DEV) {
+          console.info('ℹ️ [SuperUserMembers] Member list is empty. SUPER_USER may not have permission to view all members.');
+        }
+      }
     } catch (error: any) {
       console.error('Failed to load members:', error);
-      toast.error('Failed to load members');
+      toast.error('Failed to load members. You may not have permission to view the member list.');
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +136,13 @@ const SuperUserMembers = () => {
 
     try {
       const clubId = selectedClub.id;
-      const requestsRes = await clubApi.getPendingRequests(clubId).catch(() => ({ _embedded: { requestResponseDtoList: [] } }));
+      // SUPER_USER cannot access /clubs/{id}/requests/pending (restricted to SUPER_ADMIN and ADMIN)
+      const requestsRes = await clubApi.getPendingRequests(clubId).catch((err: any) => {
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [SuperUserMembers] Cannot fetch pending requests - permission denied:', err);
+        }
+        return { _embedded: { requestResponseDtoList: [] } };
+      });
       const requestsList = extractCollection<any>(requestsRes) || [];
       setPendingRequests(requestsList);
     } catch (error: any) {
@@ -284,6 +312,20 @@ const SuperUserMembers = () => {
             <h3 className="text-xl font-semibold text-white mb-2">No Club Assigned</h3>
             <p className="text-muted-foreground">
               You are not assigned as an authority for any club yet. Please contact your club admin.
+            </p>
+          </CardContent>
+        </Card>
+      ) : allMembers.length === 0 && !isLoading ? (
+        <Card className="glass-card border-primary/20">
+          <CardContent className="p-12 text-center">
+            <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-xl font-semibold text-white mb-2">Member List Unavailable</h3>
+            <p className="text-muted-foreground mb-4">
+              As a SUPER_USER (Authority), you do not have permission to view the full member list. 
+              This feature is restricted to Club Admins and Super Admins.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You can still view and manage events, announcements, and other club activities from your dashboard.
             </p>
           </CardContent>
         </Card>

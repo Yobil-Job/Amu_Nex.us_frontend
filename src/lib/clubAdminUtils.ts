@@ -1,41 +1,135 @@
-import { clubApi, authorityApi } from './api';
+import { clubApi, authorityApi, studentApi } from './api';
 import { extractCollection } from './hateoas';
 
 /**
- * Loads all clubs managed by a club admin user.
- * Uses two strategies:
- * 1. Check authorities where user is assigned as ADMIN
+ * Loads all clubs managed by a club admin user or authority user.
+ * Uses three strategies:
+ * 1. Check ALL authorities where user is assigned (including ADMIN, President, Secretary, etc.)
  * 2. Check clubs where clubAdminId matches user.id (including checking club members)
+ * 3. Check HATEOAS links in authorities to extract club IDs
  * 
- * @param userId - The ID of the club admin user
+ * @param userId - The ID of the club admin or authority user
  * @returns Array of club objects managed by the user
  */
 export async function loadManagedClubsForUser(userId: number): Promise<any[]> {
   if (!userId) return [];
 
   try {
-    // Strategy 1: Check authorities where user is assigned as ADMIN
+    // Strategy 1: Check ALL authorities where user is assigned (not just ADMIN)
+    // This includes ADMIN authorities (for club admins) and other authorities (President, Secretary, etc.)
     let clubIdsFromAuthorities: number[] = [];
     try {
       const authoritiesRes = await authorityApi.getByStudent(userId).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
       const userAuthorities = extractCollection<any>(authoritiesRes) || [];
 
-      // Filter authorities where user is the club admin (ADMIN role)
-      const adminAuthorities = userAuthorities.filter((auth: any) => {
+      // Include ALL authorities for this user (not just ADMIN)
+      // This allows both ADMIN role users and SUPER_USER (authority) users to see their clubs
+      const userAuthoritiesFiltered = userAuthorities.filter((auth: any) => {
         const studentId = auth.student?.id || auth.studentId || auth.studentResponseDto?.id;
-        const authName = (auth.name || auth.authority || '').toUpperCase();
-        const isAdminAuth = authName === 'ADMIN' || authName === 'ROLE_ADMIN';
         const matchesUser = studentId === userId || Number(studentId) === Number(userId);
-        return matchesUser && isAdminAuth;
+        return matchesUser;
       });
 
-      // Get unique club IDs from authorities
-      clubIdsFromAuthorities = [...new Set(
-        adminAuthorities.map((auth: any) => {
-          const clubId = auth.club?.id || auth.clubId || auth.club?.clubId;
-          return clubId != null ? Number(clubId) : null;
-        }).filter((id): id is number => id != null)
-      )];
+      // Extract club IDs from all authorities (try multiple strategies)
+      const authorityIds = userAuthoritiesFiltered.map(auth => auth.id).filter(Boolean);
+      
+      for (const auth of userAuthoritiesFiltered) {
+        let clubId: number | null = null;
+        
+        // Strategy 1a: Check direct fields in authority object
+        clubId = auth.club?.id || 
+                 auth.clubId || 
+                 auth.club?.clubId ||
+                 auth.club_id ||
+                 (typeof auth.club === 'number' ? auth.club : null);
+
+        // Strategy 1b: If not found, try HATEOAS link
+        if (!clubId) {
+          try {
+            const clubLink = auth._links?.club?.href;
+            if (clubLink) {
+              const match = clubLink.match(/\/clubs\/(\d+)/);
+              if (match && match[1]) {
+                clubId = Number(match[1]);
+              }
+            }
+          } catch (err) {
+            // Silently continue
+          }
+        }
+        
+        // Strategy 1c: If still not found, try to get from club authorities (fallback)
+        // This is needed when authority object doesn't include club info and getById fails
+        if (!clubId && auth.id) {
+          // Don't call getById if it's likely to fail (we'll use fallback strategy instead)
+          // This will be handled by the fallback below
+        }
+        
+        if (clubId != null) {
+          clubIdsFromAuthorities.push(Number(clubId));
+        }
+      }
+
+      // Fallback Strategy: If we couldn't extract club IDs directly, check clubs
+      // This handles cases where authority objects don't include club info
+      if (clubIdsFromAuthorities.length === 0 && authorityIds.length > 0) {
+        try {
+          // Try to get all clubs first (works for ADMIN, but not SUPER_USER)
+          let allClubs: any[] = [];
+          const allClubsRes = await clubApi.getAll().catch(() => {
+            // If getAll() fails (e.g., for SUPER_USER), try getting student's clubs instead
+            return null;
+          });
+          
+          if (allClubsRes) {
+            allClubs = extractCollection<any>(allClubsRes) || [];
+          } else {
+            // Fallback: Get clubs the student is a member of
+            const studentClubsRes = await studentApi.getClubs(userId).catch(() => ({ _embedded: { responseClubDtoList: [] } }));
+            allClubs = extractCollection<any>(studentClubsRes) || [];
+          }
+          
+          // For each club, check if it has any of our user's authorities
+          const clubCheckPromises = allClubs.map(async (club: any) => {
+            try {
+              const clubId = club.id || club.clubId;
+              if (!clubId) return null;
+
+              // Get authorities for this club
+              const clubAuthoritiesRes = await authorityApi.getByClub(clubId).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
+              const clubAuthorities = extractCollection<any>(clubAuthoritiesRes) || [];
+
+              // Check if any of the club's authorities match our user's authority IDs
+              const matchingAuth = clubAuthorities.find((clubAuth: any) => {
+                const clubAuthId = clubAuth.id;
+                return clubAuthId != null && authorityIds.includes(Number(clubAuthId));
+              });
+
+              if (matchingAuth) {
+                // Also verify the student matches
+                const studentId = matchingAuth.student?.id || matchingAuth.studentId || matchingAuth.studentResponseDto?.id;
+                const matchesUser = studentId === userId || Number(studentId) === Number(userId);
+                
+                if (matchesUser) {
+                  return clubId;
+                }
+              }
+              
+              return null;
+            } catch (err) {
+              return null;
+            }
+          });
+
+          const foundClubIds = (await Promise.all(clubCheckPromises)).filter((id): id is number => id != null);
+          clubIdsFromAuthorities.push(...foundClubIds);
+        } catch (err) {
+          // Silently continue
+        }
+      }
+
+      // Get unique club IDs
+      clubIdsFromAuthorities = [...new Set(clubIdsFromAuthorities)];
     } catch (err) {
       console.warn('Failed to load authorities:', err);
     }

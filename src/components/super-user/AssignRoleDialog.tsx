@@ -119,7 +119,8 @@ const AssignRoleDialog = ({ member, clubId, authorities, isOpen, onClose, onSucc
 
       const clubAdminId = clubAdminAuth.student?.id || clubAdminAuth.studentId;
 
-      // Create the authority (internal role)
+      // SUPER_USER cannot access /authorities/{clubAdminId}/create (restricted to SUPER_ADMIN and ADMIN)
+      // Try to create the authority (internal role)
       await authorityApi.create(clubAdminId, authorityData);
 
       toast.success(`Role "${finalRoleName}" assigned successfully`);
@@ -131,7 +132,12 @@ const AssignRoleDialog = ({ member, clubId, authorities, isOpen, onClose, onSucc
       onClose();
     } catch (error: any) {
       console.error('Failed to assign role:', error);
-      toast.error(error.message || 'Failed to assign role. You may not have permission to assign roles.');
+      const errorMessage = error.message || 'Failed to assign role';
+      if (errorMessage.includes('Access Denied') || errorMessage.includes('403') || errorMessage.includes('permission') || errorMessage.includes('must be club Admin')) {
+        toast.error('You do not have permission to assign roles. Only Club Admins can assign internal roles.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsAssigning(false);
     }

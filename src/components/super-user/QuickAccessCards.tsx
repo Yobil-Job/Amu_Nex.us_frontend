@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Users, 
+  Newspaper, 
   Calendar, 
   DollarSign, 
   Package, 
@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from 'sonner';
 
 interface QuickAccessCardsProps {
   pendingRequestsCount?: number;
@@ -28,14 +29,17 @@ const QuickAccessCards = ({
 
   const cards = [
     {
-      title: 'View Members',
-      description: 'Manage club members and roles',
-      icon: Users,
+      title: 'News',
+      description: 'View and manage club news (Coming soon)',
+      icon: Newspaper,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
       borderColor: 'border-primary/30',
       hoverColor: 'hover:bg-primary/20',
-      action: () => navigate('/members'),
+      action: () => {
+        // Placeholder - backend will be implemented in the future
+        toast.info('News feature will be available soon');
+      },
     },
     {
       title: 'Manage Events',

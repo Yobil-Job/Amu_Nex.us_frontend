@@ -26,7 +26,7 @@ import ClubAdminMembers from "./pages/club-admin/Members";
 import ClubAdminJoinRequests from "./pages/club-admin/JoinRequests";
 import ClubAdminAuthorities from "./pages/club-admin/Authorities";
 import ClubAdminSettings from "./pages/club-admin/Settings";
-import SuperUserMembers from "./pages/super-user/Members";
+// SuperUserMembers removed - SUPER_USER (Authority) cannot manage members, only view member count
 import SuperUserResources from "./pages/super-user/Resources";
 import SuperUserReports from "./pages/super-user/Reports";
 
@@ -69,7 +69,7 @@ const App = () => (
                 <Route path="/club-join-requests" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminJoinRequests /></ProtectedRoute>} />
                 <Route path="/club-authorities" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminAuthorities /></ProtectedRoute>} />
                 <Route path="/club-settings" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminSettings /></ProtectedRoute>} />
-                <Route path="/members" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserMembers /></ProtectedRoute>} />
+                {/* Members route removed for SUPER_USER - they can only see member count, not manage members */}
                 <Route path="/resources" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserResources /></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserReports /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
