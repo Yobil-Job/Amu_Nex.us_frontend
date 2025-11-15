@@ -566,3 +566,40 @@ export const announcementApi = {
     return handleResponse(response);
   },
 };
+
+// ============= NEWS API =============
+export const newsApi = {
+  create: async (data: any) => {
+    const response = await authFetch(`${API_BASE_URL}/news/create`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  getAll: async () => {
+    const response = await authFetch(`${API_BASE_URL}/news/all`);
+    const data = await handleResponse(response);
+    return data;
+  },
+
+  getById: async (id: number) => {
+    const response = await authFetch(`${API_BASE_URL}/news/${id}`);
+    return handleResponse(response);
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await authFetch(`${API_BASE_URL}/news/${id}/update`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  delete: async (id: number) => {
+    const response = await authFetch(`${API_BASE_URL}/news/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
+};

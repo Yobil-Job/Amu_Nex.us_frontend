@@ -17,18 +17,19 @@ import Fees from "./pages/Fees";
 import Announcements from "./pages/Announcements";
 import Authorities from "./pages/Authorities";
 import Profile from "./pages/Profile";
+import News from "./pages/News";
 import NotFound from "./pages/NotFound";
 import AdminJoinRequests from "./pages/admin/JoinRequests";
 import AdminSettings from "./pages/admin/Settings";
 import AdminSystemLogs from "./pages/admin/SystemLogs";
 import AdminNotifications from "./pages/admin/Notifications";
+import AdminNews from "./pages/admin/News";
 import ClubAdminMembers from "./pages/club-admin/Members";
 import ClubAdminJoinRequests from "./pages/club-admin/JoinRequests";
 import ClubAdminAuthorities from "./pages/club-admin/Authorities";
 import ClubAdminSettings from "./pages/club-admin/Settings";
 // SuperUserMembers removed - SUPER_USER (Authority) cannot manage members, only view member count
 import SuperUserResources from "./pages/super-user/Resources";
-import SuperUserReports from "./pages/super-user/Reports";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,13 +66,14 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSettings /></ProtectedRoute>} />
                 <Route path="/system-logs" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminSystemLogs /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminNotifications /></ProtectedRoute>} />
+                <Route path="/admin-news" element={<ProtectedRoute requiredRole="SUPER_ADMIN"><AdminNews /></ProtectedRoute>} />
+                <Route path="/news" element={<News />} />
                 <Route path="/club-members" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminMembers /></ProtectedRoute>} />
                 <Route path="/club-join-requests" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminJoinRequests /></ProtectedRoute>} />
                 <Route path="/club-authorities" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminAuthorities /></ProtectedRoute>} />
                 <Route path="/club-settings" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminSettings /></ProtectedRoute>} />
                 {/* Members route removed for SUPER_USER - they can only see member count, not manage members */}
                 <Route path="/resources" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserResources /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserReports /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
               

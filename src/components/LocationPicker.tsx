@@ -1,7 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Navigation } from 'lucide-react';
+import { Navigation, Map } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
@@ -58,6 +64,27 @@ function CenterMapOnLocation({ position }: { position: [number, number] }) {
   return null;
 }
 
+// Map style options
+type MapStyle = 'street' | 'satellite' | 'terrain';
+
+const mapStyles: Record<MapStyle, { name: string; url: string; attribution: string }> = {
+  street: {
+    name: 'Street Map',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  },
+  satellite: {
+    name: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  },
+  terrain: {
+    name: 'Terrain',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }
+};
+
 export const LocationPicker = ({ 
   latitude, 
   longitude, 
@@ -70,6 +97,7 @@ export const LocationPicker = ({
   const [isLocating, setIsLocating] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
   const [hasTriedGeoLocation, setHasTriedGeoLocation] = useState(false);
+  const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
   // Get current location using geolocation API
   const getCurrentLocation = useCallback((showErrorToast = false) => {
@@ -178,8 +206,9 @@ export const LocationPicker = ({
         key={`map-${mapCenter[0]}-${mapCenter[1]}`}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={mapStyle}
+          attribution={mapStyles[mapStyle].attribution}
+          url={mapStyles[mapStyle].url}
         />
         {currentLocation && <CenterMapOnLocation position={currentLocation} />}
         {editable && (
@@ -204,7 +233,7 @@ export const LocationPicker = ({
         )}
       </MapContainer>
       {editable && (
-        <div className="absolute top-2 right-2 z-[1000]">
+        <div className="absolute top-2 right-2 z-[1000] flex flex-col gap-2">
           <Button
             type="button"
             size="sm"
@@ -216,6 +245,30 @@ export const LocationPicker = ({
             <Navigation className={`h-4 w-4 ${isLocating ? 'animate-spin' : ''}`} />
             {isLocating ? 'Locating...' : 'Use My Location'}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="gap-2 shadow-md"
+              >
+                <Map className="h-4 w-4" />
+                {mapStyles[mapStyle].name}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="glass-card border-primary/20 bg-background/95 backdrop-blur-md">
+              {(Object.keys(mapStyles) as MapStyle[]).map((style) => (
+                <DropdownMenuItem
+                  key={style}
+                  onClick={() => setMapStyle(style)}
+                  className={`cursor-pointer ${mapStyle === style ? 'bg-primary/20' : ''}`}
+                >
+                  {mapStyles[style].name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       {editable && (

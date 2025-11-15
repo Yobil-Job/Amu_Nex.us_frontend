@@ -39,14 +39,9 @@ const LatestNewsCard = ({ clubs = [], isLoading, onViewAll }: LatestNewsCardProp
   }, [clubs]);
 
   const handleViewAll = () => {
-    console.log('View All News clicked');
-    if (onViewAll) {
-      onViewAll();
-    } else {
-      // Navigate to news page (will be implemented later)
-      console.log('Navigating to /news (to be implemented)');
-      // navigate('/news');
-    }
+      if (onViewAll) {
+        onViewAll();
+      }
   };
 
   const getTimeAgo = (dateString: string) => {

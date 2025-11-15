@@ -37,14 +37,8 @@ const ClubNewsWidget = ({ clubs = [], isLoading, onViewAll }: ClubNewsWidgetProp
   }, [clubs]);
 
   const handleViewAll = () => {
-    console.log('View All News clicked');
     if (onViewAll) {
       onViewAll();
-    } else {
-      // Navigate to news page (will be implemented later)
-      console.log('Navigating to /news (to be implemented)');
-      // For now, just log - will navigate when news page is ready
-      // navigate('/news');
     }
   };
 

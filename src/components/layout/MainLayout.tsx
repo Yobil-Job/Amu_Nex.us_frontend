@@ -431,15 +431,16 @@ const MainLayout = () => {
     { name: 'Events', href: '/events', icon: Calendar, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
+    { name: 'News', href: '/news', icon: TrendingUp, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     // Members removed for SUPER_USER - they can only see member count, not manage members
     { name: 'Resources', href: '/resources', icon: Package, roles: ['SUPER_USER'] },
-    { name: 'Reports', href: '/reports', icon: TrendingUp, roles: ['SUPER_USER'] },
   ];
 
   // Define admin navigation items (grouped in dropdown)
   const adminNavigationItems = [
     { name: 'Students', href: '/students', icon: Users, roles: ['SUPER_ADMIN'] },
     { name: 'Join Requests', href: '/join-requests', icon: UserCheck, roles: ['SUPER_ADMIN'] },
+    { name: 'News Management', href: '/admin-news', icon: TrendingUp, roles: ['SUPER_ADMIN'] },
     { name: 'Members', href: '/club-members', icon: Users, roles: ['ADMIN'] },
     { name: 'Club Requests', href: '/club-join-requests', icon: UserCheck, roles: ['ADMIN'] },
     { name: 'Authorities', href: '/authorities', icon: Shield, roles: ['SUPER_ADMIN'] },

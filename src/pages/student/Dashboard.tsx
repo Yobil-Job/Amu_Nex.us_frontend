@@ -498,9 +498,7 @@ const StudentDashboard = () => {
         clubs={clubs}
         isLoading={isLoading}
         onViewAll={() => {
-          console.log('View All News clicked from dashboard');
-          // Navigate to news page when implemented
-          // navigate('/news');
+          navigate('/news');
         }}
       />
 

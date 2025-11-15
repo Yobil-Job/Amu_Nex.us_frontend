@@ -5,7 +5,6 @@ import {
   Calendar, 
   DollarSign, 
   Package, 
-  TrendingUp,
   ArrowRight 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -30,16 +29,13 @@ const QuickAccessCards = ({
   const cards = [
     {
       title: 'News',
-      description: 'View and manage club news (Coming soon)',
+      description: 'View system news and updates',
       icon: Newspaper,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
       borderColor: 'border-primary/30',
       hoverColor: 'hover:bg-primary/20',
-      action: () => {
-        // Placeholder - backend will be implemented in the future
-        toast.info('News feature will be available soon');
-      },
+      action: () => navigate('/news'),
     },
     {
       title: 'Manage Events',
@@ -73,21 +69,11 @@ const QuickAccessCards = ({
       hoverColor: 'hover:bg-accent/20',
       action: () => navigate('/resources'),
     },
-    {
-      title: 'Club Performance Stats',
-      description: 'View analytics and insights',
-      icon: TrendingUp,
-      color: 'text-info',
-      bgColor: 'bg-info/10',
-      borderColor: 'border-info/30',
-      hoverColor: 'hover:bg-info/20',
-      action: () => navigate('/reports'),
-    },
   ];
 
   return (
     <TooltipProvider>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (
