@@ -87,11 +87,13 @@ const SuperUserEvents = () => {
 
     setIsLoading(true);
     try {
-      const eventsRes = await eventApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { eventList: [] } }));
-      const eventsList = extractCollection<any>(eventsRes) || [];
+      // getByClub returns List<Event> directly (not HATEOAS), so it's already an array
+      const eventsRes = await eventApi.getByClub(selectedClub.id).catch(() => []);
+      const eventsList = Array.isArray(eventsRes) ? eventsRes : extractCollection<any>(eventsRes) || [];
       setAllEvents(eventsList);
       setEvents(eventsList);
     } catch (error: any) {
+      console.error('Failed to load events:', error);
       toast.error('Failed to load events');
       setEvents([]);
       setAllEvents([]);
