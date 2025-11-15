@@ -15,6 +15,7 @@ import { Calendar, Loader2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { eventApi } from '@/lib/api';
 import { LocationPicker } from '@/components/LocationPicker';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreateEventDialogProps {
   clubId: number;
@@ -24,6 +25,7 @@ interface CreateEventDialogProps {
 }
 
 const CreateEventDialog = ({ clubId, isOpen, onClose, onSuccess }: CreateEventDialogProps) => {
+  const { user } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -82,14 +84,24 @@ const CreateEventDialog = ({ clubId, isOpen, onClose, onSuccess }: CreateEventDi
       return;
     }
 
+    // Validate user ID
+    if (!user?.id) {
+      toast.error('User information not available. Please log in again.');
+      return;
+    }
+
     setIsCreating(true);
     try {
+      // Backend RequestEventDto requires createdBy (Student object) to be not null
+      // The backend also extracts studentId from Authentication, but DTO validation requires createdBy
       await eventApi.create({
         title: formData.title,
         description: formData.description,
         startAt: startAtISO,
         endAt: endAtISO,
         clubId: clubId,
+        createdById: user.id, // Backend expects createdById for the Student who created the event
+        createdBy: { id: user.id }, // Also include as object (backend DTO validation requires this)
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
       });

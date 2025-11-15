@@ -65,8 +65,10 @@ export const lendResource = (resourceId: number, memberId: number, memberName: s
 
 const LendResourceDialog = ({ resource, members, isOpen, onClose, onSuccess }: LendResourceDialogProps) => {
   const [isLending, setIsLending] = useState(false);
+  const [useManualEntry, setUseManualEntry] = useState(members.length === 0);
   const [formData, setFormData] = useState({
     memberId: '',
+    memberName: '', // For manual entry when members list is unavailable
     expectedReturnDate: '',
     notes: '',
   });
@@ -74,35 +76,59 @@ const LendResourceDialog = ({ resource, members, isOpen, onClose, onSuccess }: L
   useEffect(() => {
     if (isOpen) {
       resetForm();
+      // Auto-switch to manual entry if no members available
+      setUseManualEntry(members.length === 0);
     }
-  }, [isOpen]);
+  }, [isOpen, members.length]);
 
   const resetForm = () => {
     setFormData({
       memberId: '',
+      memberName: '',
       expectedReturnDate: '',
       notes: '',
     });
   };
 
   const handleLend = async () => {
-    if (!resource?.id || !formData.memberId) {
-      toast.error('Please select a member to lend the resource to');
+    if (!resource?.id) {
+      toast.error('Resource information is missing');
       return;
     }
 
-    const selectedMember = members.find((m) => m.id.toString() === formData.memberId);
-    if (!selectedMember) {
-      toast.error('Selected member not found');
-      return;
+    let memberId: number;
+    let memberName: string;
+
+    if (useManualEntry || members.length === 0) {
+      // Manual entry mode
+      if (!formData.memberName || formData.memberName.trim() === '') {
+        toast.error('Please enter the member name');
+        return;
+      }
+      memberId = Date.now(); // Use timestamp as temporary ID for manual entries
+      memberName = formData.memberName.trim();
+    } else {
+      // Select from members list
+      if (!formData.memberId) {
+        toast.error('Please select a member to lend the resource to');
+        return;
+      }
+
+      const selectedMember = members.find((m) => m.id.toString() === formData.memberId);
+      if (!selectedMember) {
+        toast.error('Selected member not found');
+        return;
+      }
+      memberId = selectedMember.id;
+      memberName = `${selectedMember.firstname} ${selectedMember.lastname}`;
     }
 
     setIsLending(true);
     try {
       lendResource(
         resource.id,
-        selectedMember.id,
-        `${selectedMember.firstname} ${selectedMember.lastname}`,
+        memberId,
+        memberName,
         formData.expectedReturnDate || undefined,
         formData.notes || undefined
       );
@@ -159,26 +185,72 @@ const LendResourceDialog = ({ resource, members, isOpen, onClose, onSuccess }: L
 
           {/* Member Selection */}
           <div className="space-y-2">
-            <Label htmlFor="memberId" className="text-white flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Lend To Member <span className="text-destructive">*</span>
-            </Label>
-            <Select value={formData.memberId} onValueChange={(value) => setFormData({ ...formData, memberId: value })}>
-              <SelectTrigger id="memberId" className="glass-card border-primary/20">
-                <SelectValue placeholder="Select a member" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground">No members available</div>
-                ) : (
-                  members.map((member) => (
-                    <SelectItem key={member.id} value={member.id.toString()}>
-                      {member.firstname} {member.lastname} ({member.email})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            {members.length > 0 && (
+              <div className="flex items-center gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant={!useManualEntry ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUseManualEntry(false)}
+                  className="h-8 text-xs"
+                >
+                  Select from List
+                </Button>
+                <Button
+                  type="button"
+                  variant={useManualEntry ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setUseManualEntry(true)}
+                  className="h-8 text-xs"
+                >
+                  Manual Entry
+                </Button>
+              </div>
+            )}
+
+            {useManualEntry || members.length === 0 ? (
+              <div className="space-y-2">
+                <Label htmlFor="memberName" className="text-white flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Member Name <span className="text-destructive">*</span>
+                  {members.length === 0 && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      (Member list unavailable)
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="memberName"
+                  placeholder="Enter member name (e.g., John Doe)"
+                  value={formData.memberName}
+                  onChange={(e) => setFormData({ ...formData, memberName: e.target.value })}
+                  className="glass-card border-primary/20"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="memberId" className="text-white flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Lend To Member <span className="text-destructive">*</span>
+                </Label>
+                <Select value={formData.memberId} onValueChange={(value) => setFormData({ ...formData, memberId: value })}>
+                  <SelectTrigger id="memberId" className="glass-card border-primary/20">
+                    <SelectValue placeholder="Select a member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">No members available</div>
+                    ) : (
+                      members.map((member) => (
+                        <SelectItem key={member.id} value={member.id.toString()}>
+                          {member.firstname} {member.lastname} ({member.email})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Expected Return Date */}
@@ -220,7 +292,7 @@ const LendResourceDialog = ({ resource, members, isOpen, onClose, onSuccess }: L
           <Button
             variant="default"
             onClick={handleLend}
-            disabled={isLending || !formData.memberId}
+            disabled={isLending || (useManualEntry ? !formData.memberName : !formData.memberId)}
             className="gap-2"
           >
             {isLending ? (

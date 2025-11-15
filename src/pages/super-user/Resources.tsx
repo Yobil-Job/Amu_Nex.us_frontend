@@ -95,19 +95,36 @@ const SuperUserResources = () => {
     setIsLoading(true);
     try {
       // Load members (for lending resources)
-      const membersRes = await clubApi.getMembers(selectedClub.id).catch(() => ({ _embedded: { studentResponseDtoList: [] } }));
-      const membersList = extractCollection<any>(membersRes) || [];
-      setMembers(membersList);
+      // SUPER_USER cannot access /clubs/{id}/get-members (restricted to SUPER_ADMIN and ADMIN)
+      // For resource lending, we'll use a mock member list or allow manual entry
+      try {
+        const membersRes = await clubApi.getMembers(selectedClub.id).catch((err: any) => {
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [SuperUserResources] Cannot fetch members - permission denied:', err);
+          }
+          return [];
+        });
+        // getMembers returns List<StudentResponseDto> directly (not HATEOAS) if successful
+        const membersList = Array.isArray(membersRes) ? membersRes : extractCollection<any>(membersRes) || [];
+        setMembers(membersList);
+      } catch (err) {
+        // If we can't load members, set empty array - lending dialog can allow manual entry
+        setMembers([]);
+        if (import.meta.env.DEV) {
+          console.info('ℹ️ [SuperUserResources] Members list unavailable. Resource lending may require manual member entry.');
+        }
+      }
 
-      // Load resources from localStorage (mock)
+      // Load resources from localStorage (mock - backend endpoints don't exist)
       const resourcesList = loadResources(selectedClub.id);
       setAllResources(resourcesList);
       setResources(resourcesList);
 
-      // Load resource requests from localStorage (mock)
+      // Load resource requests from localStorage (mock - backend endpoints don't exist)
       const requestsList = loadResourceRequests(selectedClub.id);
       setRequests(requestsList);
     } catch (error: any) {
+      console.error('Failed to load resources:', error);
       toast.error('Failed to load resources');
     } finally {
       setIsLoading(false);

@@ -86,8 +86,9 @@ const SuperUserFinance = () => {
       setFees(feesList);
 
       // Load events (for linking expenses)
-      const eventsRes = await eventApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { eventList: [] } }));
-      const eventsList = extractCollection<any>(eventsRes) || [];
+      // getByClub returns List<Event> directly (not HATEOAS), so it's already an array
+      const eventsRes = await eventApi.getByClub(selectedClub.id).catch(() => []);
+      const eventsList = Array.isArray(eventsRes) ? eventsRes : extractCollection<any>(eventsRes) || [];
       setEvents(eventsList);
 
       // Load finance records (income/expenses) from localStorage (mock)
