@@ -31,10 +31,6 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
 
     setIsLoading(true);
     try {
-      if (import.meta.env.DEV) {
-        console.log('🔔 Loading notifications for clubs:', managedClubIds);
-      }
-      
       const allNotifications: Notification[] = [];
 
       // Load notifications for each managed club
@@ -163,7 +159,6 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
           }
         } catch (error) {
           // Ignore errors for individual clubs, continue with others
-          console.error(`Error loading notifications for club ${clubId}:`, error);
         }
       }
 
@@ -224,16 +219,6 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
         return dateB - dateA;
       });
 
-      if (import.meta.env.DEV) {
-        console.log('🔔 Notifications loaded:', {
-          total: mergedNotifications.length,
-          unread: mergedNotifications.filter(n => !n.read).length,
-          joinRequests: mergedNotifications.filter(n => n.type === 'join_request').length,
-          events: mergedNotifications.filter(n => n.type === 'upcoming_event').length,
-          announcements: mergedNotifications.filter(n => n.type === 'announcement').length,
-        });
-      }
-
       setNotifications(mergedNotifications);
       
       // Save to localStorage
@@ -243,7 +228,7 @@ const NotificationsPanel = ({ managedClubIds }: NotificationsPanelProps) => {
         // Ignore storage errors
       }
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      // Failed to load notifications
     } finally {
       setIsLoading(false);
     }

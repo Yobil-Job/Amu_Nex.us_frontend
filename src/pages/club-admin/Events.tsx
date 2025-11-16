@@ -97,16 +97,7 @@ const ClubAdminEvents = () => {
       
       setAllEvents(eventsList);
       setEvents(eventsList);
-      
-      if (import.meta.env.DEV) {
-        console.log('📅 Events loaded:', {
-          clubId: selectedClub.id,
-          count: eventsList.length,
-          sampleEvent: eventsList[0],
-        });
-      }
     } catch (error: any) {
-      console.error('Failed to load events:', error);
       toast.error('Failed to load events');
       setEvents([]);
       setAllEvents([]);

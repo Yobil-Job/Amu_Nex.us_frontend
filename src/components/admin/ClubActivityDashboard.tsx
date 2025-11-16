@@ -17,7 +17,7 @@ const ClubActivityDashboard = ({ clubs, events, isLoading }: ClubActivityDashboa
 
     // Debug: Log first event structure if available
     if (import.meta.env.DEV && events.length > 0) {
-      console.log('📊 ClubActivityDashboard - First event structure:', events[0]);
+
       console.log('📊 ClubActivityDashboard - Event keys:', Object.keys(events[0]));
     }
 

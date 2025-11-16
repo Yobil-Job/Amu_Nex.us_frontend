@@ -67,7 +67,7 @@ const AdminClubs = () => {
         const eventsRes = await eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } }));
         eventsList = extractCollection<any>(eventsRes);
       } catch (error) {
-        console.warn('Failed to load all events, will fetch per club:', error);
+        // Failed to load all events, will fetch per club
       }
 
       // If events don't have club relationship, fetch events per club
@@ -77,7 +77,6 @@ const AdminClubs = () => {
                                     sampleEvent.club?.id || sampleEvent.club?.clubId;
         
         if (!hasClubRelationship) {
-          console.log('⚠️ Events don\'t have club relationship, fetching events per club...');
           // Fetch events for each club
           const clubEventsPromises = clubsList.map(async (club: any) => {
             try {
@@ -90,7 +89,6 @@ const AdminClubs = () => {
                 club: { id: club.id }
               }));
             } catch (error) {
-              console.warn(`Failed to load events for club ${club.id}:`, error);
               return [];
             }
           });
@@ -100,7 +98,6 @@ const AdminClubs = () => {
         }
       } else {
         // No events from getAll, try fetching per club
-        console.log('⚠️ No events from getAll, fetching events per club...');
         const clubEventsPromises = clubsList.map(async (club: any) => {
           try {
             const clubEventsRes = await eventApi.getByClub(club.id);
@@ -112,7 +109,6 @@ const AdminClubs = () => {
               club: { id: club.id }
             }));
           } catch (error) {
-            console.warn(`Failed to load events for club ${club.id}:`, error);
             return [];
           }
         });
@@ -121,31 +117,10 @@ const AdminClubs = () => {
         eventsList = allClubEvents.flat();
       }
 
-      // Debug: Log structure to understand data format
-      if (import.meta.env.DEV) {
-        console.log('📊 Total events loaded:', eventsList.length);
-        console.log('📊 Total clubs loaded:', clubsList.length);
-        if (eventsList.length > 0) {
-          console.log('📊 Events structure sample:', eventsList[0]);
-          console.log('📊 Event keys:', Object.keys(eventsList[0]));
-          // Check if any events have club relationship
-          const eventsWithClub = eventsList.filter(e => e.club || e.clubId || e.club_id);
-          console.log('📊 Events with club relationship:', eventsWithClub.length);
-          if (eventsWithClub.length > 0) {
-            console.log('📊 Sample event with club:', eventsWithClub[0]);
-          }
-        }
-        if (clubsList.length > 0) {
-          console.log('📊 Clubs structure sample:', clubsList[0]);
-          console.log('📊 Club keys:', Object.keys(clubsList[0]));
-        }
-      }
-
       setAllClubs(clubsList);
       setClubs(clubsList);
       setEvents(eventsList);
     } catch (error: any) {
-      console.error('Failed to load clubs:', error);
       toast.error(error.message || 'Failed to load clubs');
       setClubs([]);
       setAllClubs([]);
@@ -237,13 +212,8 @@ const AdminClubs = () => {
     try {
       const response = await clubApi.getPendingRequests(clubId);
       const requestsList = extractCollection<any>(response) || [];
-      // Debug: Log request structure to understand the data format
-      if (import.meta.env.DEV && requestsList.length > 0) {
-        console.log('📋 Pending requests structure:', requestsList[0]);
-      }
       setClubPendingRequests(requestsList);
     } catch (error) {
-      console.error('Failed to load pending requests:', error);
       setClubPendingRequests([]);
     }
   };
@@ -482,10 +452,6 @@ const AdminClubs = () => {
                       const student = request.student || request;
                       // Extract student ID from various possible locations
                       const studentId = student?.id || request?.studentId || request?.student?.id || request?.id;
-                      
-                      if (!studentId) {
-                        console.warn('Student ID not found in request:', request);
-                      }
                       
                       return (
                         <TableRow key={request.id || studentId || Math.random()}>

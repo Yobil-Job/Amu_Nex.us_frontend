@@ -147,7 +147,6 @@ const EventCalendarView = ({ events, onDateClick, onEventClick }: EventCalendarV
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Event clicked in calendar:', event.id);
                         onEventClick?.(event);
                       }}
                       title={event.title || 'Event'}

@@ -33,14 +33,7 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
 
   const upcomingEvents = useMemo(() => {
     if (!events || events.length === 0) {
-      if (import.meta.env.DEV) {
-        console.log('📅 UpcomingEventsWidget: No events provided', { events });
-      }
       return [];
-    }
-    
-    if (import.meta.env.DEV) {
-      console.log('📅 UpcomingEventsWidget: Processing events', { count: events.length, events });
     }
     
     const now = new Date();
@@ -49,9 +42,6 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
     const filtered = events
       .filter(event => {
         if (!event || !event.id) {
-          if (import.meta.env.DEV) {
-            console.warn('📅 UpcomingEventsWidget: Invalid event object', event);
-          }
           return false;
         }
         // Accept all events - we'll sort by date later
@@ -77,12 +67,10 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
             } else {
               finalDate = eventDate;
               hasValidDate = true;
-              isUpcoming = isAfter(finalDate, now);
-            }
+                isUpcoming = isAfter(finalDate, now);
+              }
           } catch (error) {
-            if (import.meta.env.DEV) {
-              console.warn('📅 UpcomingEventsWidget: Date parsing error', error, eventDateStr);
-            }
+            // Date parsing error
           }
         }
         
@@ -119,14 +107,6 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
           return 0;
         }
       });
-    
-    if (import.meta.env.DEV) {
-      console.log('📅 UpcomingEventsWidget: Processed events', {
-        total: events.length,
-        processed: filtered.length,
-        upcoming: filtered.filter((e: any) => e._isUpcoming).length,
-      });
-    }
     
     return filtered;
   }, [events]);
@@ -180,24 +160,15 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
   const displayedEvents = useMemo(() => upcomingEvents.slice(0, 5), [upcomingEvents]);
 
   const handleViewAll = () => {
-    console.log('handleViewAll called');
     if (onViewAll) {
-      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      console.log('Navigating to /events');
       navigate('/events');
     }
   };
 
   const handleEventClick = (eventId: number) => {
-    console.log('handleEventClick called with eventId:', eventId);
-    try {
-      navigate('/events', { state: { eventId } });
-      console.log('Navigation called successfully');
-    } catch (error) {
-      console.error('Navigation error:', error);
-    }
+    navigate('/events', { state: { eventId } });
   };
 
   if (isLoading) {
@@ -261,7 +232,6 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Event clicked:', event.id);
                     handleEventClick(event.id);
                   }}
                   role="button"
@@ -346,7 +316,6 @@ const UpcomingEventsWidget = ({ events, isLoading, onViewAll }: UpcomingEventsWi
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('View All Events button clicked');
                 handleViewAll();
               }}
             >

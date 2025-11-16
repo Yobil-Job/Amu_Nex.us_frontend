@@ -13,7 +13,7 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
   const chartData = useMemo(() => {
     if (!fees || fees.length === 0) {
       if (import.meta.env.DEV) {
-        console.log('📊 FeesChart: No fees data', { fees });
+
       }
       return [
         { name: 'Paid', value: 0, color: '#10b981' },
@@ -42,12 +42,7 @@ const FeesChart = ({ fees, isLoading }: FeesChartProps) => {
       }, 0);
 
     if (import.meta.env.DEV) {
-      console.log('📊 FeesChart: Processed data', {
-        feeCount: fees.length,
-        paid,
-        unpaid,
-        sampleFee: fees[0],
-      });
+
     }
 
     return [

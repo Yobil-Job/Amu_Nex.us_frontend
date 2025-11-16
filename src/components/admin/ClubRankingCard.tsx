@@ -15,7 +15,7 @@ const ClubRankingCard = ({ clubs, events, isLoading }: ClubRankingCardProps) => 
 
     // Debug: Log first event structure if available
     if (import.meta.env.DEV && events.length > 0) {
-      console.log('🔍 ClubRankingCard - First event structure:', events[0]);
+
       console.log('🔍 ClubRankingCard - Event keys:', Object.keys(events[0]));
     }
 
@@ -87,7 +87,7 @@ const ClubRankingCard = ({ clubs, events, isLoading }: ClubRankingCardProps) => 
         events: r.eventCount,
         score: r.activityScore
       })));
-      console.log('🏆 Total events available:', events.length);
+
     }
 
     return ranked;

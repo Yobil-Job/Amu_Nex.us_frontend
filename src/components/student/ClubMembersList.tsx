@@ -50,11 +50,9 @@ const ClubMembersList = ({ clubId }: ClubMembersListProps) => {
     try {
       const response = await clubApi.getMembers(clubId);
       const membersList = extractCollection<Member>(response);
-      console.log('📊 Loaded club members:', membersList.length);
       setMembers(membersList);
       setHasAccess(true);
     } catch (error: any) {
-      console.error('Failed to load members:', error);
       if (error.status === 403) {
         // Access denied - show appropriate message
         setHasAccess(false);

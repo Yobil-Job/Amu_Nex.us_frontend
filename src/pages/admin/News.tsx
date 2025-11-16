@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Newspaper, Plus, Edit, Trash2, Loader2, X, Upload } from 'lucide-react';
+import { Newspaper, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { newsApi } from '@/lib/api';
 import { extractCollection } from '@/lib/hateoas';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import Breadcrumbs from '@/components/admin/Breadcrumbs';
 import EmptyState from '@/components/admin/EmptyState';
+import MultipleImageUpload from '@/components/admin/MultipleImageUpload';
 
 const AdminNews = () => {
   const { user } = useAuth();
@@ -28,7 +29,6 @@ const AdminNews = () => {
     description: '',
     images: [] as string[],
   });
-  const [imageInputs, setImageInputs] = useState<string[]>(['']);
 
   useEffect(() => {
     loadNews();
@@ -52,7 +52,6 @@ const AdminNews = () => {
     setIsEditing(false);
     setSelectedNews(null);
     setFormData({ title: '', description: '', images: [] });
-    setImageInputs(['']);
     setIsDialogOpen(true);
   };
 
@@ -67,7 +66,6 @@ const AdminNews = () => {
       description: newsItem.description || '',
       images: images,
     });
-    setImageInputs(images.length > 0 ? images : ['']);
     setIsDialogOpen(true);
   };
 
@@ -76,27 +74,6 @@ const AdminNews = () => {
     setIsEditing(false);
     setSelectedNews(null);
     setFormData({ title: '', description: '', images: [] });
-    setImageInputs(['']);
-  };
-
-  const addImageInput = () => {
-    setImageInputs([...imageInputs, '']);
-  };
-
-  const removeImageInput = (index: number) => {
-    const newInputs = imageInputs.filter((_, i) => i !== index);
-    setImageInputs(newInputs);
-    const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData({ ...formData, images: newImages });
-  };
-
-  const updateImageInput = (index: number, value: string) => {
-    const newInputs = [...imageInputs];
-    newInputs[index] = value;
-    setImageInputs(newInputs);
-    const newImages = [...formData.images];
-    newImages[index] = value.trim();
-    setFormData({ ...formData, images: newImages });
   };
 
   const handleSubmit = async () => {
@@ -115,16 +92,12 @@ const AdminNews = () => {
       return;
     }
 
-    const validImages = imageInputs
-      .map(img => img.trim())
-      .filter(img => img.length > 0 && (img.startsWith('http://') || img.startsWith('https://')));
-
     setIsSubmitting(true);
     try {
       const payload = {
         title: formData.title,
         description: formData.description,
-        images: validImages,
+        images: formData.images,
       };
 
       if (isEditing && selectedNews) {
@@ -325,42 +298,14 @@ const AdminNews = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Images (URLs)
-              </Label>
-              {imageInputs.map((input, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder="Enter image URL (https://...)"
-                    value={input}
-                    onChange={(e) => updateImageInput(index, e.target.value)}
-                    className="glass-card border-primary/20 flex-1"
-                  />
-                  {imageInputs.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeImageInput(index)}
-                      className="text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addImageInput}
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Image URL
-              </Button>
+              <MultipleImageUpload
+                images={formData.images}
+                onChange={(images) => setFormData({ ...formData, images })}
+                maxSizeMB={5}
+                maxImages={10}
+              />
               <p className="text-xs text-muted-foreground">
-                Enter image URLs (one per line). Images will be displayed in a carousel.
+                Upload images directly. Images will be stored in Cloudinary and displayed in a carousel.
               </p>
             </div>
           </div>

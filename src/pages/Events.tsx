@@ -114,7 +114,7 @@ const Events = () => {
           setClubs(allowedClubs);
         } catch (error: any) {
           // If user has no authorities or error, filter by role only
-          console.warn('Failed to load authorities:', error);
+
           const allowedClubs = filterClubsByPermissions(allClubs, []);
           setClubs(allowedClubs);
         }

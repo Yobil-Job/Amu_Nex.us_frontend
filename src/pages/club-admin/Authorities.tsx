@@ -87,11 +87,6 @@ const ClubAdminAuthorities = () => {
       const authoritiesList = extractCollection<any>(authoritiesRes) || [];
       const membersList = extractCollection<any>(membersRes) || [];
       
-      if (import.meta.env.DEV) {
-        console.log('🔍 DEBUG: Authorities from getByClub:', authoritiesList.length);
-        console.log('🔍 DEBUG: Members from getMembers:', membersList.length);
-      }
-      
       // Since authority response doesn't include student ID, we need to match by checking each member's authorities
       // Create a map of authority ID to authority data
       const authoritiesMap = new Map();
@@ -135,7 +130,7 @@ const ClubAdminAuthorities = () => {
             }
           }
         } catch (error) {
-          console.error(`Failed to get authorities for student ${member.id}:`, error);
+          // Failed to get authorities for student
         }
       }
       
@@ -148,24 +143,8 @@ const ClubAdminAuthorities = () => {
         });
       });
       
-      if (import.meta.env.DEV) {
-        console.log('📊 Enriched authorities:', {
-          total: enrichedAuthorities.length,
-          withStudentData: enrichedAuthorities.filter(a => a.student?.firstname).length,
-        });
-      }
-      
       setAuthorities(enrichedAuthorities);
-      
-      if (import.meta.env.DEV) {
-        console.log('📊 Authorities loaded:', {
-          total: enrichedAuthorities.length,
-          withStudentData: enrichedAuthorities.filter(a => a.student?.firstname).length,
-          membersCount: membersList.length,
-        });
-      }
     } catch (error: any) {
-      console.error('Failed to load authorities:', error);
       toast.error('Failed to load authorities');
       setAuthorities([]);
     } finally {

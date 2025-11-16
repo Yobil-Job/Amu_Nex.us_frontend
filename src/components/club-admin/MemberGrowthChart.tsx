@@ -14,7 +14,7 @@ const MemberGrowthChart = ({ members, isLoading }: MemberGrowthChartProps) => {
   const chartData = useMemo(() => {
     if (!members || members.length === 0) {
       if (import.meta.env.DEV) {
-        console.log('📊 MemberGrowthChart: No members data', { members });
+
       }
       return [];
     }
@@ -81,14 +81,6 @@ const MemberGrowthChart = ({ members, isLoading }: MemberGrowthChartProps) => {
       });
     }
 
-    if (import.meta.env.DEV) {
-      console.log('📊 MemberGrowthChart: Processed data', {
-        memberCount: members.length,
-        chartDataPoints: last30Days.length,
-        sampleData: last30Days.slice(0, 5),
-        totalCount: last30Days[last30Days.length - 1]?.count || 0,
-      });
-    }
 
     return last30Days;
   }, [members]);

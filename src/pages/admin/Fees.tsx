@@ -55,7 +55,6 @@ const AdminFees = () => {
           const feesList = Array.isArray(feesRes) ? feesRes : extractCollection<any>(feesRes) || [];
           return feesList;
         } catch (error) {
-          console.warn(`Failed to load fees for club ${club.id}:`, error);
           return [];
         }
       });
@@ -107,18 +106,9 @@ const AdminFees = () => {
         });
       });
 
-      // Debug: Log first fee structure
-      if (import.meta.env.DEV && allFeesFlat.length > 0) {
-        console.log('💰 First fee structure:', allFeesFlat[0]);
-        console.log('💰 Fee keys:', Object.keys(allFeesFlat[0]));
-        console.log('💰 Fee club:', allFeesFlat[0].club);
-        console.log('💰 Fee student:', allFeesFlat[0].student);
-      }
-
       setAllFees(allFeesFlat);
       setFees(allFeesFlat);
     } catch (error: any) {
-      console.error('Failed to load fees:', error);
       toast.error(error.message || 'Failed to load fees');
       setFees([]);
       setAllFees([]);

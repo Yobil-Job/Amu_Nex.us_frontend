@@ -42,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Try to fetch from /student/me endpoint
       const meResponse = await studentApi.getMe();
-      console.log('📊 /student/me response:', JSON.stringify(meResponse, null, 2));
       
       // Backend returns: { principal, name, authorities } OR direct student object
       // Try multiple response structures
@@ -104,20 +103,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...student,
         };
       }
-      
-      console.log('✅ Extracted user data:', userData);
 
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
       return userData;
     } catch (error: any) {
-      // Log the error for debugging (backend lazy loading issue)
-      if (error.status === 500) {
-        console.warn('⚠️ Backend /student/me returned 500 (likely lazy loading issue). Using JWT fallback.');
-      } else {
-        console.warn('Failed to fetch user profile from /student/me:', error);
-      }
-      
       // Fallback: Extract user info from JWT token
       // JWT token contains role as "ADMIN" exactly for club admin
       if (currentAccessToken) {
@@ -131,23 +121,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: tokenUser.role, // Already normalized (ADMIN, STUDENT, etc.)
             };
             
-            console.log('✅ Using JWT token data as fallback (user info extracted from token):', {
-              email: fallbackUser.email,
-              id: fallbackUser.id,
-              role: fallbackUser.role,
-              isClubAdmin: fallbackUser.role === 'ADMIN',
-            });
             setUser(fallbackUser);
             localStorage.setItem('user', JSON.stringify(fallbackUser));
             return fallbackUser;
-          } else {
-            console.warn('⚠️ JWT token does not contain valid user data');
           }
         } catch (tokenError) {
-          console.error('❌ Failed to extract user from token:', tokenError);
+          // Failed to extract user from token
         }
-      } else {
-        console.warn('⚠️ No access token available for JWT fallback');
       }
       
       // Final fallback: Use stored user data
@@ -156,18 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const parsedUser = JSON.parse(storedUser);
           if (parsedUser && parsedUser.email) {
-            console.log('Using stored user data as fallback');
             setUser(parsedUser);
             return parsedUser;
           }
         } catch (e) {
-          console.error('Invalid stored user data:', e);
           localStorage.removeItem('user');
         }
       }
       
-      // If all else fails, don't throw - just log and continue
-      console.error('Could not retrieve user profile from any source');
       return null;
     }
   }, [accessToken]);
@@ -179,12 +155,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await authApi.logout(currentRefreshToken);
         } catch (error) {
-          console.error('Logout API error (non-critical):', error);
           // Continue with local logout even if API call fails
         }
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      // Logout error
     } finally {
       // Clear all auth state
       setUser(null);
@@ -217,7 +192,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return response.accessToken;
     } catch (error) {
-      console.error('Token refresh failed:', error);
       // Clear tokens and logout on refresh failure
       await logout();
       throw error;
@@ -246,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
           } catch (e) {
-            console.error('Failed to parse stored user:', e);
+            // Failed to parse stored user
           }
         }
         
@@ -280,13 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Backend login response: { accessToken, refreshToken, role }
       // NO user object in response
       // Note: Role comes as "ADMIN" exactly for club admin (no ROLE_ prefix)
-      console.log('🔐 Attempting login for:', email);
       const response = await authApi.login(email, password);
-      console.log('✅ Login API response received:', { 
-        hasAccessToken: !!response.accessToken, 
-        hasRefreshToken: !!response.refreshToken, 
-        role: response.role 
-      });
       
       // Store tokens
       setAccessToken(response.accessToken);
@@ -309,12 +277,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: normalizeRole(response.role),
       };
       
-      console.log('✅ Normalized role from login response:', {
-        rawRole: response.role,
-        normalizedRole: tempUser.role,
-        isClubAdmin: tempUser.role === 'ADMIN',
-      });
-      
       setUser(tempUser);
       localStorage.setItem('user', JSON.stringify(tempUser));
 
@@ -329,14 +291,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast.success('Login successful!');
     } catch (error: any) {
-      // Log detailed error information for debugging
-      console.error('❌ Login error details:', {
-        message: error.message,
-        status: error.status,
-        fullError: error,
-        stack: error.stack
-      });
-
       // Handle specific database constraint violation error
       const errorMessage = error.message || 'Login failed. Please check your credentials.';
       const errorString = JSON.stringify(error).toLowerCase();
@@ -359,8 +313,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // This is a backend database constraint issue
         // The backend is trying to INSERT a new refresh token but one already exists
         // This requires a backend fix (should DELETE old token before INSERT, or use UPSERT)
-        console.warn('⚠️ Refresh token constraint violation detected.');
-        console.warn('⚠️ Backend needs to delete old refresh token before creating new one.');
         
         // Show helpful error message to user
         toast.error(

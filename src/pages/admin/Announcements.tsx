@@ -55,7 +55,7 @@ const AdminAnnouncements = () => {
         const announcementsRes = await announcementApi.getAll().catch(() => ({ _embedded: { announcementResponseDtoList: [] } }));
         announcementsList = extractCollection<any>(announcementsRes);
       } catch (error) {
-        console.warn('Failed to load all announcements, will fetch per club:', error);
+        // Failed to load all announcements, will fetch per club
       }
 
       // If announcements don't have club relationship, try fetching per club
@@ -66,8 +66,6 @@ const AdminAnnouncements = () => {
         
         // If missing club data, try fetching per club
         if (!hasClubRelationship) {
-          console.log('⚠️ Announcements missing club data, trying to fetch per club...');
-          
           try {
             // Try fetching announcements per club to get complete data
             const clubAnnouncementsPromises = clubsList.map(async (club: any) => {
@@ -81,7 +79,6 @@ const AdminAnnouncements = () => {
                   clubId: club.id,
                 }));
               } catch (error) {
-                console.warn(`Failed to load announcements for club ${club.id}:`, error);
                 return [];
               }
             });
@@ -94,10 +91,8 @@ const AdminAnnouncements = () => {
               // Combine system-wide (no club) and club-specific announcements
               const systemWide = announcementsList.filter((ann: any) => !ann.club?.id && !ann.clubId);
               announcementsList = [...systemWide, ...clubAnnouncementsFlat];
-              console.log('✅ Using announcements fetched per club');
             } else {
               // Fallback: fetch full details for announcements missing data
-              console.log('⚠️ Fetching full details for announcements missing data...');
               const enrichedAnnouncementsPromises = announcementsList.map(async (announcement: any) => {
                 // Only fetch if missing club
                 const announcementHasClub = announcement.club || announcement.clubId || announcement.club_id;
@@ -107,7 +102,6 @@ const AdminAnnouncements = () => {
                     const fullAnnouncementDetails = await announcementApi.getById(announcement.id);
                     return fullAnnouncementDetails;
                   } catch (error) {
-                    console.warn(`Failed to fetch full details for announcement ${announcement.id}:`, error);
                     return announcement;
                   }
                 }
@@ -117,12 +111,11 @@ const AdminAnnouncements = () => {
               announcementsList = await Promise.all(enrichedAnnouncementsPromises);
             }
           } catch (error) {
-            console.warn('Failed to fetch announcements per club, using existing announcements:', error);
+            // Failed to fetch announcements per club, using existing announcements
           }
         }
       } else {
         // No announcements from getAll, try fetching per club
-        console.log('⚠️ No announcements from getAll, fetching announcements per club...');
         const clubAnnouncementsPromises = clubsList.map(async (club: any) => {
           try {
             const clubAnnouncementsRes = await announcementApi.getByClub(club.id);
@@ -134,7 +127,6 @@ const AdminAnnouncements = () => {
               clubId: club.id,
             }));
           } catch (error) {
-            console.warn(`Failed to load announcements for club ${club.id}:`, error);
             return [];
           }
         });
@@ -166,18 +158,10 @@ const AdminAnnouncements = () => {
         };
       });
 
-      // Debug: Log first announcement structure
-      if (import.meta.env.DEV && enrichedAnnouncements.length > 0) {
-        console.log('📢 First announcement structure:', enrichedAnnouncements[0]);
-        console.log('📢 Announcement keys:', Object.keys(enrichedAnnouncements[0]));
-        console.log('📢 Announcement club:', enrichedAnnouncements[0].club);
-      }
-
       setAllAnnouncements(enrichedAnnouncements);
       setAnnouncements(enrichedAnnouncements);
       setClubs(clubsList);
     } catch (error: any) {
-      console.error('Failed to load announcements:', error);
       toast.error(error.message || 'Failed to load announcements');
       setAnnouncements([]);
       setAllAnnouncements([]);

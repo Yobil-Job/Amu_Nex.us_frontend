@@ -14,7 +14,7 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
   const chartData = useMemo(() => {
     if (!events || events.length === 0) {
       if (import.meta.env.DEV) {
-        console.log('📊 EventsChart: No events data', { events });
+
       }
       return [];
     }
@@ -66,14 +66,6 @@ const EventsChart = ({ events, isLoading }: EventsChartProps) => {
       }
     }
 
-    if (import.meta.env.DEV) {
-      console.log('📊 EventsChart: Processed data', {
-        eventCount: events.length,
-        chartDataPoints: last6Months.length,
-        sampleData: last6Months,
-        totalEvents: last6Months.reduce((sum, m) => sum + m.count, 0),
-      });
-    }
 
     return last6Months;
   }, [events]);

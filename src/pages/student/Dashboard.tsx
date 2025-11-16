@@ -64,43 +64,21 @@ const StudentDashboard = () => {
     setIsLoading(true);
     
     try {
-      if (import.meta.env.DEV) {
-        console.log('📊 Loading dashboard data for user:', user.id);
-      }
-
       // Load all data in parallel
       const [clubsRes, eventsRes, authoritiesRes] = await Promise.all([
         studentApi.getClubs(user.id)
-          .then((res) => {
-            if (import.meta.env.DEV) {
-              console.log('📊 getClubs response:', res);
-            }
-            return res;
-          })
+          .then((res) => res)
           .catch((error) => {
-            console.error('❌ Failed to load clubs:', error);
             return { _embedded: { responseClubDtoList: [] } };
           }),
         studentApi.getEvents(user.id)
-          .then((res) => {
-            if (import.meta.env.DEV) {
-              console.log('📊 getEvents response:', res);
-            }
-            return res;
-          })
+          .then((res) => res)
           .catch((error) => {
-            console.error('❌ Failed to load events:', error);
             return [];
           }),
         authorityApi.getByStudent(user.id)
-          .then((res) => {
-            if (import.meta.env.DEV) {
-              console.log('📊 getByStudent (authorities) response:', res);
-            }
-            return res;
-          })
+          .then((res) => res)
           .catch((error) => {
-            console.error('❌ Failed to load authorities:', error);
             return { _embedded: { authorityResponseDtoList: [] } };
           }),
       ]);
@@ -125,13 +103,6 @@ const StudentDashboard = () => {
         }
       }
       setClubs(clubsList);
-
-      if (import.meta.env.DEV) {
-        console.log('✅ Loaded clubs:', clubsList.length);
-        if (clubsList.length > 0) {
-          console.log('✅ Sample club:', clubsList[0]);
-        }
-      }
 
       // Handle events - extract from multiple structures
       let eventsList: any[] = [];
@@ -172,7 +143,6 @@ const StudentDashboard = () => {
             clubId: club.id,
           }));
         } catch (err) {
-          console.warn(`Failed to load events for club ${club.id}:`, err);
           return [];
         }
       });
@@ -185,27 +155,6 @@ const StudentDashboard = () => {
         event && event.id && index === self.findIndex(e => e && e.id === event.id)
       );
       setEvents(uniqueEvents);
-
-      if (import.meta.env.DEV) {
-        console.log('✅ Loaded events:', uniqueEvents.length);
-        console.log('📊 Events breakdown:', {
-          fromStudentApi: eventsList.length,
-          fromClubs: clubEvents.length,
-          total: allEvents.length,
-          unique: uniqueEvents.length,
-        });
-        if (uniqueEvents.length > 0) {
-          console.log('✅ Sample event:', uniqueEvents[0]);
-          console.log('✅ Event date fields:', {
-            startAt: uniqueEvents[0].startAt,
-            startDate: uniqueEvents[0].startDate,
-            date: uniqueEvents[0].date,
-          });
-        } else if (allEvents.length > 0) {
-          console.warn('⚠️ Events loaded but filtered out:', allEvents.length);
-          console.log('⚠️ Sample filtered event:', allEvents[0]);
-        }
-      }
 
       // Load announcements from joined clubs
       const announcementPromises = validClubs.map(async (club) => {
@@ -225,7 +174,6 @@ const StudentDashboard = () => {
             clubId: club.id,
           }));
         } catch (err) {
-          console.warn(`Failed to load announcements for club ${club.id}:`, err);
           return [];
         }
       });
@@ -237,13 +185,6 @@ const StudentDashboard = () => {
         ann && ann.id && index === self.findIndex(a => a && a.id === ann.id)
       );
       setAnnouncements(uniqueAnnouncements);
-
-      if (import.meta.env.DEV) {
-        console.log('✅ Loaded announcements:', uniqueAnnouncements.length);
-        if (uniqueAnnouncements.length > 0) {
-          console.log('✅ Sample announcement:', uniqueAnnouncements[0]);
-        }
-      }
 
       // Handle authorities - normalize structure
       let authoritiesList: any[] = [];
@@ -304,13 +245,6 @@ const StudentDashboard = () => {
         });
 
       setAuthorities(normalizedAuthorities);
-
-      if (import.meta.env.DEV) {
-        console.log('✅ Loaded authorities:', normalizedAuthorities.length);
-        if (normalizedAuthorities.length > 0) {
-          console.log('✅ Sample authority:', normalizedAuthorities[0]);
-        }
-      }
 
       // Add activities
       if (clubsList.length > 0) {
@@ -487,7 +421,6 @@ const StudentDashboard = () => {
           events={events || []}
           isLoading={isLoading}
           onViewAll={() => {
-            console.log('View All Events clicked');
             navigate('/events');
           }}
         />

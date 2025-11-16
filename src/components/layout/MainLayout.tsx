@@ -64,8 +64,6 @@ const MainLayout = () => {
     if (!user?.id) return;
     
     try {
-      console.log('🔍 [MainLayout] Loading managed clubs for user:', user.id);
-
       // Strategy 1: Check authorities where user is assigned as ADMIN
       let clubIdsFromAuthorities: number[] = [];
       try {
@@ -86,10 +84,8 @@ const MainLayout = () => {
             return clubId != null ? Number(clubId) : null;
           }).filter((id): id is number => id != null)
         )];
-
-        console.log('🏛️ [MainLayout] Club IDs from authorities:', clubIdsFromAuthorities);
       } catch (err) {
-        console.warn('[MainLayout] Failed to load authorities:', err);
+        // Failed to load authorities
       }
 
       // Strategy 2: Check all clubs where clubAdminId matches user.id
@@ -116,12 +112,10 @@ const MainLayout = () => {
             const clubId = club.id || club.clubId;
             return clubId != null ? Number(clubId) : null;
           }).filter((id): id is number => id != null);
-          console.log('✅ [MainLayout] Found clubs via list response:', clubIdsFromAdminId.length);
         } else {
           // clubAdminId not in list response, try two approaches:
           // 1. Fetch individual club details (clubAdminId might be there)
           // 2. Check club members to see if user is listed as admin
-          console.log('🔍 [MainLayout] clubAdminId not in list, trying individual details and members check...');
           
           const clubCheckPromises = allClubs.map(async (club: any) => {
             try {
@@ -178,11 +172,10 @@ const MainLayout = () => {
           const matchingClubIds = (await Promise.all(clubCheckPromises)).filter((id): id is number => id != null);
           if (matchingClubIds.length > 0) {
             clubIdsFromAdminId = matchingClubIds;
-            console.log('✅ [MainLayout] Found clubs via individual details/members:', clubIdsFromAdminId.length);
           }
         }
       } catch (err) {
-        console.warn('[MainLayout] Failed to load clubs:', err);
+        // Failed to load clubs
       }
 
       // Combine both strategies
@@ -191,11 +184,9 @@ const MainLayout = () => {
       clubIdsFromAdminId.forEach(id => allClubIds.add(id));
 
       const uniqueClubIds = Array.from(allClubIds);
-      console.log('✅ [MainLayout] Total managed club IDs:', uniqueClubIds);
-
       setManagedClubIds(uniqueClubIds);
     } catch (error) {
-      console.error('[MainLayout] Failed to load managed clubs:', error);
+      // Failed to load managed clubs
     }
   };
 
@@ -212,17 +203,10 @@ const MainLayout = () => {
         const clubId = clubs[0]?.id || clubs[0]?.clubId;
         if (clubId) {
           setSuperUserClubId(Number(clubId));
-          if (import.meta.env.DEV) {
-            console.log('✅ [MainLayout] SUPER_USER club loaded:', clubId);
-          }
-        }
-      } else {
-        if (import.meta.env.DEV) {
-          console.log('⚠️ [MainLayout] No clubs found for SUPER_USER');
         }
       }
     } catch (error) {
-      console.error('Failed to load super user club:', error);
+      // Failed to load super user club
     }
   };
 
@@ -361,7 +345,7 @@ const MainLayout = () => {
           });
         }
       } catch (error) {
-        console.error('Failed to generate notifications:', error);
+        // Failed to generate notifications
       }
 
       // Merge with saved notifications (keep existing ones that aren't duplicates)
@@ -390,7 +374,7 @@ const MainLayout = () => {
       setNotifications(allNotifications);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allNotifications));
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      // Failed to load notifications
     }
   };
 
@@ -432,8 +416,6 @@ const MainLayout = () => {
     { name: 'Fees', href: '/fees', icon: DollarSign, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'Announcements', href: '/announcements', icon: Bell, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
     { name: 'News', href: '/news', icon: TrendingUp, roles: ['STUDENT', 'SUPER_USER', 'SUPER_ADMIN', 'ADMIN'] },
-    // Members removed for SUPER_USER - they can only see member count, not manage members
-    { name: 'Resources', href: '/resources', icon: Package, roles: ['SUPER_USER'] },
   ];
 
   // Define admin navigation items (grouped in dropdown)
@@ -560,7 +542,8 @@ const MainLayout = () => {
                         isActive('/club-members') || 
                         isActive('/club-join-requests') ||
                         isActive('/club-settings') ||
-                        isActive('/notifications')
+                        isActive('/notifications') ||
+                        isActive('/admin-news')
                           ? 'default' 
                           : 'ghost'
                       }
@@ -575,7 +558,8 @@ const MainLayout = () => {
                         isActive('/club-members') || 
                         isActive('/club-join-requests') ||
                         isActive('/club-settings') ||
-                        isActive('/notifications')
+                        isActive('/notifications') ||
+                        isActive('/admin-news')
                           ? 'purple-gold-gradient text-white shadow-colored-primary hover:scale-105' 
                           : 'glass-card border-primary/20 hover:bg-primary/10 text-white'
                       }`}

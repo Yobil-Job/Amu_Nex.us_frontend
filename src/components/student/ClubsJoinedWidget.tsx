@@ -37,24 +37,15 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
   const displayedClubs = useMemo(() => clubs.slice(0, 3), [clubs]);
 
   const handleViewAll = () => {
-    console.log('handleViewAll called');
     if (onViewAll) {
-      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      console.log('Navigating to /clubs');
       navigate('/clubs');
     }
   };
 
   const handleDiscoverClubs = () => {
-    console.log('handleDiscoverClubs called');
-    try {
-      navigate('/clubs');
-      console.log('Navigation to /clubs called successfully');
-    } catch (error) {
-      console.error('Navigation error:', error);
-    }
+    navigate('/clubs');
   };
 
   if (isLoading) {
@@ -141,7 +132,6 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Club clicked:', club.id);
                     navigate('/clubs', { state: { clubId: club.id } });
                   }}
                   role="button"
@@ -210,7 +200,6 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('View All Clubs button clicked');
                 handleViewAll();
               }}
             >
@@ -226,7 +215,6 @@ const ClubsJoinedWidget = ({ clubsCount, clubs = [], isLoading, onViewAll }: Clu
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Discover Clubs button clicked');
                 handleDiscoverClubs();
               }}
             >

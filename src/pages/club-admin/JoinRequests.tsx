@@ -123,7 +123,7 @@ const ClubAdminJoinRequests = () => {
                 gender: studentDetails.gender || student.gender,
               };
             } catch (error) {
-              console.warn(`Failed to fetch student details for ID ${studentId}:`, error);
+              // Failed to fetch student details
             }
           }
           

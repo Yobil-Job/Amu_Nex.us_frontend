@@ -62,11 +62,8 @@ const StudentFees = () => {
     try {
       // Load fees for this student
       const feesResponse = await feeApi.getByStudent(user.id).catch((err) => {
-        console.warn('Failed to load fees:', err);
         return [];
       });
-
-      console.log('💰 Fees API response:', feesResponse);
 
       // Handle different response formats
       let feesList: any[] = [];
@@ -76,19 +73,13 @@ const StudentFees = () => {
         feesList = extractCollection<any>(feesResponse) || [];
       }
 
-      console.log('💰 Extracted fees:', feesList.length);
-      console.log('💰 Sample fee:', feesList[0]);
-
       // Load joined clubs to enhance fee data with club info
       const joinedClubsRes = await studentApi.getClubs(user.id).catch((err) => {
-        console.warn('Failed to load joined clubs:', err);
         return { _embedded: { responseClubDtoList: [] } };
       });
 
       const clubsList = extractCollection<any>(joinedClubsRes) || [];
       setJoinedClubs(clubsList);
-
-      console.log('💰 Joined clubs:', clubsList.length);
 
       // Create a map of club IDs to club objects for quick lookup
       const clubMap: Record<number, any> = {};
@@ -145,13 +136,9 @@ const StudentFees = () => {
         };
       });
 
-      console.log('💰 Enhanced fees:', enhancedFees.length);
-      console.log('💰 Sample enhanced fee:', enhancedFees[0]);
-
       setAllFees(enhancedFees);
       setFees(enhancedFees);
     } catch (error: any) {
-      console.error('Failed to load fees:', error);
       if (error?.status !== 403) {
         toast.error('Failed to load fees. Please try again.');
       }

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Building2, Calendar, Bell, Shield, Home, Mail, Github, Heart, ExternalLink } from 'lucide-react';
+import { Building2, Calendar, Bell, Shield, Home, Mail, Github, Heart, ExternalLink, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRoleDisplayName } from '@/lib/roles';
 
@@ -79,6 +79,15 @@ const Footer = () => {
                 >
                   <Calendar className="h-4 w-4 group-hover:scale-110 transition-transform" />
                   <span>Fees & Payments</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/about"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                >
+                  <User className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                  <span>About & Developer</span>
                 </Link>
               </li>
               <li>

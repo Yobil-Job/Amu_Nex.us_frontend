@@ -99,9 +99,6 @@ const SuperUserResources = () => {
       // For resource lending, we'll use a mock member list or allow manual entry
       try {
         const membersRes = await clubApi.getMembers(selectedClub.id).catch((err: any) => {
-          if (import.meta.env.DEV) {
-            console.warn('⚠️ [SuperUserResources] Cannot fetch members - permission denied:', err);
-          }
           return [];
         });
         // getMembers returns List<StudentResponseDto> directly (not HATEOAS) if successful
@@ -110,9 +107,6 @@ const SuperUserResources = () => {
       } catch (err) {
         // If we can't load members, set empty array - lending dialog can allow manual entry
         setMembers([]);
-        if (import.meta.env.DEV) {
-          console.info('ℹ️ [SuperUserResources] Members list unavailable. Resource lending may require manual member entry.');
-        }
       }
 
       // Load resources from localStorage (mock - backend endpoints don't exist)

@@ -88,18 +88,9 @@ const ClubAdminAnnouncements = () => {
       const announcementsRes = await announcementApi.getByClub(selectedClub.id).catch(() => ({ _embedded: { announcementResponseDtoList: [] } }));
       const announcementsList = extractCollection<any>(announcementsRes) || [];
       
-      if (import.meta.env.DEV) {
-        console.log('📢 Announcements loaded:', {
-          clubId: selectedClub.id,
-          count: announcementsList.length,
-          sampleAnnouncement: announcementsList[0],
-        });
-      }
-      
       setAllAnnouncements(announcementsList);
       setAnnouncements(announcementsList);
     } catch (error: any) {
-      console.error('Failed to load announcements:', error);
       toast.error('Failed to load announcements');
       setAnnouncements([]);
       setAllAnnouncements([]);

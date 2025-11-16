@@ -1,69 +1,80 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Newspaper, Building2, Clock, ChevronRight, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { Newspaper, Clock, ChevronRight, Sparkles, Image as ImageIcon, Calendar } from 'lucide-react';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { newsApi } from '@/lib/api';
+import { extractCollection } from '@/lib/hateoas';
+import { cn } from '@/lib/utils';
 
 interface LatestNewsCardProps {
-  clubs?: Array<{
-    id: number;
-    title?: string;
-    name?: string;
-    club_Type?: string;
-    logo?: string;
-  }>;
   isLoading?: boolean;
   onViewAll?: () => void;
 }
 
-const LatestNewsCard = ({ clubs = [], isLoading, onViewAll }: LatestNewsCardProps) => {
+const LatestNewsCard = ({ isLoading: parentLoading, onViewAll }: LatestNewsCardProps) => {
   const navigate = useNavigate();
+  const [latestNews, setLatestNews] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Get the latest news item (mock - will be replaced with actual news API later)
-  const latestNews = useMemo(() => {
-    if (!clubs || clubs.length === 0) return null;
-    
-    // Get the first club for the latest news
-    const club = clubs[0];
-    return {
-      id: `news-${club.id}-latest`,
-      title: `${club.title || club.name || 'Club'} Announces New Initiatives`,
-      description: `Exciting updates and new opportunities are now available. Join us for upcoming events and activities that will enhance your experience.`,
-      club: club,
-      date: new Date().toISOString(),
-      image: club.logo || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=400&fit=crop', // Fallback image
-    };
-  }, [clubs]);
+  useEffect(() => {
+    loadLatestNews();
+  }, []);
 
-  const handleViewAll = () => {
-      if (onViewAll) {
-        onViewAll();
+  const loadLatestNews = async () => {
+    setIsLoading(true);
+    try {
+      const response = await newsApi.getAll();
+      const newsList = extractCollection<any>(response) || [];
+      if (newsList.length > 0) {
+        setLatestNews(newsList[0]);
       }
+    } catch (error) {
+      console.error('Failed to load latest news:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getImagesList = (images: string | null): string[] => {
+    if (!images || images.trim().length === 0) {
+      return [];
+    }
+    return images.split(',').map(img => img.trim()).filter(img => img.length > 0);
   };
 
   const getTimeAgo = (dateString: string) => {
     try {
       const date = parseISO(dateString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
-      if (diffDays < 7) return `${diffDays}d ago`;
-      return format(date, 'MMM dd, yyyy');
+      return formatDistanceToNow(date, { addSuffix: true });
     } catch {
       return 'Recently';
     }
   };
 
-  if (isLoading) {
+  const getReadingTime = (text: string): number => {
+    const wordsPerMinute = 200;
+    const words = text.split(/\s+/).length;
+    return Math.ceil(words / wordsPerMinute);
+  };
+
+  const handleCardClick = () => {
+    navigate('/news');
+  };
+
+  const handleViewAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onViewAll) {
+      onViewAll();
+    } else {
+      navigate('/news');
+    }
+  };
+
+  if (parentLoading || isLoading) {
     return (
       <Card className="glass-card border-primary/20 glow-effect">
         <CardHeader>
@@ -72,7 +83,7 @@ const LatestNewsCard = ({ clubs = [], isLoading, onViewAll }: LatestNewsCardProp
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full rounded-lg" />
             <div className="space-y-4">
               <Skeleton className="h-6 w-full" />
               <Skeleton className="h-4 w-3/4" />
@@ -87,95 +98,119 @@ const LatestNewsCard = ({ clubs = [], isLoading, onViewAll }: LatestNewsCardProp
 
   if (!latestNews) {
     return (
-      <Card className="glass-card border-primary/20 glow-effect">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-            <Newspaper className="h-6 w-6 text-accent" />
-            Latest News
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Stay updated with the latest from your clubs
-          </CardDescription>
+      <Card className="glass-card border-primary/20 glow-effect hover:border-primary/40 transition-all cursor-pointer" onClick={handleCardClick}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div className="flex-1">
+            <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
+              <Newspaper className="h-6 w-6 text-accent" />
+              Latest News
+            </CardTitle>
+            <CardDescription className="text-muted-foreground mt-1">
+              Stay updated with the latest system announcements
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <Newspaper className="h-16 w-16 mx-auto text-muted-foreground mb-4 opacity-50" />
-            <p className="text-sm text-muted-foreground mb-2">No news available yet</p>
-            <p className="text-xs text-muted-foreground">
-              News from your clubs will appear here
+            <div className="relative mx-auto w-24 h-24 mb-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full blur-xl"></div>
+              <Newspaper className="h-16 w-16 mx-auto text-primary/40 relative z-10" />
+            </div>
+            <p className="text-base text-muted-foreground mb-2 font-medium">No news available yet</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Check back later for the latest updates
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-primary/20 hover:bg-primary/10"
+              onClick={handleViewAll}
+            >
+              View News Page
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const images = getImagesList(latestNews.images);
+  const mainImage = images.length > 0 ? images[0] : null;
+
   return (
-    <Card className="glass-card border-primary/20 glow-effect hover:shadow-lg transition-all">
+    <Card 
+      className="glass-card border-primary/20 glow-effect hover:border-primary/40 hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 cursor-pointer group"
+      onClick={handleCardClick}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div className="flex-1">
           <CardTitle className="text-xl font-semibold text-white flex items-center gap-2">
-            <Newspaper className="h-6 w-6 text-accent" />
+            <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20">
+              <Newspaper className="h-5 w-5 text-accent" />
+            </div>
             Latest News
           </CardTitle>
           <CardDescription className="text-muted-foreground mt-1">
-            Stay updated with the latest from your clubs
+            Stay updated with the latest system announcements
           </CardDescription>
         </div>
-        <Badge className="bg-accent/20 text-accent border-accent/30">
+        <Badge className="bg-accent/20 text-accent border-accent/30 animate-pulse">
           <Sparkles className="h-3 w-3 mr-1" />
-          Latest
+          New
         </Badge>
       </CardHeader>
       <CardContent>
         <div className="grid md:grid-cols-2 gap-6">
-          {/* News Image */}
-          <div className="relative group overflow-hidden rounded-lg border border-primary/20">
-            {latestNews.image ? (
-              <img
-                src={latestNews.image}
-                alt={latestNews.title}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                onError={(e) => {
-                  // Fallback to placeholder if image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=400&fit=crop';
-                }}
-              />
+          <div className="relative group/image overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-accent/10">
+            {mainImage ? (
+              <>
+                <img
+                  src={mainImage}
+                  alt={latestNews.title}
+                  className="w-full h-full min-h-[280px] object-cover transition-transform duration-500 group-hover/image:scale-110"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/800x400?text=Image+Not+Found';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover/image:opacity-100 transition-opacity duration-300" />
+                {images.length > 1 && (
+                  <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full text-white text-xs font-medium">
+                    +{images.length - 1} more
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                <ImageIcon className="h-16 w-16 text-muted-foreground opacity-50" />
+              <div className="w-full min-h-[280px] flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
+                <ImageIcon className="h-20 w-20 text-primary/30" />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
-          {/* News Content */}
           <div className="flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              {latestNews.club && (
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Building2 className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-sm font-medium text-white">
-                    {latestNews.club.title || latestNews.club.name || 'Unknown Club'}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span className="font-medium">
+                    {latestNews.createdAt 
+                      ? format(parseISO(latestNews.createdAt), 'MMM d, yyyy')
+                      : 'Recently'}
                   </span>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-full">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="font-medium">{getReadingTime(latestNews.description)} min read</span>
+                </div>
+              </div>
               
-              <h3 className="text-2xl font-bold text-white leading-tight">
+              <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight group-hover:text-primary transition-colors duration-300 line-clamp-2">
                 {latestNews.title}
               </h3>
               
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-sm md:text-base text-white/70 leading-relaxed line-clamp-4">
                 {latestNews.description}
               </p>
-              
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>{getTimeAgo(latestNews.date)}</span>
-              </div>
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-primary/20">
@@ -183,11 +218,23 @@ const LatestNewsCard = ({ clubs = [], isLoading, onViewAll }: LatestNewsCardProp
                 type="button"
                 variant="outline"
                 size="sm"
-                className="flex-1 border-primary/20 hover:bg-primary/10"
+                className="flex-1 border-primary/20 hover:bg-primary/10 hover:border-primary/40 group/btn"
                 onClick={handleViewAll}
               >
-                View All News
-                <ChevronRight className="h-4 w-4 ml-2" />
+                <span>View All News</span>
+                <ChevronRight className="h-4 w-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="purple-gold-gradient text-white shadow-colored-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/news');
+                }}
+              >
+                Read More
               </Button>
             </div>
           </div>

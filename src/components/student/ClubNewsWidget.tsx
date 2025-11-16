@@ -43,7 +43,6 @@ const ClubNewsWidget = ({ clubs = [], isLoading, onViewAll }: ClubNewsWidgetProp
   };
 
   const handleNewsClick = (newsId: string) => {
-    console.log('News clicked:', newsId);
     // Navigate to news detail page (will be implemented later)
     // navigate('/news', { state: { newsId } });
   };
@@ -117,7 +116,6 @@ const ClubNewsWidget = ({ clubs = [], isLoading, onViewAll }: ClubNewsWidgetProp
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('News clicked:', news.id);
                     handleNewsClick(news.id);
                   }}
                   role="button"
@@ -182,7 +180,6 @@ const ClubNewsWidget = ({ clubs = [], isLoading, onViewAll }: ClubNewsWidgetProp
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('View All News button clicked');
                   handleViewAll();
                 }}
               >

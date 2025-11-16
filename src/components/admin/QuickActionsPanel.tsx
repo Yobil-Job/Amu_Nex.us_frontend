@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Users, Clock, Plus, Settings, Shield, ArrowRight } from 'lucide-react';
+import { Building2, Users, Clock, Plus, Shield, ArrowRight, Newspaper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface QuickActionsPanelProps {
@@ -40,13 +40,13 @@ const QuickActionsPanel = ({ pendingRequestsCount = 0 }: QuickActionsPanelProps)
       badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
     },
     {
-      title: 'System Settings',
-      description: 'Configure system preferences',
-      icon: Settings,
-      action: () => navigate('/profile'),
-      color: 'text-info',
-      bgColor: 'bg-info/10',
-      hoverColor: 'hover:bg-info/20',
+      title: 'News Management',
+      description: 'Create and manage system news',
+      icon: Newspaper,
+      action: () => navigate('/admin-news'),
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      hoverColor: 'hover:bg-primary/20',
     },
   ];
 
@@ -69,18 +69,18 @@ const QuickActionsPanel = ({ pendingRequestsCount = 0 }: QuickActionsPanelProps)
               <Button
                 key={action.title}
                 variant="outline"
-                className={`glass-card h-auto p-4 flex flex-col items-start transition-all hover:scale-105 border-primary/20 ${action.hoverColor} relative min-h-[140px]`}
+                className={`glass-card h-auto p-4 flex flex-col items-start transition-all hover:scale-105 border-primary/20 ${action.hoverColor} relative min-h-[160px]`}
                 onClick={action.action}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className={`p-3 rounded-lg ${action.bgColor} animate-float flex-shrink-0 mb-3`} style={{ animationDelay: `${index * 150}ms` }}>
                   <Icon className={`h-5 w-5 ${action.color}`} />
                 </div>
-                <div className="text-left w-full flex-1 min-w-0 pr-8 pb-6">
-                  <div className="font-semibold text-white mb-1.5 leading-tight line-clamp-2">
+                <div className="text-left w-full flex-1 min-w-0 pr-10 pb-8 flex flex-col gap-1.5 overflow-hidden">
+                  <div className="font-semibold text-white leading-tight text-sm break-words">
                     {action.title}
                   </div>
-                  <div className="text-xs text-muted-foreground leading-relaxed line-clamp-2 break-words">
+                  <div className="text-xs text-muted-foreground leading-relaxed break-words hyphens-auto">
                     {action.description}
                   </div>
                 </div>
@@ -89,7 +89,7 @@ const QuickActionsPanel = ({ pendingRequestsCount = 0 }: QuickActionsPanelProps)
                     {action.badge}
                   </span>
                 )}
-                <ArrowRight className="h-4 w-4 text-muted-foreground absolute bottom-3 right-3 flex-shrink-0" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground absolute bottom-4 right-4 flex-shrink-0 z-10" />
               </Button>
             );
           })}

@@ -142,7 +142,7 @@ const Announcements = () => {
         }
       } catch (error) {
         // Silently fail - user can still manually select
-        console.log('Could not auto-select club:', error);
+
       }
     }
   };

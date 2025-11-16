@@ -85,19 +85,9 @@ const AdminDashboard = () => {
         for (const key in embedded) {
           if (Array.isArray(embedded[key])) {
             announcementsList = embedded[key];
-            console.log(`Found announcements in _embedded.${key}:`, announcementsList.length);
             break;
           }
         }
-      }
-      
-      // Log for debugging if still empty
-      if (announcementsList.length === 0 && announcementsRes) {
-        console.log('Announcements response structure:', {
-          hasEmbedded: !!announcementsRes._embedded,
-          embeddedKeys: announcementsRes._embedded ? Object.keys(announcementsRes._embedded) : [],
-          fullResponse: announcementsRes
-        });
       }
 
       setStudents(studentsList);

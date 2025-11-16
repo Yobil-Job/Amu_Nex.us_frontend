@@ -67,10 +67,8 @@ const JoinedClubDashboard = () => {
       const response = await clubApi.getById(clubId);
       setSelectedClub(response);
     } catch (error: any) {
-      console.error('Failed to load club details:', error);
       // Handle 403 (Access Denied) - students might not have permission to view club details
       if (error.status === 403) {
-        console.warn('Access denied to club details. Students may only view their joined clubs.');
         // Don't show error toast, just set club to null so UI shows appropriate message
       } else if (error.status !== 403) {
         // Only show error toast for non-403 errors

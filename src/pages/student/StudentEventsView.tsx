@@ -120,15 +120,12 @@ const StudentEventsView = () => {
       // Try to load events from student's joined clubs
       const [studentEventsRes, joinedClubsRes] = await Promise.all([
         studentApi.getEvents(user.id).catch((err) => {
-          console.warn('Failed to load student events:', err);
-          // Don't show error if it's just a permission issue (403)
           if (err?.status === 403) {
             return [];
           }
           return [];
         }),
         studentApi.getClubs(user.id).catch((err) => {
-          console.warn('Failed to load joined clubs:', err);
           return { _embedded: { responseClubDtoList: [] } };
         }),
       ]);
@@ -155,8 +152,6 @@ const StudentEventsView = () => {
           const eventsList = extractCollection<any>(response);
           return Array.isArray(eventsList) ? eventsList.filter(e => e && e.id) : [];
         } catch (err: any) {
-          // Silently fail for individual clubs - might not have events or permission issues
-          console.warn(`Failed to load events for club ${club.id}:`, err);
           return [];
         }
       });
@@ -196,13 +191,9 @@ const StudentEventsView = () => {
         return event;
       });
 
-      console.log('📊 Loaded events:', enrichedEvents.length);
-      console.log('📊 Sample event structure:', enrichedEvents[0]);
-      console.log('📊 Joined clubs:', clubsList.map(c => ({ id: c.id, title: c.title || c.name })));
       setAllEvents(enrichedEvents);
       setEvents(enrichedEvents);
     } catch (error: any) {
-      console.error('Failed to load events:', error);
       // Only show error if it's not a permission issue
       if (error?.status !== 403) {
         toast.error('Failed to load events. Please try again.');
@@ -215,17 +206,8 @@ const StudentEventsView = () => {
   };
 
   const filteredEvents = useMemo(() => {
-    console.log('🔍 Filtering events:', {
-      totalEvents: allEvents.length,
-      joinedClubs: joinedClubs.length,
-      filterType,
-      filterClubId,
-      searchQuery,
-    });
-
     // Filter out any null/undefined events
     let filtered = allEvents.filter(event => event && event.id);
-    console.log('✅ After null filter:', filtered.length);
 
     // Filter by type (upcoming/past)
     if (filterType === 'upcoming') {
@@ -235,15 +217,12 @@ const StudentEventsView = () => {
         if (!eventDate) return false;
         return isAfter(eventDate, new Date());
       });
-      console.log(`📅 After upcoming filter: ${before} -> ${filtered.length}`);
     } else if (filterType === 'past') {
-      const before = filtered.length;
       filtered = filtered.filter(event => {
         const eventDate = getEventDate(event);
         if (!eventDate) return true; // Events without dates are considered past
         return isBefore(eventDate, new Date());
       });
-      console.log(`📅 After past filter: ${before} -> ${filtered.length}`);
     }
 
     // Filter by club - only show events from joined clubs
@@ -254,26 +233,14 @@ const StudentEventsView = () => {
       return isNaN(numId) ? null : numId;
     }).filter(id => id != null) as number[];
     
-    console.log('🏛️ Joined club IDs:', joinedClubIds);
-    console.log('🏛️ Sample events before club filter:', filtered.slice(0, 2).map(e => ({
-      id: e.id,
-      title: e.title,
-      clubId: getEventClubId(e),
-      club: e.club,
-      hasClub: !!e.club,
-    })));
-    
     // First, filter to only show events from joined clubs
     // BUT: If events were loaded from student events API, they're already from joined clubs
     // So we should be more lenient - show events that either:
     // 1. Have a club ID that matches a joined club, OR
     // 2. Were loaded from student events (which means they're from joined clubs)
-    const beforeClubFilter = filtered.length;
     
     // If no joined clubs, don't filter (show all events - they're from student events API)
-    if (joinedClubIds.length === 0) {
-      console.log('⚠️ No joined clubs found - showing all events (likely from student events API)');
-    } else {
+    if (joinedClubIds.length > 0) {
       filtered = filtered.filter(event => {
         const eventClubId = getEventClubId(event);
         
@@ -285,37 +252,17 @@ const StudentEventsView = () => {
                    String(joinedId) === String(eventClubId) ||
                    Number(joinedId) === Number(eventClubId);
           });
-          
-          if (!matches) {
-            console.log(`❌ Event ${event.id} filtered out - club ID ${eventClubId} (${typeof eventClubId}) not in joined clubs ${joinedClubIds}`, {
-              eventClubId,
-              eventClubIdType: typeof eventClubId,
-              joinedClubIds,
-              joinedClubIdsTypes: joinedClubIds.map(id => typeof id),
-              eventClub: event.club,
-              eventKeys: Object.keys(event),
-            });
-          } else {
-            console.log(`✅ Event ${event.id} matches joined club ${eventClubId}`);
-          }
           return matches;
         }
         
         // If event doesn't have a club ID but was loaded, show it anyway
         // (it was likely loaded from student events API which only returns events from joined clubs)
-        console.log(`⚠️ Event ${event.id} has no club ID, but showing it anyway (likely from student events)`, {
-          eventId: event.id,
-          eventTitle: event.title,
-          eventKeys: Object.keys(event),
-        });
         return true;
       });
     }
-    console.log(`🏛️ After club filter: ${beforeClubFilter} -> ${filtered.length}`);
     
     // Then, if a specific club is selected, filter by that club
     if (filterClubId !== 'all') {
-      const before = filtered.length;
       const clubIdNum = parseInt(filterClubId);
       if (!isNaN(clubIdNum)) {
         filtered = filtered.filter(event => {
@@ -323,12 +270,10 @@ const StudentEventsView = () => {
           return eventClubId === clubIdNum;
         });
       }
-      console.log(`🏛️ After specific club filter: ${before} -> ${filtered.length}`);
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
-      const before = filtered.length;
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(event => {
         const title = (event.title || '').toLowerCase();
@@ -336,7 +281,6 @@ const StudentEventsView = () => {
         const clubName = (event.club?.title || event.club?.name || '').toLowerCase();
         return title.includes(query) || description.includes(query) || clubName.includes(query);
       });
-      console.log(`🔍 After search filter: ${before} -> ${filtered.length}`);
     }
 
     // Sort by date (upcoming first, then past)
@@ -363,7 +307,6 @@ const StudentEventsView = () => {
       }
     });
     
-    console.log('✅ Final filtered events:', sorted.length);
     return sorted;
   }, [allEvents, filterType, filterClubId, searchQuery, joinedClubs]);
 

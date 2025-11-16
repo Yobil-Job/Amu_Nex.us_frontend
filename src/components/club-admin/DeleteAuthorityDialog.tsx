@@ -59,7 +59,7 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
       await authorityApi.delete(authority.id, clubId, clubAdminId);
       
       if (import.meta.env.DEV) {
-        console.log('✅ Authority deleted successfully, now checking role update for student:', studentId);
+
       }
       
       // After successful deletion, check if student needs role update
@@ -125,16 +125,7 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
           
           // Get the role from API (but don't trust it - backend may compute it from authorities)
           const apiReportedRole = (currentStudent.role || 'STUDENT').toUpperCase();
-          
-          console.log('🔍 Current role analysis:', {
-            studentId,
-            roleFromAPI: currentStudent.role,
-            apiReportedRole,
-            hasOtherAuthorities,
-            isClubAdmin,
-            fullStudent: currentStudent,
-          });
-          
+
           // Determine what the role SHOULD be based on actual status:
           // SYSTEM_ADMIN > ADMIN (Club Admin) > SUPER_USER (Authority) > STUDENT
           let newRole = 'STUDENT';
@@ -188,21 +179,12 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
                 : newRole === 'STUDENT' && !hasOtherAuthorities && !isClubAdmin
                   ? 'Force update (authority deleted)'
                   : 'Update needed';
-              
-              console.log(`🔄 Updating student ${studentId} role to ${newRole}...`, {
-                reason: updateReason,
-                fromRole: currentStudent.role || apiReportedRole,
-                toRole: newRole,
-              });
-              
+
               // Try updating with just the role field
               const updatePayload = { role: newRole };
-              console.log('📤 Update payload:', updatePayload);
-              
+
               const updateResponse = await studentApi.update(Number(studentId), updatePayload);
-              
-              console.log(`✅ Update API response:`, updateResponse);
-              
+
               // Wait a moment for backend to process
               await new Promise(resolve => setTimeout(resolve, 500));
               
@@ -221,7 +203,7 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
               const roleMatches = verifiedRole.toUpperCase() === newRole.toUpperCase();
               
               if (roleMatches) {
-                console.log(`✅ Successfully updated student ${studentId} role from ${currentRole} to ${newRole}`);
+
                 toast.success(`Student role updated to ${newRole}`);
               } else {
                 console.error(`❌ Role update FAILED: Expected ${newRole}, but student role is still ${verifiedRole}`);
@@ -252,13 +234,7 @@ const DeleteAuthorityDialog = ({ authority, clubId, clubAdminId, isOpen, onClose
               toast.error(`Failed to update student role: ${errorMessage}. Please update manually.`);
             }
           } else {
-            console.log(`ℹ️ No role update needed:`, {
-              apiReportedRole,
-              newRole,
-              reason: apiReportedRole === 'SYSTEM_ADMIN' 
-                ? 'Student is SYSTEM_ADMIN - cannot change' 
-                : 'Role is already correct',
-            });
+
           }
         } catch (roleCheckError: any) {
           console.error('Failed to check/update student role:', roleCheckError);

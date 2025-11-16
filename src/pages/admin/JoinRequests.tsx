@@ -100,14 +100,8 @@ const AdminJoinRequests = () => {
                 gender: studentDetails.gender || student.gender,
               };
             } catch (error) {
-              console.warn(`Failed to fetch student details for ID ${studentId}:`, error);
+              // Failed to fetch student details
             }
-          }
-          
-          // Debug: Log first request structure
-          if (import.meta.env.DEV && allRequestsFlat.length === 0) {
-            console.log('📋 First request structure:', request);
-            console.log('📋 Extracted student:', student);
           }
           
           // Ensure status is set to PENDING for pending requests
@@ -126,7 +120,6 @@ const AdminJoinRequests = () => {
 
       setAllRequests(allRequestsFlat);
     } catch (error: any) {
-      console.error('Failed to load join requests:', error);
       toast.error(error.message || 'Failed to load join requests');
       setAllRequests([]);
     } finally {
@@ -266,17 +259,11 @@ const AdminJoinRequests = () => {
         return;
       }
       
-      // Debug logging
-      if (import.meta.env.DEV) {
-        console.log('🚫 Rejecting request:', { clubId, studentId: studentIdNum });
-      }
-      
       await clubApi.rejectRequest(clubId, studentIdNum);
       toast.success('Request rejected successfully');
       loadData();
       setSelectedRequests([]);
     } catch (error: any) {
-      console.error('❌ Reject request error:', error);
       const errorMessage = error.message || error.response?.data?.message || 'Failed to reject request';
       toast.error(errorMessage);
     }
@@ -297,7 +284,6 @@ const AdminJoinRequests = () => {
           return reqIdNum === requestId || reqId === requestId;
         });
         if (!request) {
-          console.warn(`Request ${requestId} not found`);
           return Promise.resolve();
         }
         
@@ -306,12 +292,10 @@ const AdminJoinRequests = () => {
         const studentId = request.student?.id || request.studentId || request.student_id || request.id;
         
         if (!clubId || !studentId) {
-          console.warn(`Missing clubId (${clubId}) or studentId (${studentId}) for request ${requestId}`);
           return Promise.resolve();
         }
         
         return clubApi.approveRequest(clubId, Number(studentId)).catch((error) => {
-          console.error(`Failed to approve request ${requestId}:`, error);
           return null;
         });
       });
@@ -346,7 +330,6 @@ const AdminJoinRequests = () => {
           return reqIdNum === requestId || reqId === requestId;
         });
         if (!request) {
-          console.warn(`Request ${requestId} not found`);
           return Promise.resolve();
         }
         
@@ -355,12 +338,10 @@ const AdminJoinRequests = () => {
         const studentId = request.student?.id || request.studentId || request.student_id || request.id;
         
         if (!clubId || !studentId) {
-          console.warn(`Missing clubId (${clubId}) or studentId (${studentId}) for request ${requestId}`);
           return Promise.resolve();
         }
         
         return clubApi.rejectRequest(clubId, Number(studentId)).catch((error) => {
-          console.error(`Failed to reject request ${requestId}:`, error);
           return null;
         });
       });

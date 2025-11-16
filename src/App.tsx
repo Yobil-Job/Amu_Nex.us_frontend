@@ -18,6 +18,7 @@ import Announcements from "./pages/Announcements";
 import Authorities from "./pages/Authorities";
 import Profile from "./pages/Profile";
 import News from "./pages/News";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import AdminJoinRequests from "./pages/admin/JoinRequests";
 import AdminSettings from "./pages/admin/Settings";
@@ -29,7 +30,6 @@ import ClubAdminJoinRequests from "./pages/club-admin/JoinRequests";
 import ClubAdminAuthorities from "./pages/club-admin/Authorities";
 import ClubAdminSettings from "./pages/club-admin/Settings";
 // SuperUserMembers removed - SUPER_USER (Authority) cannot manage members, only view member count
-import SuperUserResources from "./pages/super-user/Resources";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,8 +73,8 @@ const App = () => (
                 <Route path="/club-authorities" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminAuthorities /></ProtectedRoute>} />
                 <Route path="/club-settings" element={<ProtectedRoute requiredRole="ADMIN"><ClubAdminSettings /></ProtectedRoute>} />
                 {/* Members route removed for SUPER_USER - they can only see member count, not manage members */}
-                <Route path="/resources" element={<ProtectedRoute requiredRole="SUPER_USER"><SuperUserResources /></ProtectedRoute>} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/about" element={<About />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

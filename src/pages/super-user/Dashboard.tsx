@@ -107,20 +107,10 @@ const SuperUserDashboard = () => {
       // ClubMapper.toResponseClubDto() sets this using studentClubRepository.countApprovedMembersByClubId()
       if (selectedClub.numberOfMmbers !== undefined && selectedClub.numberOfMmbers !== null) {
         memberCount = Number(selectedClub.numberOfMmbers);
-        if (import.meta.env.DEV) {
-          console.log('✅ [SuperUserDashboard] Using member count from selectedClub.numberOfMmbers:', memberCount);
-        }
       } else if (selectedClub.numberOfMembers !== undefined && selectedClub.numberOfMembers !== null) {
         memberCount = Number(selectedClub.numberOfMembers);
-        if (import.meta.env.DEV) {
-          console.log('✅ [SuperUserDashboard] Using member count from selectedClub.numberOfMembers:', memberCount);
-        }
       } else {
         // Fallback: Try to fetch club details to get updated member count
-        if (import.meta.env.DEV) {
-          console.warn('⚠️ [SuperUserDashboard] numberOfMmbers not found in selectedClub, trying to fetch club details');
-          console.log('🔍 [SuperUserDashboard] selectedClub keys:', Object.keys(selectedClub));
-        }
         try {
           const clubDetails = await clubApi.getById(clubId);
           const club = extractCollection<any>(clubDetails)?.[0] || clubDetails;
@@ -128,15 +118,9 @@ const SuperUserDashboard = () => {
           // Update selectedClub with fresh data if we got it
           if (club && (club.numberOfMmbers !== undefined || club.numberOfMembers !== undefined)) {
             setSelectedClub((prev: any) => ({ ...prev, ...club }));
-            if (import.meta.env.DEV) {
-              console.log('✅ [SuperUserDashboard] Fetched member count from club details:', memberCount);
-            }
           }
         } catch (err) {
           // If we can't fetch club details, member count stays 0
-          if (import.meta.env.DEV) {
-            console.warn('⚠️ [SuperUserDashboard] Could not fetch club details for member count:', err);
-          }
         }
       }
 

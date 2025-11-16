@@ -88,11 +88,6 @@ const ClubAdminFees = () => {
       const feesList = Array.isArray(feesRes) ? feesRes : extractCollection<any>(feesRes) || [];
       const membersList = extractCollection<any>(membersRes) || [];
       
-      if (import.meta.env.DEV) {
-        console.log('💰 Fees from getByClub:', feesList.length);
-        console.log('💰 Members from getMembers:', membersList.length);
-      }
-      
       // Since fee response doesn't include student ID, we need to match by checking each member's fees
       // Create a map of fee ID to fee data
       const feesMap = new Map();
@@ -136,7 +131,7 @@ const ClubAdminFees = () => {
             }
           }
         } catch (error) {
-          console.error(`Failed to get fees for student ${member.id}:`, error);
+          // Failed to get fees for student
         }
       }
       
@@ -149,25 +144,9 @@ const ClubAdminFees = () => {
         });
       });
       
-      if (import.meta.env.DEV) {
-        console.log('💰 Enriched fees:', {
-          total: enrichedFees.length,
-          withStudentData: enrichedFees.filter(f => f.student?.firstname).length,
-        });
-      }
-      
       setAllFees(enrichedFees);
       setFees(enrichedFees);
-      
-      if (import.meta.env.DEV) {
-        console.log('💰 Fees loaded:', {
-          total: enrichedFees.length,
-          withStudentData: enrichedFees.filter(f => f.student?.firstname).length,
-          membersCount: membersList.length,
-        });
-      }
     } catch (error: any) {
-      console.error('Failed to load fees:', error);
       toast.error('Failed to load fees');
       setFees([]);
       setAllFees([]);

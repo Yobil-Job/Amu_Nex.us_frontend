@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Home, Users, Calendar, DollarSign, Bell, Package, 
+  Home, Users, Calendar, DollarSign, Bell, 
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,6 @@ const Sidebar = ({ isCollapsed = false, onToggle }: SidebarProps) => {
     { name: 'Events', href: '/events', icon: Calendar },
     { name: 'Finance', href: '/fees', icon: DollarSign },
     { name: 'Announcements', href: '/announcements', icon: Bell },
-    { name: 'Resources', href: '/resources', icon: Package },
   ];
 
   const isActive = (path: string) => location.pathname === path;

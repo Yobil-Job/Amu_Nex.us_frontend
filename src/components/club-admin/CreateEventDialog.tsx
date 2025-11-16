@@ -105,7 +105,7 @@ const CreateEventDialog = ({ clubId, isOpen, onClose, onSuccess }: CreateEventDi
       // Check if user has an authority for this club (backend requires authority to create events)
       // ADMIN users might not have an authority record, but they should still be able to create events
       // The backend should check for both authority OR club admin status, but currently only checks authority
-      console.log('🔍 [CreateEventDialog] Checking if user has authority for club:', clubId);
+
       let hasAuthority = false;
       try {
         const authoritiesRes = await authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
@@ -129,17 +129,15 @@ const CreateEventDialog = ({ clubId, isOpen, onClose, onSuccess }: CreateEventDi
           
           return authClubId != null && Number(authClubId) === Number(clubId);
         });
-        
-        console.log('🔍 [CreateEventDialog] User has authority for club:', hasAuthority);
+
       } catch (authErr) {
-        console.warn('⚠️ [CreateEventDialog] Failed to check authorities:', authErr);
+
       }
 
       // Note: Even if hasAuthority is false, we still try to create the event
       // The backend should allow ADMIN users (club admins) to create events even without an authority record
       // If the backend rejects it, it's a backend configuration issue that needs to be fixed
-      
-      console.log('🔍 [CreateEventDialog] Creating event with clubId:', clubId, 'createdById:', user.id, 'hasAuthority:', hasAuthority);
+
       await eventApi.create({
         title: formData.title,
         description: formData.description,
@@ -152,18 +150,11 @@ const CreateEventDialog = ({ clubId, isOpen, onClose, onSuccess }: CreateEventDi
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
       });
 
-      console.log('✅ [CreateEventDialog] Event created successfully');
       toast.success('Event created successfully');
       resetForm();
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('❌ [CreateEventDialog] Failed to create event:', {
-        error,
-        message: error.message,
-        status: error.status,
-        clubId,
-      });
       toast.error(error.message || 'Failed to create event');
     } finally {
       setIsCreating(false);

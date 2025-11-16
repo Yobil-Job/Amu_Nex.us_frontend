@@ -84,18 +84,10 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
   const latestRoles = activeAuthorities.slice(0, 3);
 
   const handleViewAll = () => {
-    console.log('handleViewAll called');
     if (onViewAll) {
-      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      console.log('Navigating to /profile');
-      try {
-        navigate('/profile', { state: { tab: 'authorities' } });
-        console.log('Navigation to /profile called successfully');
-      } catch (error) {
-        console.error('Navigation error:', error);
-      }
+      navigate('/profile', { state: { tab: 'authorities' } });
     }
   };
 
@@ -149,7 +141,6 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Role clicked:', authority.id);
                     navigate('/profile', { state: { tab: 'authorities' } });
                   }}
                   role="button"
@@ -229,7 +220,6 @@ const RolesWidget = ({ authorities, isLoading, onViewAll }: RolesWidgetProps) =>
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('View All Roles button clicked');
                   handleViewAll();
                 }}
               >

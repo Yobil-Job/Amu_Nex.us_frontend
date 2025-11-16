@@ -119,21 +119,6 @@ const ClubAdminDashboard = () => {
           setFees(feesList);
           setPendingRequestsCount(requestsList.length);
 
-          // Debug logging
-          if (import.meta.env.DEV) {
-            console.log('📊 Dashboard Data Loaded:', {
-              members: membersList.length,
-              authorities: authoritiesList.length,
-              events: eventsList.length,
-              announcements: announcementsList.length,
-              fees: feesList.length,
-              pendingRequests: requestsList.length,
-              sampleEvent: eventsList[0],
-              sampleMember: membersList[0],
-              sampleFee: feesList[0],
-            });
-          }
-
       // Calculate upcoming events (events after today) - check multiple date fields
       const now = new Date();
       const upcomingEventsCount = eventsList.filter((event: any) => {

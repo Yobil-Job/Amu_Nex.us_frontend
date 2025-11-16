@@ -13,44 +13,15 @@ export async function loadAuthorizedClubsForUser(userId: number): Promise<any[]>
   if (!userId) return [];
 
   try {
-    if (import.meta.env.DEV) {
-      console.log('🔍 [superUserUtils] Loading authorized clubs for user:', userId);
-    }
-
     // Strategy: Use getByStudent() to get user's authorities, then extract club IDs
     // This avoids calling clubApi.getAll() which may fail with 500 for SUPER_USER
     const authoritiesRes = await authorityApi.getByStudent(userId).catch((err) => {
-      if (import.meta.env.DEV) {
-        console.error('❌ [superUserUtils] Failed to get authorities by student:', err);
-      }
       return { _embedded: { authorityResponseDtoList: [] } };
     });
     
     const userAuthorities = extractCollection<any>(authoritiesRes) || [];
 
-    if (import.meta.env.DEV) {
-      console.log('🔍 [superUserUtils] Raw authorities response:', authoritiesRes);
-      console.log('🔍 [superUserUtils] Extracted authorities count:', userAuthorities.length);
-      if (userAuthorities.length > 0) {
-        console.log('🔍 [superUserUtils] Sample authority (full object):', userAuthorities[0]);
-        console.log('🔍 [superUserUtils] Sample authority keys:', Object.keys(userAuthorities[0]));
-        console.log('🔍 [superUserUtils] Sample authority club field:', userAuthorities[0].club);
-        console.log('🔍 [superUserUtils] Sample authority clubId field:', userAuthorities[0].clubId);
-        console.log('🔍 [superUserUtils] Sample authority _links:', userAuthorities[0]._links);
-      } else {
-        console.warn('⚠️ [superUserUtils] No authorities found for user', userId);
-        console.log('🔍 [superUserUtils] Raw response structure:', {
-          hasEmbedded: !!authoritiesRes._embedded,
-          embeddedKeys: authoritiesRes._embedded ? Object.keys(authoritiesRes._embedded) : [],
-          allKeys: Object.keys(authoritiesRes),
-        });
-      }
-    }
-
     if (userAuthorities.length === 0) {
-      if (import.meta.env.DEV) {
-        console.log('⚠️ [superUserUtils] No authorities found for user');
-      }
       return [];
     }
 
@@ -60,9 +31,6 @@ export async function loadAuthorizedClubsForUser(userId: number): Promise<any[]>
     // we can get the student's clubs and return those. The user has authority in all clubs they're a member of.
     
     if (userAuthorities.length === 0) {
-      if (import.meta.env.DEV) {
-        console.log('⚠️ [superUserUtils] No authorities found for user');
-      }
       return [];
     }
 
@@ -73,36 +41,20 @@ export async function loadAuthorizedClubsForUser(userId: number): Promise<any[]>
       // Get clubs the student has joined (this endpoint works for SUPER_USER: /student/{id}/getclubsJoined)
       // Backend returns List<ResponseClubDto> directly, not HATEOAS format
       const studentClubsRes = await studentApi.getClubs(userId).catch((err) => {
-        if (import.meta.env.DEV) {
-          console.warn('⚠️ [superUserUtils] Failed to get student clubs:', err);
-        }
         return [];
       });
       
       // getClubs returns List<ResponseClubDto> directly (not HATEOAS), so it's already an array
       const studentClubs = Array.isArray(studentClubsRes) ? studentClubsRes : extractCollection<any>(studentClubsRes) || [];
       
-      if (import.meta.env.DEV) {
-        console.log('🔍 [superUserUtils] Found', studentClubs.length, 'clubs student is member of');
-        console.log('🔍 [superUserUtils] Student clubs:', studentClubs);
-      }
-
       // The studentClubs already contain full club details (ResponseClubDto),
       // so we can return them directly without fetching again
-              if (import.meta.env.DEV) {
-        console.log('✅ [superUserUtils] Returning', studentClubs.length, 'clubs where user has authority');
-                }
-      
       return studentClubs;
       
-        } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error('❌ [superUserUtils] Failed to get student clubs:', err);
-      }
+    } catch (err) {
       return [];
     }
   } catch (error) {
-    console.error('[superUserUtils] Failed to load authorized clubs:', error);
     return [];
   }
 }
@@ -162,7 +114,6 @@ export async function getUserPositionForClub(userId: number, clubId: number): Pr
 
     return null;
   } catch (error) {
-    console.error('[superUserUtils] Failed to get user position:', error);
     return null;
   }
 }

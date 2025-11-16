@@ -92,7 +92,6 @@ const ClubsDiscovery = () => {
         if (joinedClub) {
           // If request was pending, mark as approved
           if (req.status === 'pending') {
-            console.log(`✅ Join request approved: Club ${req.clubId} - synced from joined clubs`);
             return { ...enrichedRequest, status: 'approved' as const };
           }
           // If request was already approved, keep it approved (enrich with data)
@@ -101,7 +100,6 @@ const ClubsDiscovery = () => {
           }
           // If request was rejected but student is now in club, mark as approved
           if (req.status === 'rejected') {
-            console.log(`✅ Rejected request now approved: Club ${req.clubId} - synced from joined clubs`);
             return { ...enrichedRequest, status: 'approved' as const };
           }
         } else {
@@ -120,7 +118,6 @@ const ClubsDiscovery = () => {
             // If request is older than 7 days, club exists, and student is not in club, mark as rejected
             // This is a heuristic - ideally we'd get this from the backend
             if (daysSinceRequest > 7 && clubExists) {
-              console.log(`❌ Join request rejected: Club ${req.clubId} - pending for ${Math.floor(daysSinceRequest)} days, student not in club`);
               return { ...enrichedRequest, status: 'rejected' as const };
             }
             // Otherwise keep as pending but enrich with data
@@ -140,11 +137,6 @@ const ClubsDiscovery = () => {
       });
       
       if (JSON.stringify(updated) !== JSON.stringify(prev)) {
-        console.log('📊 Join requests synced:', {
-          pending: updated.filter(r => r.status === 'pending').length,
-          approved: updated.filter(r => r.status === 'approved').length,
-          rejected: updated.filter(r => r.status === 'rejected').length,
-        });
         saveJoinRequests(updated);
         return updated;
       }
@@ -160,20 +152,17 @@ const ClubsDiscovery = () => {
       const clubsList = extractCollection<any>(response);
       setClubs(clubsList);
     } catch (error: any) {
-      console.error('Failed to load clubs:', error);
       const status = error?.status;
       
       // Handle 403 (Access Denied) - set access error flag for UI message
       if (status === 403) {
         setHasAccessError(true);
         setClubs([]);
-        console.warn('Access denied to clubs list. Students may only be able to view joined clubs.');
       } else {
         // For any other error (network, server, etc.), set access error to show helpful UI
         // This way we don't show error toasts, but inform user through UI
         setHasAccessError(true);
         setClubs([]);
-        console.warn('Unable to load clubs. Students can still view their joined clubs.');
       }
       
       // Don't show any error toasts - UI will handle messaging
@@ -187,11 +176,9 @@ const ClubsDiscovery = () => {
     try {
       const response = await studentApi.getClubs(user.id);
       const clubsList = extractCollection<any>(response);
-      console.log('📊 Loaded joined clubs:', clubsList.length);
       setJoinedClubs(clubsList);
       // Don't sync here - let the useEffect handle it to avoid double syncing
     } catch (error: any) {
-      console.error('Failed to load joined clubs:', error);
       const status = error?.status;
       
       // Only show error toast for non-403 errors and non-network errors

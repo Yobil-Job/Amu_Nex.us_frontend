@@ -4,7 +4,6 @@ import {
   Newspaper, 
   Calendar, 
   DollarSign, 
-  Package, 
   ArrowRight 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -59,21 +58,11 @@ const QuickAccessCards = ({
       action: () => navigate('/fees'),
       badge: pendingFinanceRequestsCount > 0 ? pendingFinanceRequestsCount : undefined,
     },
-    {
-      title: 'Resource Requests',
-      description: 'Manage club resources and requests',
-      icon: Package,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10',
-      borderColor: 'border-accent/30',
-      hoverColor: 'hover:bg-accent/20',
-      action: () => navigate('/resources'),
-    },
   ];
 
   return (
     <TooltipProvider>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (

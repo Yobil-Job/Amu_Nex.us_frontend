@@ -104,23 +104,17 @@ const StudentAnnouncements = () => {
     try {
       // Load joined clubs first
       const joinedClubsRes = await studentApi.getClubs(user.id).catch((err) => {
-        console.warn('Failed to load joined clubs:', err);
         return { _embedded: { responseClubDtoList: [] } };
       });
 
       const clubsList = extractCollection<any>(joinedClubsRes) || [];
       setJoinedClubs(clubsList);
 
-      console.log('📢 Loaded joined clubs:', clubsList.length);
-      console.log('📢 Sample club:', clubsList[0]);
-
       // Load announcements from all joined clubs
       const validClubs = clubsList.filter(club => {
         const clubId = getClubId(club);
         return clubId != null;
       });
-
-      console.log('📢 Valid clubs for announcements:', validClubs.length);
 
       const announcementPromises = validClubs.map(async (club) => {
         try {
@@ -157,8 +151,6 @@ const StudentAnnouncements = () => {
               };
             });
         } catch (err: any) {
-          // Silently fail for individual clubs
-          console.warn(`Failed to load announcements for club ${club.id}:`, err);
           return [];
         }
       });
@@ -166,20 +158,14 @@ const StudentAnnouncements = () => {
       const announcementArrays = await Promise.all(announcementPromises);
       const allAnnouncementsList = announcementArrays.flat();
 
-      console.log('📢 Total announcements loaded:', allAnnouncementsList.length);
-
       // Deduplicate by ID
       const uniqueAnnouncements = allAnnouncementsList.filter((ann, index, self) =>
         ann && ann.id && index === self.findIndex(a => a && a.id === ann.id)
       );
 
-      console.log('📢 Unique announcements after deduplication:', uniqueAnnouncements.length);
-      console.log('📢 Sample announcement:', uniqueAnnouncements[0]);
-
       setAllAnnouncements(uniqueAnnouncements);
       setAnnouncements(uniqueAnnouncements);
     } catch (error: any) {
-      console.error('Failed to load announcements:', error);
       if (error?.status !== 403) {
         toast.error('Failed to load announcements. Please try again.');
       }

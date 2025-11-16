@@ -99,18 +99,10 @@ const AnnouncementsWidget = ({
   };
 
   const handleViewAll = () => {
-    console.log('handleViewAll called');
     if (onViewAll) {
-      console.log('Calling onViewAll callback');
       onViewAll();
     } else {
-      console.log('Navigating to /announcements');
-      try {
-        navigate('/announcements');
-        console.log('Navigation to /announcements called successfully');
-      } catch (error) {
-        console.error('Navigation error:', error);
-      }
+      navigate('/announcements');
     }
   };
 
@@ -198,7 +190,6 @@ const AnnouncementsWidget = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Announcement clicked:', announcement.id);
                     navigate('/announcements', { state: { announcementId: announcement.id } });
                   }}
                   role="button"
@@ -268,7 +259,6 @@ const AnnouncementsWidget = ({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Mark as read clicked:', announcement.id);
                           onMarkAsRead(announcement.id);
                         }}
                       >
@@ -293,7 +283,6 @@ const AnnouncementsWidget = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('View All Announcements button clicked');
                 handleViewAll();
               }}
             >

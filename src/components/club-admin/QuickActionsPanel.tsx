@@ -58,7 +58,7 @@ const QuickActionsPanel = ({ clubId, pendingRequestsCount = 0 }: QuickActionsPan
           {actions.map((action, index) => {
             const Icon = action.icon;
             const handleClick = () => {
-              console.log('Quick action clicked:', action.title);
+
               try {
                 action.action();
               } catch (error) {

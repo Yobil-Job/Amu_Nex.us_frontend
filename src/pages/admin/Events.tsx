@@ -58,7 +58,7 @@ const AdminEvents = () => {
         const eventsRes = await eventApi.getAll().catch(() => ({ _embedded: { eventList: [] } }));
         eventsList = extractCollection<any>(eventsRes);
       } catch (error) {
-        console.warn('Failed to load all events, will fetch per club:', error);
+        // Failed to load all events, will fetch per club
       }
 
       // If events don't have club relationship or location, try fetching per club first
@@ -70,8 +70,6 @@ const AdminEvents = () => {
         
         // If missing club or location data, try fetching per club (more efficient)
         if (!hasClubRelationship || !hasLocation) {
-          console.log('⚠️ Events missing club/location data, trying to fetch per club...');
-          
           try {
             // Try fetching events per club to get complete data
             const clubEventsPromises = clubsList.map(async (club: any) => {
@@ -85,7 +83,6 @@ const AdminEvents = () => {
                   clubId: club.id,
                 }));
               } catch (error) {
-                console.warn(`Failed to load events for club ${club.id}:`, error);
                 return [];
               }
             });
@@ -96,10 +93,8 @@ const AdminEvents = () => {
             // If we got events from per-club fetch, use those instead
             if (clubEventsFlat.length > 0) {
               eventsList = clubEventsFlat;
-              console.log('✅ Using events fetched per club');
             } else {
               // Fallback: fetch full details for events missing data
-              console.log('⚠️ Fetching full details for events missing data...');
               const enrichedEventsPromises = eventsList.map(async (event: any) => {
                 // Only fetch if missing club or location
                 const eventHasClub = event.club || event.clubId || event.club_id;
@@ -110,7 +105,6 @@ const AdminEvents = () => {
                     const fullEventDetails = await eventApi.getById(event.id);
                     return fullEventDetails;
                   } catch (error) {
-                    console.warn(`Failed to fetch full details for event ${event.id}:`, error);
                     return event;
                   }
                 }
@@ -120,12 +114,11 @@ const AdminEvents = () => {
               eventsList = await Promise.all(enrichedEventsPromises);
             }
           } catch (error) {
-            console.warn('Failed to fetch events per club, using existing events:', error);
+            // Failed to fetch events per club, using existing events
           }
         }
       } else {
         // No events from getAll, try fetching per club
-        console.log('⚠️ No events from getAll, fetching events per club...');
         const clubEventsPromises = clubsList.map(async (club: any) => {
           try {
             const clubEventsRes = await eventApi.getByClub(club.id);
@@ -137,7 +130,6 @@ const AdminEvents = () => {
               clubId: club.id,
             }));
           } catch (error) {
-            console.warn(`Failed to load events for club ${club.id}:`, error);
             return [];
           }
         });
@@ -175,22 +167,10 @@ const AdminEvents = () => {
         };
       });
 
-      // Debug: Log first event structure
-      if (import.meta.env.DEV && enrichedEvents.length > 0) {
-        console.log('📅 First event structure:', enrichedEvents[0]);
-        console.log('📅 Event keys:', Object.keys(enrichedEvents[0]));
-        console.log('📅 Event club:', enrichedEvents[0].club);
-        console.log('📅 Event location:', { 
-          latitude: enrichedEvents[0].latitude, 
-          longitude: enrichedEvents[0].longitude 
-        });
-      }
-
       setAllEvents(enrichedEvents);
       setEvents(enrichedEvents);
       setClubs(clubsList);
     } catch (error: any) {
-      console.error('Failed to load events:', error);
       toast.error(error.message || 'Failed to load events');
       setEvents([]);
       setAllEvents([]);

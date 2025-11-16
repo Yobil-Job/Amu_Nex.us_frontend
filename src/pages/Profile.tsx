@@ -82,10 +82,6 @@ const Profile = () => {
       
       // Update profile if we got more data from API
       if (profileRes) {
-        if (import.meta.env.DEV) {
-          console.log('📊 Profile API response:', JSON.stringify(profileRes, null, 2));
-        }
-        
         // Try multiple response structures
         let profileData: any = null;
         
@@ -106,10 +102,6 @@ const Profile = () => {
           profileData = profileRes;
         }
         
-        if (import.meta.env.DEV) {
-          console.log('✅ Extracted profile data:', profileData);
-        }
-        
         if (profileData) {
           setProfile(profileData);
           setFormData({
@@ -122,19 +114,9 @@ const Profile = () => {
             password: '', // Password never pre-filled
           });
           
-          if (import.meta.env.DEV) {
-            console.log('✅ Profile form data set:', {
-              firstname: profileData.firstname || user.firstname,
-              lastname: profileData.lastname || user.lastname,
-              department: profileData.department || user.department,
-              yearOfStay: profileData.yearOfStay || user.yearOfStay,
-              gender: profileData.gender || user.gender,
-            });
-          }
         }
       }
     } catch (error: any) {
-      console.error('Failed to load profile:', error);
       // Don't show error toast, we have user context data
     }
 
@@ -147,14 +129,8 @@ const Profile = () => {
         // The authorities from /student/me are just role strings like [{ authority: "ROLE_STUDENT" }]
         // We'll use these as fallback, but the real authorities come from /authorities/students/{id}
         authoritiesFromProfile = profileRes.authorities;
-        if (import.meta.env.DEV) {
-          console.log('✅ Found authorities in profile response:', authoritiesFromProfile.length);
-        }
       } else if (profileRes.student?.authorities && Array.isArray(profileRes.student.authorities)) {
         authoritiesFromProfile = profileRes.student.authorities;
-        if (import.meta.env.DEV) {
-          console.log('✅ Found authorities in profile.student:', authoritiesFromProfile.length);
-        }
       }
     }
 
@@ -179,7 +155,6 @@ const Profile = () => {
         return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
       })
       .catch((error) => {
-        console.log('⚠️ Authority API failed, using profile authorities if available:', error);
         // Return profile authorities as fallback
         return authoritiesFromProfile.length > 0 ? authoritiesFromProfile : [];
       });
@@ -187,40 +162,16 @@ const Profile = () => {
     Promise.all([
       studentApi.getClubs(user.id)
         .then((res) => {
-          if (import.meta.env.DEV) {
-            console.log('📊 getClubs API response:', res);
-            console.log('📊 getClubs response type:', typeof res, Array.isArray(res));
-          }
           return res;
         })
         .catch((error) => {
-          console.error('❌ Failed to load user clubs:', error);
-          if (import.meta.env.DEV) {
-            console.error('❌ Clubs error details:', {
-              message: error.message,
-              response: error.response,
-              status: error.status,
-            });
-          }
           return { _embedded: { responseClubDtoList: [] } };
         }),
       studentApi.getEvents(user.id)
         .then((res) => {
-          if (import.meta.env.DEV) {
-            console.log('📊 getEvents API response:', res);
-            console.log('📊 getEvents response type:', typeof res, Array.isArray(res));
-          }
           return res;
         })
         .catch((error) => {
-          console.error('❌ Failed to load user events:', error);
-          if (import.meta.env.DEV) {
-            console.error('❌ Events error details:', {
-              message: error.message,
-              response: error.response,
-              status: error.status,
-            });
-          }
           return { _embedded: { eventList: [] } };
         }),
       authoritiesPromise,
@@ -312,43 +263,12 @@ const Profile = () => {
           });
       }
 
-      if (import.meta.env.DEV) {
-        console.log('✅ Loaded profile data:', {
-          clubs: clubsList.length,
-          events: eventsList.length,
-          authorities: processedAuthorities.length,
-        });
-        if (clubsList.length > 0) {
-          console.log('✅ Sample club structure:', clubsList[0]);
-          console.log('✅ Club keys:', Object.keys(clubsList[0]));
-        }
-        if (eventsList.length > 0) {
-          console.log('✅ Sample event structure:', eventsList[0]);
-          console.log('✅ Event keys:', Object.keys(eventsList[0]));
-        }
-        if (processedAuthorities.length > 0) {
-          console.log('✅ Sample authority structure:', processedAuthorities[0]);
-          console.log('✅ Authority keys:', Object.keys(processedAuthorities[0]));
-          console.log('✅ All authorities:', processedAuthorities);
-        } else {
-          console.warn('⚠️ No authorities found. Raw authoritiesList:', authoritiesList);
-          console.warn('⚠️ Authorities list type:', typeof authoritiesList, Array.isArray(authoritiesList));
-        }
-        if (clubsList.length === 0 && eventsList.length === 0 && processedAuthorities.length === 0) {
-          console.warn('⚠️ No data loaded - checking raw responses:', {
-            clubsRes: clubsRes,
-            eventsRes: eventsRes,
-            authoritiesList: authoritiesList,
-          });
-        }
-      }
 
       setUserClubs(clubsList);
       setUserEvents(eventsList);
       setUserAuthorities(processedAuthorities);
       setIsLoading(false);
     }).catch((error) => {
-      console.error('❌ Failed to load profile collections:', error);
       setIsLoading(false);
     });
   };
@@ -466,7 +386,6 @@ const Profile = () => {
       // Refresh user context if needed
       window.location.reload(); // Simple refresh to update context
     } catch (error: any) {
-      console.error('Profile update error:', error);
       // Check if error is about password
       if (error.message?.toLowerCase().includes('password') || 
           error.message?.toLowerCase().includes('current password')) {

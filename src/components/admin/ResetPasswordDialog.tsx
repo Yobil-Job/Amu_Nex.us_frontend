@@ -79,7 +79,7 @@ const ResetPasswordDialog = ({ student, isOpen, onClose, onSuccess }: ResetPassw
         // If endpoint doesn't exist (404) or other error, show appropriate message
         if (response.status === 404) {
           toast.error('Password reset endpoint not found. Please contact administrator.');
-          console.warn('Password reset endpoint not implemented in backend');
+
         } else {
           const errorData = await response.json().catch(() => ({ message: 'Failed to reset password' }));
           toast.error(errorData.message || 'Failed to reset password');

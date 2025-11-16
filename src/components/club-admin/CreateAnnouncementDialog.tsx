@@ -65,7 +65,7 @@ const CreateAnnouncementDialog = ({ clubId, isOpen, onClose, onSuccess }: Create
       // Check if user has an authority for this club (backend requires authority to create announcements)
       // ADMIN users might not have an authority record, but they should still be able to create announcements
       // The backend should check for both authority OR club admin status, but currently only checks authority
-      console.log('🔍 [CreateAnnouncementDialog] Checking if user has authority for club:', clubId);
+
       let hasAuthority = false;
       try {
         const authoritiesRes = await authorityApi.getByStudent(user.id).catch(() => ({ _embedded: { authorityResponseDtoList: [] } }));
@@ -89,17 +89,15 @@ const CreateAnnouncementDialog = ({ clubId, isOpen, onClose, onSuccess }: Create
           
           return authClubId != null && Number(authClubId) === Number(clubId);
         });
-        
-        console.log('🔍 [CreateAnnouncementDialog] User has authority for club:', hasAuthority);
+
       } catch (authErr) {
-        console.warn('⚠️ [CreateAnnouncementDialog] Failed to check authorities:', authErr);
+
       }
 
       // Note: Even if hasAuthority is false, we still try to create the announcement
       // The backend should allow ADMIN users (club admins) to create announcements even without an authority record
       // If the backend rejects it, it's a backend configuration issue that needs to be fixed
-      
-      console.log('🔍 [CreateAnnouncementDialog] Creating announcement with clubId:', clubId, 'createdById:', user.id, 'hasAuthority:', hasAuthority);
+
       await announcementApi.create({
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
@@ -108,18 +106,11 @@ const CreateAnnouncementDialog = ({ clubId, isOpen, onClose, onSuccess }: Create
         createdBy: { id: user.id }, // Also include as object (backend might accept either)
       });
 
-      console.log('✅ [CreateAnnouncementDialog] Announcement created successfully');
       toast.success('Announcement created successfully');
       resetForm();
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('❌ [CreateAnnouncementDialog] Failed to create announcement:', {
-        error,
-        message: error.message,
-        status: error.status,
-        clubId,
-      });
       toast.error(error.message || 'Failed to create announcement');
     } finally {
       setIsCreating(false);

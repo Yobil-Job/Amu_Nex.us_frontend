@@ -130,10 +130,8 @@ const CreateClubDialog = ({ isOpen, onClose, onSuccess }: CreateClubDialogProps)
         payload.logo = formData.logo;
       }
 
-      console.log('Creating club with payload:', payload);
       const response = await clubApi.create(payload);
-      console.log('Club creation response:', response);
-      
+
       toast.success('Club created successfully');
       onSuccess();
       onClose();

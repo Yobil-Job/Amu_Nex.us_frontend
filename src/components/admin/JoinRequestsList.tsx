@@ -204,7 +204,7 @@ const JoinRequestsList = ({
                           const studentId = student?.id || request?.studentId || request?.student?.id || request?.id;
                           
                           if (!studentId) {
-                            console.warn('Student ID not found in request:', request);
+
                           }
                           
                           return (
@@ -231,12 +231,10 @@ const JoinRequestsList = ({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  console.log('🚫 Reject button clicked:', { clubId: club.id, studentId, student, request });
                                   if (studentId) {
                                     onReject(club.id, Number(studentId));
                                   } else {
-                                    console.error('Cannot reject: Student ID not found', { request, student, club });
-                                    alert('Cannot reject: Student ID not found. Check console for details.');
+                                    alert('Cannot reject: Student ID not found.');
                                   }
                                 }}
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"

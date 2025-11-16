@@ -85,9 +85,6 @@ const SuperUserAnnouncements = () => {
       // For suggestions/meetings, we'll use empty members list or allow manual entry
       try {
         const membersRes = await clubApi.getMembers(selectedClub.id).catch((err: any) => {
-          if (import.meta.env.DEV) {
-            console.warn('⚠️ [SuperUserAnnouncements] Cannot fetch members - permission denied:', err);
-          }
           return [];
         });
         // getMembers returns List<StudentResponseDto> directly (not HATEOAS) if successful
@@ -96,12 +93,8 @@ const SuperUserAnnouncements = () => {
       } catch (err) {
         // If we can't load members, set empty array - suggestions/meetings can work without member list
         setMembers([]);
-        if (import.meta.env.DEV) {
-          console.info('ℹ️ [SuperUserAnnouncements] Members list unavailable. Some features may require manual entry.');
-        }
       }
     } catch (error: any) {
-      console.error('Failed to load data:', error);
       toast.error('Failed to load data');
     } finally {
       setIsLoading(false);

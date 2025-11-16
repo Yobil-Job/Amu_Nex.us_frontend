@@ -32,7 +32,7 @@ const ClubMembersList = ({ members, isLoading, clubId, onDemoteSuccess }: ClubMe
     } catch (error: any) {
       if (error.status === 404) {
         toast.error('Demote endpoint not found. Please contact administrator.');
-        console.warn('Demote club admin endpoint not implemented in backend');
+
       } else {
         toast.error(error.message || 'Failed to demote club admin');
       }
